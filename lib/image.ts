@@ -93,6 +93,7 @@ export async function processImage(
   console.log(`Original image: ${originalWidth}x${originalHeight}`)
 
   // Apply crop if provided
+  let hasCrop = false
   if (singleCropArea && singleCropArea.width > 0 && singleCropArea.height > 0) {
     console.log(`Requested crop: ${singleCropArea.width}x${singleCropArea.height} at (${singleCropArea.x}, ${singleCropArea.y})`)
 
@@ -112,15 +113,18 @@ export async function processImage(
         width,
         height,
       })
+      hasCrop = true
     } else {
       console.warn('Invalid crop area, skipping crop')
     }
   }
 
   // Resize photo to fit the photo area (top portion)
+  // If crop was applied, the aspect ratio should match, so use 'fill'
+  // If no crop, use 'cover' to maintain aspect ratio and fill the space
   const photoBuffer = await image
     .resize(TARGET_WIDTH, photoHeight, {
-      fit: 'cover',
+      fit: hasCrop ? 'fill' : 'cover',
       position: 'centre',
     })
     .toBuffer()
@@ -316,9 +320,13 @@ async function processFourCutImage(
       }
     }
 
+    // Resize to target dimensions
+    // If crop was applied, the aspect ratio should match, so use 'fill'
+    // If no crop, use 'cover' to maintain aspect ratio and fill the space
+    const hasCrop = cropAreas && cropAreas[i] && cropAreas[i].width > 0 && cropAreas[i].height > 0
     const processedPhoto = await image
       .resize(photoWidth, photoHeight, {
-        fit: 'cover',
+        fit: hasCrop ? 'fill' : 'cover',
         position: 'centre',
       })
       .toBuffer()
@@ -450,9 +458,13 @@ async function processTwoByTwoImage(
       }
     }
 
+    // Resize to target dimensions
+    // If crop was applied, the aspect ratio should match, so use 'fill'
+    // If no crop, use 'cover' to maintain aspect ratio and fill the space
+    const hasCrop = cropAreas && cropAreas[i] && cropAreas[i].width > 0 && cropAreas[i].height > 0
     const processedPhoto = await image
       .resize(photoWidth, photoHeight, {
-        fit: 'cover',
+        fit: hasCrop ? 'fill' : 'cover',
         position: 'centre',
       })
       .toBuffer()
@@ -564,9 +576,13 @@ async function processVerticalTwoImage(
       }
     }
 
+    // Resize to target dimensions
+    // If crop was applied, the aspect ratio should match, so use 'fill'
+    // If no crop, use 'cover' to maintain aspect ratio and fill the space
+    const hasCrop = cropAreas && cropAreas[i] && cropAreas[i].width > 0 && cropAreas[i].height > 0
     const processedPhoto = await image
       .resize(photoWidth, photoHeight, {
-        fit: 'cover',
+        fit: hasCrop ? 'fill' : 'cover',
         position: 'centre',
       })
       .toBuffer()
@@ -675,9 +691,13 @@ async function processHorizontalTwoImage(
       }
     }
 
+    // Resize to target dimensions
+    // If crop was applied, the aspect ratio should match, so use 'fill'
+    // If no crop, use 'cover' to maintain aspect ratio and fill the space
+    const hasCrop = cropAreas && cropAreas[i] && cropAreas[i].width > 0 && cropAreas[i].height > 0
     const processedPhoto = await image
       .resize(photoWidth, photoHeight, {
-        fit: 'cover',
+        fit: hasCrop ? 'fill' : 'cover',
         position: 'centre',
       })
       .toBuffer()
@@ -791,9 +811,13 @@ async function processOnePlusTwoImage(
       }
     }
 
+    // Resize to target dimensions
+    // If crop was applied, the aspect ratio should match, so use 'fill'
+    // If no crop, use 'cover' to maintain aspect ratio and fill the space
+    const hasCrop0 = cropAreas && cropAreas[0] && cropAreas[0].width > 0 && cropAreas[0].height > 0
     const processedPhoto = await image
       .resize(topPhotoWidth, topPhotoHeight, {
-        fit: 'cover',
+        fit: hasCrop0 ? 'fill' : 'cover',
         position: 'centre',
       })
       .toBuffer()
@@ -826,9 +850,13 @@ async function processOnePlusTwoImage(
       }
     }
 
+    // Resize to target dimensions
+    // If crop was applied, the aspect ratio should match, so use 'fill'
+    // If no crop, use 'cover' to maintain aspect ratio and fill the space
+    const hasCrop = cropAreas && cropAreas[i] && cropAreas[i].width > 0 && cropAreas[i].height > 0
     const processedPhoto = await image
       .resize(bottomPhotoWidth, bottomPhotoHeight, {
-        fit: 'cover',
+        fit: hasCrop ? 'fill' : 'cover',
         position: 'centre',
       })
       .toBuffer()
