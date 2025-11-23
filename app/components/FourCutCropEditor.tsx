@@ -22,6 +22,7 @@ interface FourCutCropEditorProps {
 
 export default function FourCutCropEditor({ images, onComplete, onCancel, aspectRatio: propAspectRatio }: FourCutCropEditorProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
+  const [isProcessing, setIsProcessing] = useState(false)
   const [cropData, setCropData] = useState<CropData[]>(
     images.map(() => ({
       crop: { x: 0, y: 0 },
@@ -94,13 +95,9 @@ export default function FourCutCropEditor({ images, onComplete, onCancel, aspect
     }
   }
 
-  const createCroppedImage = async (imageSrc: string, pixelCrop: Area): Promise<string> => {
-    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const img = new Image()
-      img.addEventListener('load', () => resolve(img))
-      img.addEventListener('error', error => reject(error))
-      img.src = imageSrc
-    })
+  const createCroppedImage = async (imageFile: File, pixelCrop: Area): Promise<string> => {
+    // Load image from file
+    const imageBitmap = await createImageBitmap(imageFile)
 
     const canvas = document.createElement('canvas')
     const ctx = canvas.getContext('2d')
@@ -109,11 +106,13 @@ export default function FourCutCropEditor({ images, onComplete, onCancel, aspect
       throw new Error('No 2d context')
     }
 
+    // Set canvas size to cropped area size
     canvas.width = pixelCrop.width
     canvas.height = pixelCrop.height
 
+    // Draw the cropped portion
     ctx.drawImage(
-      image,
+      imageBitmap,
       pixelCrop.x,
       pixelCrop.y,
       pixelCrop.width,
@@ -124,6 +123,7 @@ export default function FourCutCropEditor({ images, onComplete, onCancel, aspect
       pixelCrop.height
     )
 
+    // Convert canvas to blob and create URL
     return new Promise((resolve, reject) => {
       canvas.toBlob(blob => {
         if (!blob) {
@@ -131,41 +131,62 @@ export default function FourCutCropEditor({ images, onComplete, onCancel, aspect
           return
         }
         const blobUrl = URL.createObjectURL(blob)
+        console.log('Created cropped image blob URL:', blobUrl)
         resolve(blobUrl)
-      }, 'image/jpeg')
+      }, 'image/jpeg', 0.95)
     })
   }
 
   const handleComplete = async () => {
-    const cropAreas = cropData.map((data, index) => {
-      if (data.croppedAreaPixels && data.croppedAreaPixels.width > 0 && data.croppedAreaPixels.height > 0) {
-        console.log(`Image ${index + 1} crop area:`, data.croppedAreaPixels)
-        return {
-          x: data.croppedAreaPixels.x,
-          y: data.croppedAreaPixels.y,
-          width: data.croppedAreaPixels.width,
-          height: data.croppedAreaPixels.height,
-        }
-      }
-      // Return null if no valid crop area (will use full image)
-      console.log(`Image ${index + 1} has no crop area, will use full image`)
-      return null as any
-    })
+    setIsProcessing(true)
+    console.log('🎬 Starting crop completion process...')
 
-    // Create cropped image URLs
-    const croppedImageUrls = await Promise.all(
-      cropData.map(async (data, index) => {
+    try {
+      const cropAreas = cropData.map((data, index) => {
         if (data.croppedAreaPixels && data.croppedAreaPixels.width > 0 && data.croppedAreaPixels.height > 0) {
-          return await createCroppedImage(imageUrls[index], data.croppedAreaPixels)
+          console.log(`Image ${index + 1} crop area:`, data.croppedAreaPixels)
+          return {
+            x: data.croppedAreaPixels.x,
+            y: data.croppedAreaPixels.y,
+            width: data.croppedAreaPixels.width,
+            height: data.croppedAreaPixels.height,
+          }
         }
-        // If no crop, return original image URL
-        return imageUrls[index]
+        // Return null if no valid crop area (will use full image)
+        console.log(`Image ${index + 1} has no crop area, will use full image`)
+        return null as any
       })
-    )
 
-    console.log('Completing crop with areas:', cropAreas)
-    console.log('Cropped image URLs:', croppedImageUrls)
-    onComplete({ cropAreas, croppedImageUrls })
+      // Create cropped image URLs
+      console.log('🖼️ Creating cropped images...')
+      const croppedImageUrls = await Promise.all(
+        cropData.map(async (data, index) => {
+          if (data.croppedAreaPixels && data.croppedAreaPixels.width > 0 && data.croppedAreaPixels.height > 0) {
+            console.log(`Creating cropped image for photo ${index + 1}...`)
+            try {
+              const croppedUrl = await createCroppedImage(images[index], data.croppedAreaPixels)
+              console.log(`✓ Photo ${index + 1} cropped successfully:`, croppedUrl)
+              return croppedUrl
+            } catch (error) {
+              console.error(`✗ Failed to crop photo ${index + 1}:`, error)
+              return imageUrls[index] // Fallback to original
+            }
+          }
+          // If no crop, return original image URL
+          console.log(`Photo ${index + 1}: no crop, using original`)
+          return imageUrls[index]
+        })
+      )
+
+      console.log('✅ Crop completion successful!')
+      console.log('Crop areas:', cropAreas)
+      console.log('Cropped image URLs:', croppedImageUrls)
+      onComplete({ cropAreas, croppedImageUrls })
+    } catch (error) {
+      console.error('❌ Error during crop completion:', error)
+    } finally {
+      setIsProcessing(false)
+    }
   }
 
   const aspectRatio = propAspectRatio || (900 / 685) // Default to Life Four-Cut photo dimensions
@@ -259,9 +280,10 @@ export default function FourCutCropEditor({ images, onComplete, onCancel, aspect
           ) : (
             <button
               onClick={handleComplete}
-              className="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-bold"
+              disabled={isProcessing}
+              className="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-bold disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              완료 ✓
+              {isProcessing ? '처리 중...' : '완료 ✓'}
             </button>
           )}
         </div>

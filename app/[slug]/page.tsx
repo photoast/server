@@ -138,12 +138,20 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   const handleCropComplete = (result: { cropAreas: CropArea[], croppedImageUrls: string[] }) => {
     if (currentEditingSlot === null) return
 
+    console.log('📸 Crop complete callback received:', result)
+    console.log(`Setting slot ${currentEditingSlot}:`, {
+      cropArea: result.cropAreas[0],
+      croppedImageUrl: result.croppedImageUrls[0]
+    })
+
     const newSlots = [...photoSlots]
     newSlots[currentEditingSlot].cropArea = result.cropAreas[0]
     newSlots[currentEditingSlot].croppedImageUrl = result.croppedImageUrls[0]
     setPhotoSlots(newSlots)
     setShowCropEditor(false)
     setCurrentEditingSlot(null)
+
+    console.log('✅ Updated slots:', newSlots)
   }
 
   const handleCropCancel = () => {
@@ -304,6 +312,16 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
   const getLayoutPreview = () => {
     if (frameType === 'single') {
+      const slot = photoSlots[0]
+      const imageUrl = slot?.croppedImageUrl || (slot?.file ? URL.createObjectURL(slot.file) : null)
+      if (slot?.file) {
+        console.log('🖼️ Rendering single photo preview:', {
+          hasCroppedUrl: !!slot.croppedImageUrl,
+          croppedUrl: slot.croppedImageUrl,
+          usingUrl: imageUrl
+        })
+      }
+
       return (
         <div className="relative w-full max-w-sm mx-auto" style={{ aspectRatio: '2/3' }}>
           <div className="absolute inset-0 bg-gray-100 rounded-2xl overflow-hidden shadow-lg">
@@ -314,7 +332,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
               {photoSlots[0]?.file ? (
                 <div className="relative w-full h-full">
                   <Image
-                    src={photoSlots[0].croppedImageUrl || URL.createObjectURL(photoSlots[0].file)}
+                    src={imageUrl!}
                     alt="Photo 1"
                     fill
                     className="object-cover"
