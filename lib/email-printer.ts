@@ -52,7 +52,9 @@ export async function printViaEmail(
       .toBuffer()
 
     // Save original (resized) version
-    const outputDir = path.join(process.cwd(), 'output')
+    const isVercel = process.env.VERCEL === '1'
+    const outputDir = isVercel ? '/tmp/output' : path.join(process.cwd(), 'output')
+
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true })
     }

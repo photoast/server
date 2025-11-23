@@ -148,7 +148,9 @@ export async function printCalibration4x6(printUrl: string, imagePath: string): 
     const jpeg = await buildCorrected4x6Image(imagePath)
 
     // 미리보기 파일 저장
-    const outDir = path.join(process.cwd(), "output")
+    const isVercel = process.env.VERCEL === '1'
+    const outDir = isVercel ? '/tmp/output' : path.join(process.cwd(), "output")
+
     if (!fs.existsSync(outDir)) {
       fs.mkdirSync(outDir, { recursive: true })
     }
