@@ -253,6 +253,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                     alt="Photo 1"
                     fill
                     className="object-cover"
+                    unoptimized
                   />
                   <button
                     onClick={(e) => {
@@ -296,6 +297,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                         alt={`Photo ${i + 1}`}
                         fill
                         className="object-cover"
+                        unoptimized
                       />
                       <button
                         onClick={(e) => {
@@ -329,6 +331,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                       alt={`Photo ${i + 1} duplicate`}
                       fill
                       className="object-cover"
+                      unoptimized
                     />
                   )}
                 </div>
@@ -359,6 +362,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                       alt={`Photo ${i + 1}`}
                       fill
                       className="object-cover"
+                      unoptimized
                     />
                     <button
                       onClick={(e) => {
