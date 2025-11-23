@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { processImage, saveUploadedFile } from '@/lib/image'
 import { findEventBySlug } from '@/lib/models'
+import { FrameType } from '@/lib/types'
 import path from 'path'
 import fs from 'fs/promises'
 
@@ -10,7 +11,7 @@ export async function POST(request: NextRequest) {
     const slug = formData.get('slug') as string
     const cropDataStr = formData.get('cropArea') as string | null
     const cropAreasStr = formData.get('cropAreas') as string | null
-    const frameType = (formData.get('frameType') as string || 'single') as 'single' | 'four-cut' | 'two-by-two'
+    const frameType = (formData.get('frameType') as string || 'single') as FrameType
     const backgroundColor = formData.get('backgroundColor') as string | null
     const showLogoStr = formData.get('showLogo') as string | null
     const showLogo = showLogoStr === 'true'
@@ -28,16 +29,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
     }
 
+    // Define expected photo counts for each layout
+    const photoCountMap: Record<FrameType, number> = {
+      'single': 1,
+      'vertical-two': 2,
+      'horizontal-two': 2,
+      'one-plus-two': 3,
+      'four-cut': 4,
+      'two-by-two': 4,
+    }
+
+    const expectedCount = photoCountMap[frameType]
+    const isMultiPhoto = expectedCount > 1
+
     // Handle different frame types
     let buffers: Buffer | Buffer[]
 
-    if (frameType === 'four-cut' || frameType === 'two-by-two') {
-      // Get all 4 photos
+    if (isMultiPhoto) {
+      // Get all photos for multi-photo layouts
       const photos = formData.getAll('photos') as File[]
 
-      if (photos.length !== 4) {
+      if (photos.length !== expectedCount) {
         return NextResponse.json(
-          { error: `${frameType} frame requires exactly 4 photos` },
+          { error: `${frameType} frame requires exactly ${expectedCount} photos, but received ${photos.length}` },
           { status: 400 }
         )
       }
@@ -61,8 +75,8 @@ export async function POST(request: NextRequest) {
 
     // Parse crop area(s) if provided
     let cropArea = null
-    if ((frameType === 'four-cut' || frameType === 'two-by-two') && cropAreasStr) {
-      // Four-cut and two-by-two use crop areas array
+    if (isMultiPhoto && cropAreasStr) {
+      // Multi-photo layouts use crop areas array
       try {
         cropArea = JSON.parse(cropAreasStr)
         console.log('Crop areas received:', cropArea)

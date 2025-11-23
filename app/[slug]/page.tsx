@@ -178,16 +178,23 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
           formData.append('photo', photoSlots[0].file)
         }
         if (photoSlots[0].cropArea) {
+          console.log('Single photo crop area:', photoSlots[0].cropArea)
           formData.append('cropArea', JSON.stringify(photoSlots[0].cropArea))
+        } else {
+          console.log('Single photo: no crop area (will use full image)')
         }
         formData.append('showLogo', showLogo.toString())
         formData.append('backgroundColor', '#FFFFFF')
       } else {
         // Multi-photo layouts
-        photoSlots.forEach(slot => {
-          if (slot.file) formData.append('photos', slot.file)
+        photoSlots.forEach((slot, index) => {
+          if (slot.file) {
+            formData.append('photos', slot.file)
+            console.log(`Photo ${index + 1}: ${slot.file.name}, crop:`, slot.cropArea)
+          }
         })
-        const cropAreas = photoSlots.map(slot => slot.cropArea!)
+        const cropAreas = photoSlots.map(slot => slot.cropArea)
+        console.log('Multi-photo crop areas:', cropAreas)
         formData.append('cropAreas', JSON.stringify(cropAreas))
         formData.append('backgroundColor', backgroundColor)
       }

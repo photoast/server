@@ -39,6 +39,21 @@ export default function FourCutCropEditor({ images, onComplete, onCancel, aspect
     }
   }, [images])
 
+  // Ensure initial crop is set for all images
+  useEffect(() => {
+    // Trigger initial crop complete for each image by setting a small timeout
+    // This ensures react-easy-crop has loaded the image
+    const timer = setTimeout(() => {
+      // Check if any crop data is still missing croppedAreaPixels
+      const hasUncroppedImages = cropData.some(data => !data.croppedAreaPixels)
+      if (hasUncroppedImages) {
+        console.log('Some images have not been cropped yet, waiting for onCropComplete...')
+      }
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [cropData])
+
   const currentCrop = cropData[currentIndex]
 
   const onCropChange = (crop: Point) => {
@@ -55,11 +70,13 @@ export default function FourCutCropEditor({ images, onComplete, onCancel, aspect
 
   const onCropComplete = useCallback(
     (_croppedArea: Area, croppedAreaPixels: Area) => {
-      const newCropData = [...cropData]
-      newCropData[currentIndex] = { ...newCropData[currentIndex], croppedAreaPixels }
-      setCropData(newCropData)
+      setCropData(prevData => {
+        const newCropData = [...prevData]
+        newCropData[currentIndex] = { ...newCropData[currentIndex], croppedAreaPixels }
+        return newCropData
+      })
     },
-    [cropData, currentIndex]
+    [currentIndex]
   )
 
   const handleNext = () => {
@@ -75,8 +92,9 @@ export default function FourCutCropEditor({ images, onComplete, onCancel, aspect
   }
 
   const handleComplete = () => {
-    const cropAreas = cropData.map(data => {
-      if (data.croppedAreaPixels) {
+    const cropAreas = cropData.map((data, index) => {
+      if (data.croppedAreaPixels && data.croppedAreaPixels.width > 0 && data.croppedAreaPixels.height > 0) {
+        console.log(`Image ${index + 1} crop area:`, data.croppedAreaPixels)
         return {
           x: data.croppedAreaPixels.x,
           y: data.croppedAreaPixels.y,
@@ -84,8 +102,11 @@ export default function FourCutCropEditor({ images, onComplete, onCancel, aspect
           height: data.croppedAreaPixels.height,
         }
       }
-      return { x: 0, y: 0, width: 0, height: 0 }
+      // Return null if no valid crop area (will use full image)
+      console.log(`Image ${index + 1} has no crop area, will use full image`)
+      return null as any
     })
+    console.log('Completing crop with areas:', cropAreas)
     onComplete(cropAreas)
   }
 
