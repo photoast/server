@@ -48,7 +48,10 @@ export async function printViaEmail(
     console.log(`\nStep 1: Resizing to ${CANVAS_WIDTH}×${CANVAS_HEIGHT}`)
     const resizedBuffer = await sharp(imagePath)
       .resize(CANVAS_WIDTH, CANVAS_HEIGHT, { fit: 'cover' })
-      .jpeg({ quality: 95 })
+      // .jpeg({ quality })는 JPEG 압축 품질 설정임 (0~100)
+      // 값이 클수록 원본 화질에 가깝지만, 파일 크기도 커짐
+      // Epson Email Print에 100도 보낼 수 있지만, 불필요하게 용량만 커질 수 있음
+      .jpeg({ quality: 100 })
       .toBuffer()
 
     // Save original (resized) version

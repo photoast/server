@@ -71,7 +71,7 @@ export async function applyPrinterCorrection(
     },
   })
     .composite([{ input: resized, left, top }])
-    .jpeg({ quality: 95 })
+    .jpeg({ quality: 100 })
     .toBuffer()
 
   console.log(
