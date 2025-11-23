@@ -2,27 +2,24 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
-import { collectDeviceInfo } from '@/lib/deviceInfo'
-import FourCutCropEditor from '@/app/components/FourCutCropEditor'
+import FourCutCropEditor from '../components/FourCutCropEditor'
+import {
+  SinglePhotoPreview,
+  FourCutPreview,
+  TwoByTwoPreview,
+  VerticalTwoPreview,
+  HorizontalTwoPreview,
+  OnePlusTwoPreview
+} from '../components/LayoutPreviews'
+import { LAYOUT_OPTIONS, getPhotoCount, getCropAspectRatioForSlot } from './layoutConfig'
+import type { FrameType } from '@/lib/types'
 
 interface Event {
-  _id: string
   name: string
   slug: string
   printerUrl: string
   logoUrl?: string
   photoAreaRatio?: number
-}
-
-type FrameType = 'single' | 'four-cut' | 'two-by-two' | 'vertical-two' | 'horizontal-two' | 'one-plus-two'
-type Step = 'select-layout' | 'select-color' | 'fill-photos' | 'success'
-
-interface LayoutOption {
-  type: FrameType
-  name: string
-  nameEn: string
-  description: string
-  photoCount: number
 }
 
 interface CropArea {
@@ -36,45 +33,46 @@ interface PhotoSlot {
   index: number
   file: File | null
   cropArea: CropArea | null
-  croppedImageUrl: string | null // Blob URL of cropped image for preview
+  croppedImageUrl: string | null
 }
 
+type Step = 'select-layout' | 'select-color' | 'fill-photos' | 'success'
+
+const BACKGROUND_COLORS = [
+  { name: '블랙', value: '#000000' },
+  { name: '화이트', value: '#FFFFFF' },
+  { name: '핑크', value: '#FFB6C1' },
+  { name: '블루', value: '#87CEEB' },
+  { name: '그린', value: '#90EE90' },
+  { name: '퍼플', value: '#DDA0DD' }
+]
+
 export default function GuestPage({ params }: { params: { slug: string } }) {
+  // Event and loading state
   const [event, setEvent] = useState<Event | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+
+  // Step and layout state
   const [step, setStep] = useState<Step>('select-layout')
   const [frameType, setFrameType] = useState<FrameType>('single')
-  const [backgroundColor, setBackgroundColor] = useState('#FFFFFF')
+  const [backgroundColor, setBackgroundColor] = useState('#000000')
   const [showLogo, setShowLogo] = useState(true)
+
+  // Photo management state
   const [photoSlots, setPhotoSlots] = useState<PhotoSlot[]>([])
   const [currentEditingSlot, setCurrentEditingSlot] = useState<number | null>(null)
   const [showCropEditor, setShowCropEditor] = useState(false)
+
+  // Processing state
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [processing, setProcessing] = useState(false)
   const [printing, setPrinting] = useState(false)
+  const [error, setError] = useState('')
+
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Initialize photo slots when frame type changes
   useEffect(() => {
-    fetchEvent()
-  }, [params.slug])
-
-  const layoutOptions: LayoutOption[] = [
-    { type: 'single', name: '일반 1장', nameEn: 'Single Photo', description: '사진 1장', photoCount: 1 },
-    { type: 'vertical-two', name: '세로 2장', nameEn: 'Vertical 2', description: '세로로 2장', photoCount: 2 },
-    { type: 'horizontal-two', name: '가로 2장', nameEn: 'Horizontal 2', description: '가로로 2장', photoCount: 2 },
-    { type: 'one-plus-two', name: '1+2 레이아웃', nameEn: '1+2 Layout', description: '위 1장, 아래 2장', photoCount: 3 },
-    { type: 'four-cut', name: '인생네컷', nameEn: 'Four-Cut', description: '4장 세로 스트립 (2개)', photoCount: 4 },
-    { type: 'two-by-two', name: '2×2 그리드', nameEn: '2×2 Grid', description: '4장 그리드', photoCount: 4 },
-  ]
-
-  const getPhotoCount = (type: FrameType): number => {
-    const layout = layoutOptions.find(l => l.type === type)
-    return layout?.photoCount || 1
-  }
-
-  useEffect(() => {
-    // Initialize photo slots based on frame type
     const slotCount = getPhotoCount(frameType)
     setPhotoSlots(Array.from({ length: slotCount }, (_, i) => ({
       index: i,
@@ -82,54 +80,68 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       cropArea: null,
       croppedImageUrl: null,
     })))
+    setPreviewUrl(null)
   }, [frameType])
 
-  const fetchEvent = async () => {
-    try {
-      const res = await fetch(`/api/events/slug/${params.slug}`)
-      if (!res.ok) {
-        throw new Error('Event not found')
+  // Fetch event data
+  useEffect(() => {
+    const fetchEvent = async () => {
+      try {
+        const res = await fetch(`/api/events/slug/${params.slug}`)
+        if (!res.ok) throw new Error('Event not found')
+        const data = await res.json()
+        setEvent(data)
+      } catch (err: any) {
+        setError(err.message)
+      } finally {
+        setLoading(false)
       }
-      const data = await res.json()
-      setEvent(data)
-    } catch (err: any) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
     }
-  }
+    fetchEvent()
+  }, [params.slug])
 
-  const handleLayoutSelect = (type: FrameType) => {
-    setFrameType(type)
-    if (type === 'single') {
-      setBackgroundColor('#FFFFFF')
-      setStep('fill-photos')
-    } else {
-      setBackgroundColor('#000000')
-      setStep('select-color')
+  // Auto-process image when all slots are filled
+  useEffect(() => {
+    const allSlotsFilled = photoSlots.every(slot => slot.file !== null)
+    if (allSlotsFilled && photoSlots.length > 0 && !processing && !previewUrl && step === 'fill-photos') {
+      handleProcess()
     }
-  }
+  }, [photoSlots, step])
 
-  const handleColorSelect = () => {
-    setStep('fill-photos')
-  }
+  // ============ Event Handlers ============
 
   const handleSlotClick = (slotIndex: number) => {
     setCurrentEditingSlot(slotIndex)
-    fileInputRef.current?.click()
+    if (fileInputRef.current) {
+      fileInputRef.current.click()
+    }
   }
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file || currentEditingSlot === null) return
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (currentEditingSlot === null) return
 
-    // Show crop editor
-    const newSlots = [...photoSlots]
-    newSlots[currentEditingSlot].file = file
-    setPhotoSlots(newSlots)
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Update slot with new file
+    setPhotoSlots(prevSlots => {
+      const newSlots = [...prevSlots]
+      newSlots[currentEditingSlot] = {
+        ...newSlots[currentEditingSlot],
+        file,
+        cropArea: null,
+        croppedImageUrl: null
+      }
+      return newSlots
+    })
+
+    // Clear preview when adding new photo
+    setPreviewUrl(null)
+
+    // Open crop editor
     setShowCropEditor(true)
 
-    // Reset input
+    // Reset file input
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
@@ -138,13 +150,6 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   const handleCropComplete = (result: { cropAreas: CropArea[], croppedImageUrls: string[] }) => {
     if (currentEditingSlot === null) return
 
-    console.log('📸 Crop complete callback received:', result)
-    console.log(`Setting slot ${currentEditingSlot}:`, {
-      cropArea: result.cropAreas[0],
-      croppedImageUrl: result.croppedImageUrls[0]
-    })
-
-    // Create new array AND new object to ensure React detects the change
     setPhotoSlots(prevSlots => {
       const newSlots = [...prevSlots]
       newSlots[currentEditingSlot] = {
@@ -152,7 +157,6 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         cropArea: result.cropAreas[0],
         croppedImageUrl: result.croppedImageUrls[0]
       }
-      console.log('✅ Updated slots:', newSlots)
       return newSlots
     })
 
@@ -165,7 +169,6 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
     setPhotoSlots(prevSlots => {
       const newSlots = [...prevSlots]
-      // Revoke blob URL if exists
       if (newSlots[currentEditingSlot].croppedImageUrl) {
         URL.revokeObjectURL(newSlots[currentEditingSlot].croppedImageUrl!)
       }
@@ -185,7 +188,6 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   const handleRemovePhoto = (slotIndex: number) => {
     setPhotoSlots(prevSlots => {
       const newSlots = [...prevSlots]
-      // Revoke blob URL to free memory
       if (newSlots[slotIndex].croppedImageUrl) {
         URL.revokeObjectURL(newSlots[slotIndex].croppedImageUrl!)
       }
@@ -197,18 +199,8 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       }
       return newSlots
     })
-    // Clear preview when removing a photo
     setPreviewUrl(null)
   }
-
-  const allSlotsFilled = photoSlots.every(slot => slot.file !== null)
-
-  // Auto-process image when all slots are filled or settings change
-  useEffect(() => {
-    if (allSlotsFilled && photoSlots.length > 0 && !processing && !previewUrl && step === 'fill-photos') {
-      handleProcess()
-    }
-  }, [allSlotsFilled, photoSlots.length, showLogo, backgroundColor, step])
 
   const handleProcess = async () => {
     setProcessing(true)
@@ -220,28 +212,19 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       formData.append('frameType', frameType)
 
       if (frameType === 'single') {
-        // Single photo
         if (photoSlots[0].file) {
           formData.append('photo', photoSlots[0].file)
         }
         if (photoSlots[0].cropArea) {
-          console.log('Single photo crop area:', photoSlots[0].cropArea)
           formData.append('cropArea', JSON.stringify(photoSlots[0].cropArea))
-        } else {
-          console.log('Single photo: no crop area (will use full image)')
         }
         formData.append('showLogo', showLogo.toString())
         formData.append('backgroundColor', '#FFFFFF')
       } else {
-        // Multi-photo layouts
-        photoSlots.forEach((slot, index) => {
-          if (slot.file) {
-            formData.append('photos', slot.file)
-            console.log(`Photo ${index + 1}: ${slot.file.name}, crop:`, slot.cropArea)
-          }
+        photoSlots.forEach(slot => {
+          if (slot.file) formData.append('photos', slot.file)
         })
         const cropAreas = photoSlots.map(slot => slot.cropArea)
-        console.log('Multi-photo crop areas:', cropAreas)
         formData.append('cropAreas', JSON.stringify(cropAreas))
         formData.append('backgroundColor', backgroundColor)
       }
@@ -272,22 +255,18 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     setError('')
 
     try {
-      const deviceInfo = collectDeviceInfo()
-
       const res = await fetch('/api/print', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           slug: params.slug,
           imageUrl: previewUrl,
-          deviceInfo,
         }),
       })
 
-      const data = await res.json()
-
-      if (!data.success) {
-        throw new Error(data.error || 'Print failed')
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to print')
       }
 
       setStep('success')
@@ -301,491 +280,157 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   const handleReset = () => {
     setStep('select-layout')
     setFrameType('single')
-    setBackgroundColor('#FFFFFF')
+    setBackgroundColor('#000000')
     setShowLogo(true)
     setPhotoSlots([])
     setPreviewUrl(null)
     setError('')
   }
 
-  const getCropAspectRatio = () => {
+  // ============ Render Helpers ============
+
+  const renderLayoutPreview = () => {
+    const previewProps = {
+      photoSlots,
+      onSlotClick: handleSlotClick,
+      onRemovePhoto: handleRemovePhoto
+    }
+
     switch (frameType) {
-      case 'four-cut':
-        return 485 / 357
-      case 'two-by-two':
-        return 450 / 680
-      case 'vertical-two':
-        return 1000 / 735 // 세로로 2장, 각 735px 높이
-      case 'horizontal-two':
-        return 485 / 1470 // 가로로 2장, 각 485px 폭
-      case 'one-plus-two':
-        // 슬롯별로 다른 비율 필요하지만, 기본값 설정
-        return currentEditingSlot === 0 ? 1000 / 900 : 485 / 585
       case 'single':
+        return <SinglePhotoPreview {...previewProps} />
+      case 'four-cut':
+        return <FourCutPreview {...previewProps} />
+      case 'two-by-two':
+        return <TwoByTwoPreview {...previewProps} />
+      case 'vertical-two':
+        return <VerticalTwoPreview {...previewProps} />
+      case 'horizontal-two':
+        return <HorizontalTwoPreview {...previewProps} />
+      case 'one-plus-two':
+        return <OnePlusTwoPreview {...previewProps} />
       default:
-        return 1000 / 1500
+        return null
     }
   }
 
-  const getLayoutPreview = () => {
-    if (frameType === 'single') {
-      const slot = photoSlots[0]
-      const imageUrl = slot?.croppedImageUrl || (slot?.file ? URL.createObjectURL(slot.file) : null)
-      if (slot?.file) {
-        console.log('🖼️ Rendering single photo preview:', {
-          hasCroppedUrl: !!slot.croppedImageUrl,
-          croppedUrl: slot.croppedImageUrl,
-          usingUrl: imageUrl
-        })
+  const renderLayoutOptionPreview = (type: FrameType) => {
+    const gridStyles: Record<FrameType, string> = {
+      'single': 'grid-cols-1 grid-rows-1',
+      'vertical-two': 'grid-cols-1 grid-rows-2',
+      'horizontal-two': 'grid-cols-2 grid-rows-1',
+      'one-plus-two': 'grid-cols-2 grid-rows-2',
+      'four-cut': 'grid-cols-2 grid-rows-4',
+      'two-by-two': 'grid-cols-2 grid-rows-2'
+    }
+
+    const getCells = (): { colspan?: number, rowspan?: number }[] => {
+      switch (type) {
+        case 'single': return [{ colspan: 1, rowspan: 1 }]
+        case 'vertical-two': return [{}, {}]
+        case 'horizontal-two': return [{}, {}]
+        case 'one-plus-two': return [{ colspan: 2 }, {}, {}]
+        case 'four-cut': return [{}, {}, {}, {}, {}, {}, {}, {}]
+        case 'two-by-two': return [{}, {}, {}, {}]
+        default: return []
       }
-
-      return (
-        <div className="relative w-full max-w-sm mx-auto" style={{ aspectRatio: '2/3' }}>
-          <div className="absolute inset-0 bg-gray-100 rounded-2xl overflow-hidden shadow-lg">
-            <button
-              onClick={() => handleSlotClick(0)}
-              className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-purple-100 to-pink-100 hover:from-purple-200 hover:to-pink-200 transition-colors group"
-            >
-              {photoSlots[0]?.file ? (
-                <div className="relative w-full h-full">
-                  <Image
-                    key={slot?.croppedImageUrl || 'original-0'}
-                    src={imageUrl!}
-                    alt="Photo 1"
-                    fill
-                    className={slot?.croppedImageUrl ? "object-contain" : "object-cover"}
-                    unoptimized
-                  />
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleRemovePhoto(0)
-                    }}
-                    className="absolute top-3 right-3 bg-red-500 text-white rounded-full w-10 h-10 flex items-center justify-center text-lg hover:bg-red-600 z-10 shadow-lg"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ) : (
-                <div className="text-center">
-                  <div className="text-6xl mb-3">📷</div>
-                  <div className="text-lg font-semibold text-gray-700">사진 선택</div>
-                  <div className="text-sm text-gray-500 mt-1">탭하여 추가</div>
-                </div>
-              )}
-            </button>
-          </div>
-        </div>
-      )
     }
 
-    if (frameType === 'four-cut') {
-      return (
-        <div className="relative w-full max-w-sm mx-auto" style={{ aspectRatio: '2/3' }}>
-          <div className="absolute inset-0 flex gap-2 p-2 bg-gray-900 rounded-2xl shadow-lg">
-            {/* Left strip */}
-            <div className="flex-1 flex flex-col gap-2">
-              {[0, 1, 2, 3].map((i) => (
-                <button
-                  key={i}
-                  onClick={() => handleSlotClick(i)}
-                  className="flex-1 relative bg-gradient-to-br from-purple-100 to-pink-100 hover:from-purple-200 hover:to-pink-200 transition-colors rounded-lg overflow-hidden group"
-                >
-                  {photoSlots[i]?.file ? (
-                    <div key={`photo-${i}-${photoSlots[i]?.croppedImageUrl || 'original'}`} className="relative w-full h-full">
-                      <Image
-                        src={photoSlots[i].croppedImageUrl || URL.createObjectURL(photoSlots[i].file)}
-                        alt={`Photo ${i + 1}`}
-                        fill
-                        className={photoSlots[i]?.croppedImageUrl ? "object-contain" : "object-cover"}
-                        unoptimized
-                      />
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleRemovePhoto(i)
-                        }}
-                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-7 h-7 flex items-center justify-center text-sm hover:bg-red-600 z-10 shadow-md"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center h-full">
-                      <div className="text-3xl mb-1">📷</div>
-                      <div className="text-xs font-medium text-gray-700">{i + 1}</div>
-                    </div>
-                  )}
-                </button>
-              ))}
-            </div>
-            {/* Right strip (duplicate) */}
-            <div className="flex-1 flex flex-col gap-2 opacity-50">
-              {[0, 1, 2, 3].map((i) => (
-                <div
-                  key={i}
-                  className="flex-1 relative bg-gradient-to-br from-purple-100 to-pink-100 rounded-lg overflow-hidden"
-                >
-                  {photoSlots[i]?.file && (
-                    <Image
-                      key={`photo-dup-${i}-${photoSlots[i]?.croppedImageUrl || 'original'}`}
-                      src={photoSlots[i].croppedImageUrl || URL.createObjectURL(photoSlots[i].file)}
-                      alt={`Photo ${i + 1} duplicate`}
-                      fill
-                      className={photoSlots[i]?.croppedImageUrl ? "object-contain" : "object-cover"}
-                      unoptimized
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="text-center mt-3 text-sm text-gray-500">
-            ✂️ 중앙을 잘라서 2개의 스트립으로
-          </div>
-        </div>
-      )
-    }
-
-    if (frameType === 'two-by-two') {
-      return (
-        <div className="relative w-full max-w-sm mx-auto" style={{ aspectRatio: '2/3' }}>
-          <div className="absolute inset-0 grid grid-cols-2 gap-2 p-2 bg-gray-900 rounded-2xl shadow-lg">
-            {[0, 1, 2, 3].map((i) => (
-              <button
-                key={i}
-                onClick={() => handleSlotClick(i)}
-                className="relative bg-gradient-to-br from-purple-100 to-pink-100 hover:from-purple-200 hover:to-pink-200 transition-colors rounded-lg overflow-hidden group"
-              >
-                {photoSlots[i]?.file ? (
-                  <div key={`photo-${i}-${photoSlots[i]?.croppedImageUrl || 'original'}`} className="relative w-full h-full">
-                    <Image
-                      src={photoSlots[i].croppedImageUrl || URL.createObjectURL(photoSlots[i].file)}
-                      alt={`Photo ${i + 1}`}
-                      fill
-                      className={photoSlots[i]?.croppedImageUrl ? "object-contain" : "object-cover"}
-                      unoptimized
-                    />
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleRemovePhoto(i)
-                      }}
-                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm hover:bg-red-600 z-10 shadow-md"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-full">
-                    <div className="text-4xl mb-2">📷</div>
-                    <div className="text-sm font-medium text-gray-700">{i + 1}</div>
-                  </div>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-      )
-    }
-
-    if (frameType === 'vertical-two') {
-      return (
-        <div className="relative w-full max-w-sm mx-auto" style={{ aspectRatio: '2/3' }}>
-          <div className="absolute inset-0 flex flex-col gap-2 p-2 bg-gray-900 rounded-2xl shadow-lg">
-            {[0, 1].map((i) => (
-              <button
-                key={i}
-                onClick={() => handleSlotClick(i)}
-                className="flex-1 relative bg-gradient-to-br from-purple-100 to-pink-100 hover:from-purple-200 hover:to-pink-200 transition-colors rounded-lg overflow-hidden group"
-              >
-                {photoSlots[i]?.file ? (
-                  <div key={`photo-${i}-${photoSlots[i]?.croppedImageUrl || 'original'}`} className="relative w-full h-full">
-                    <Image
-                      src={photoSlots[i].croppedImageUrl || URL.createObjectURL(photoSlots[i].file)}
-                      alt={`Photo ${i + 1}`}
-                      fill
-                      className={photoSlots[i]?.croppedImageUrl ? "object-contain" : "object-cover"}
-                      unoptimized
-                    />
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleRemovePhoto(i)
-                      }}
-                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm hover:bg-red-600 z-10 shadow-md"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-full">
-                    <div className="text-4xl mb-2">📷</div>
-                    <div className="text-sm font-medium text-gray-700">{i + 1}</div>
-                  </div>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-      )
-    }
-
-    if (frameType === 'horizontal-two') {
-      return (
-        <div className="relative w-full max-w-sm mx-auto" style={{ aspectRatio: '2/3' }}>
-          <div className="absolute inset-0 flex gap-2 p-2 bg-gray-900 rounded-2xl shadow-lg">
-            {[0, 1].map((i) => (
-              <button
-                key={i}
-                onClick={() => handleSlotClick(i)}
-                className="flex-1 relative bg-gradient-to-br from-purple-100 to-pink-100 hover:from-purple-200 hover:to-pink-200 transition-colors rounded-lg overflow-hidden group"
-              >
-                {photoSlots[i]?.file ? (
-                  <div key={`photo-${i}-${photoSlots[i]?.croppedImageUrl || 'original'}`} className="relative w-full h-full">
-                    <Image
-                      src={photoSlots[i].croppedImageUrl || URL.createObjectURL(photoSlots[i].file)}
-                      alt={`Photo ${i + 1}`}
-                      fill
-                      className={photoSlots[i]?.croppedImageUrl ? "object-contain" : "object-cover"}
-                      unoptimized
-                    />
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleRemovePhoto(i)
-                      }}
-                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm hover:bg-red-600 z-10 shadow-md"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-full">
-                    <div className="text-4xl mb-2">📷</div>
-                    <div className="text-sm font-medium text-gray-700">{i + 1}</div>
-                  </div>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-      )
-    }
-
-    if (frameType === 'one-plus-two') {
-      return (
-        <div className="relative w-full max-w-sm mx-auto" style={{ aspectRatio: '2/3' }}>
-          <div className="absolute inset-0 flex flex-col gap-2 p-2 bg-gray-900 rounded-2xl shadow-lg">
-            {/* Top: 1 large photo */}
-            <button
-              onClick={() => handleSlotClick(0)}
-              className="flex-[3] relative bg-gradient-to-br from-purple-100 to-pink-100 hover:from-purple-200 hover:to-pink-200 transition-colors rounded-lg overflow-hidden group"
-            >
-              {photoSlots[0]?.file ? (
-                <div key={`photo-0-${photoSlots[0]?.croppedImageUrl || 'original'}`} className="relative w-full h-full">
-                  <Image
-                    src={photoSlots[0].croppedImageUrl || URL.createObjectURL(photoSlots[0].file)}
-                    alt="Photo 1"
-                    fill
-                    className={photoSlots[0]?.croppedImageUrl ? "object-contain" : "object-cover"}
-                    unoptimized
-                  />
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleRemovePhoto(0)
-                    }}
-                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm hover:bg-red-600 z-10 shadow-md"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full">
-                  <div className="text-5xl mb-2">📷</div>
-                  <div className="text-sm font-medium text-gray-700">1</div>
-                </div>
-              )}
-            </button>
-
-            {/* Bottom: 2 small photos */}
-            <div className="flex-[2] flex gap-2">
-              {[1, 2].map((i) => (
-                <button
-                  key={i}
-                  onClick={() => handleSlotClick(i)}
-                  className="flex-1 relative bg-gradient-to-br from-purple-100 to-pink-100 hover:from-purple-200 hover:to-pink-200 transition-colors rounded-lg overflow-hidden group"
-                >
-                  {photoSlots[i]?.file ? (
-                    <div className="relative w-full h-full">
-                      <Image
-                        src={photoSlots[i].croppedImageUrl || URL.createObjectURL(photoSlots[i].file)}
-                        alt={`Photo ${i + 1}`}
-                        fill
-                        className={photoSlots[i]?.croppedImageUrl ? "object-contain" : "object-cover"}
-                        unoptimized
-                      />
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleRemovePhoto(i)
-                        }}
-                        className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm hover:bg-red-600 z-10 shadow-md"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center h-full">
-                      <div className="text-4xl mb-1">📷</div>
-                      <div className="text-sm font-medium text-gray-700">{i + 1}</div>
-                    </div>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )
-    }
+    return (
+      <div className={`grid gap-0.5 h-16 w-10 bg-gray-300 rounded overflow-hidden ${gridStyles[type]}`}>
+        {getCells().map((cell, i) => (
+          <div
+            key={i}
+            className="bg-purple-400"
+            style={{
+              gridColumn: cell.colspan ? `span ${cell.colspan}` : undefined,
+              gridRow: cell.rowspan ? `span ${cell.rowspan}` : undefined
+            }}
+          />
+        ))}
+      </div>
+    )
   }
+
+  // ============ Loading State ============
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50">
-        <div className="text-xl">Loading...</div>
-      </div>
-    )
-  }
-
-  if (error && !event) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50 p-4">
-        <div className="text-center bg-white rounded-2xl p-8 shadow-xl max-w-md">
-          <h1 className="text-2xl font-bold text-red-600 mb-2">Error</h1>
-          <p className="text-gray-700">{error}</p>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-purple-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">로딩 중...</p>
         </div>
       </div>
     )
   }
+
+  if (!event) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50">
+        <div className="text-center">
+          <p className="text-red-600 text-xl mb-4">이벤트를 찾을 수 없습니다</p>
+          <p className="text-gray-600">{error}</p>
+        </div>
+      </div>
+    )
+  }
+
+  const allSlotsFilled = photoSlots.every(slot => slot.file !== null)
+
+  // ============ Main Render ============
 
   return (
-    <>
-      {showCropEditor && currentEditingSlot !== null && photoSlots[currentEditingSlot].file && (
-        <FourCutCropEditor
-          images={[photoSlots[currentEditingSlot].file!]}
-          onComplete={handleCropComplete}
-          onCancel={handleCropCancel}
-          aspectRatio={getCropAspectRatio()}
-        />
-      )}
-
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 pb-8">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 py-8 px-4">
+      <div className="max-w-2xl mx-auto">
         {/* Header */}
-        <div className="bg-white shadow-sm sticky top-0 z-10">
-          <div className="max-w-2xl mx-auto px-4 py-4">
-            <h1 className="text-2xl font-bold text-center text-gray-800">{event?.name}</h1>
-            <p className="text-center text-sm text-gray-600 mt-1">
-              Instant Photo Printing (4×6 inch)
-            </p>
-          </div>
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">{event.name}</h1>
+          <p className="text-gray-600">사진을 선택하고 출력하세요</p>
         </div>
 
-        <div className="max-w-2xl mx-auto px-4 py-6">
+        {/* Main Content */}
+        <div className="bg-white rounded-3xl shadow-2xl p-6">
           {/* Step 1: Select Layout */}
           {step === 'select-layout' && (
             <div className="space-y-6">
               <div className="text-center">
                 <h2 className="text-xl font-bold text-gray-800 mb-2">레이아웃 선택</h2>
-                <p className="text-sm text-gray-600">원하는 사진 레이아웃을 선택하세요</p>
+                <p className="text-sm text-gray-600">원하시는 레이아웃을 선택하세요</p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {layoutOptions.map((layout) => (
+              <div className="grid grid-cols-2 gap-4">
+                {LAYOUT_OPTIONS.map((option) => (
                   <button
-                    key={layout.type}
-                    onClick={() => handleLayoutSelect(layout.type)}
-                    className={`bg-white rounded-2xl p-4 transition-all active:scale-95 ${
-                      frameType === layout.type
-                        ? 'ring-4 ring-purple-600 shadow-xl'
-                        : 'shadow-lg hover:shadow-xl'
+                    key={option.type}
+                    onClick={() => setFrameType(option.type)}
+                    className={`p-4 rounded-2xl border-2 transition-all ${
+                      frameType === option.type
+                        ? 'border-purple-600 bg-purple-50 shadow-lg scale-105'
+                        : 'border-gray-200 hover:border-purple-300 hover:shadow-md'
                     }`}
                   >
-                    <div className="flex items-center gap-3 mb-3">
-                      {/* Radio button */}
-                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                        frameType === layout.type
-                          ? 'border-purple-600 bg-purple-600'
-                          : 'border-gray-300'
-                      }`}>
-                        {frameType === layout.type && (
-                          <div className="w-2 h-2 bg-white rounded-full"></div>
-                        )}
+                    <div className="flex flex-col items-center gap-3">
+                      {renderLayoutOptionPreview(option.type)}
+                      <div className="text-center">
+                        <div className="font-semibold text-gray-800">{option.name}</div>
+                        <div className="text-xs text-gray-500 mt-1">{option.description}</div>
                       </div>
-
-                      {/* Layout name */}
-                      <div className="flex-1 text-left">
-                        <div className="font-bold text-gray-800">{layout.name}</div>
-                        <div className="text-xs text-gray-500">{layout.description}</div>
-                      </div>
-                    </div>
-
-                    {/* Layout preview */}
-                    <div className="w-full aspect-[2/3] bg-gray-100 rounded-lg overflow-hidden">
-                      {layout.type === 'single' && (
-                        <div className="w-full h-full bg-gradient-to-br from-purple-200 to-pink-200"></div>
-                      )}
-                      {layout.type === 'vertical-two' && (
-                        <div className="w-full h-full flex flex-col gap-1 p-1">
-                          <div className="flex-1 bg-gradient-to-br from-purple-200 to-pink-200 rounded"></div>
-                          <div className="flex-1 bg-gradient-to-br from-purple-200 to-pink-200 rounded"></div>
-                        </div>
-                      )}
-                      {layout.type === 'horizontal-two' && (
-                        <div className="w-full h-full flex gap-1 p-1">
-                          <div className="flex-1 bg-gradient-to-br from-purple-200 to-pink-200 rounded"></div>
-                          <div className="flex-1 bg-gradient-to-br from-purple-200 to-pink-200 rounded"></div>
-                        </div>
-                      )}
-                      {layout.type === 'one-plus-two' && (
-                        <div className="w-full h-full flex flex-col gap-1 p-1">
-                          <div className="flex-[3] bg-gradient-to-br from-purple-200 to-pink-200 rounded"></div>
-                          <div className="flex-[2] flex gap-1">
-                            <div className="flex-1 bg-gradient-to-br from-purple-200 to-pink-200 rounded"></div>
-                            <div className="flex-1 bg-gradient-to-br from-purple-200 to-pink-200 rounded"></div>
-                          </div>
-                        </div>
-                      )}
-                      {layout.type === 'four-cut' && (
-                        <div className="w-full h-full flex gap-1 p-1">
-                          <div className="flex-1 flex flex-col gap-1">
-                            {[0, 1, 2, 3].map((i) => (
-                              <div key={i} className="flex-1 bg-gradient-to-br from-purple-200 to-pink-200 rounded"></div>
-                            ))}
-                          </div>
-                          <div className="flex-1 flex flex-col gap-1 opacity-40">
-                            {[0, 1, 2, 3].map((i) => (
-                              <div key={i} className="flex-1 bg-gradient-to-br from-purple-200 to-pink-200 rounded"></div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {layout.type === 'two-by-two' && (
-                        <div className="w-full h-full grid grid-cols-2 gap-1 p-1">
-                          {[0, 1, 2, 3].map((i) => (
-                            <div key={i} className="bg-gradient-to-br from-purple-200 to-pink-200 rounded"></div>
-                          ))}
-                        </div>
-                      )}
                     </div>
                   </button>
                 ))}
               </div>
+
+              <button
+                onClick={() => setStep(frameType === 'single' ? 'fill-photos' : 'select-color')}
+                className="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-semibold text-lg hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg active:scale-95"
+              >
+                다음
+              </button>
             </div>
           )}
 
-          {/* Step 2: Select Color (for multi-photo only) */}
+          {/* Step 2: Select Color (skip for single photo) */}
           {step === 'select-color' && (
             <div className="space-y-6">
               <div className="text-center">
@@ -793,38 +438,24 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                 <p className="text-sm text-gray-600">사진 배경색을 선택하세요</p>
               </div>
 
-              <div className="bg-white rounded-2xl p-6 shadow-lg">
-                <div className="grid grid-cols-5 gap-3 mb-6">
-                  {[
-                    { name: '블랙', color: '#000000' },
-                    { name: '화이트', color: '#FFFFFF' },
-                    { name: '네이비', color: '#2c3e50' },
-                    { name: '핑크', color: '#ffb6c1' },
-                    { name: '민트', color: '#98d8c8' },
-                    { name: '라벤더', color: '#b19cd9' },
-                    { name: '코랄', color: '#ff6b6b' },
-                    { name: '스카이', color: '#87ceeb' },
-                    { name: '그레이', color: '#6c757d' },
-                    { name: '베이지', color: '#f5f5dc' },
-                  ].map((preset) => (
-                    <div key={preset.color} className="flex flex-col items-center gap-2">
-                      <button
-                        onClick={() => setBackgroundColor(preset.color)}
-                        className={`w-full aspect-square rounded-xl border-3 transition-all active:scale-95 flex items-center justify-center ${
-                          backgroundColor === preset.color
-                            ? 'border-purple-600 ring-4 ring-purple-300'
-                            : 'border-gray-300'
-                        }`}
-                        style={{ backgroundColor: preset.color }}
-                      >
-                        {backgroundColor === preset.color && (
-                          <span className={`text-2xl ${preset.color === '#000000' || preset.color === '#2c3e50' || preset.color === '#6c757d' ? 'text-white' : 'text-gray-800'}`}>✓</span>
-                        )}
-                      </button>
-                      <span className="text-xs text-gray-600">{preset.name}</span>
-                    </div>
-                  ))}
-                </div>
+              <div className="grid grid-cols-3 gap-4">
+                {BACKGROUND_COLORS.map((color) => (
+                  <button
+                    key={color.value}
+                    onClick={() => setBackgroundColor(color.value)}
+                    className={`p-4 rounded-2xl border-2 transition-all ${
+                      backgroundColor === color.value
+                        ? 'border-purple-600 shadow-lg scale-105'
+                        : 'border-gray-200 hover:border-purple-300'
+                    }`}
+                  >
+                    <div
+                      className="w-full h-16 rounded-xl mb-2 shadow-md"
+                      style={{ backgroundColor: color.value }}
+                    />
+                    <div className="text-sm font-medium text-gray-700">{color.name}</div>
+                  </button>
+                ))}
               </div>
 
               <div className="flex gap-3">
@@ -835,8 +466,8 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                   이전
                 </button>
                 <button
-                  onClick={handleColorSelect}
-                  className="flex-1 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-semibold text-lg hover:from-purple-700 hover:to-pink-700 transition-colors active:scale-95 shadow-lg"
+                  onClick={() => setStep('fill-photos')}
+                  className="flex-1 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-semibold text-lg hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg active:scale-95"
                 >
                   다음
                 </button>
@@ -863,7 +494,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                         checked={showLogo}
                         onChange={(e) => {
                           setShowLogo(e.target.checked)
-                          setPreviewUrl(null) // Clear preview to reprocess
+                          setPreviewUrl(null)
                         }}
                         className="sr-only"
                       />
@@ -900,7 +531,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                     </p>
                   </div>
                 ) : (
-                  getLayoutPreview()
+                  renderLayoutPreview()
                 )}
               </div>
 
@@ -969,31 +600,36 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
             <div className="space-y-6">
               <div className="bg-white rounded-2xl p-8 shadow-lg text-center">
                 <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg
-                    className="w-10 h-10 text-green-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
+                  <svg className="w-12 h-12 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <h2 className="text-2xl font-bold text-green-600 mb-2">출력 완료!</h2>
+                <h2 className="text-2xl font-bold text-gray-800 mb-2">출력 완료!</h2>
                 <p className="text-gray-600 mb-6">
                   사진이 프린터로 전송되었습니다.<br />
-                  잠시 후 출력물을 받으실 수 있습니다.
+                  잠시 후 출력물을 받아가세요.
                 </p>
                 <button
                   onClick={handleReset}
-                  className="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-semibold text-lg hover:from-purple-700 hover:to-pink-700 transition-colors active:scale-95 shadow-lg"
+                  className="px-8 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-semibold hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg active:scale-95"
                 >
-                  새로운 사진 출력하기
+                  처음으로
                 </button>
               </div>
             </div>
           )}
         </div>
+
+        {/* Crop Editor Modal */}
+        {showCropEditor && currentEditingSlot !== null && photoSlots[currentEditingSlot]?.file && (
+          <FourCutCropEditor
+            images={[photoSlots[currentEditingSlot].file!]}
+            aspectRatio={getCropAspectRatioForSlot(frameType, currentEditingSlot)}
+            onComplete={handleCropComplete}
+            onCancel={handleCropCancel}
+          />
+        )}
       </div>
-    </>
+    </div>
   )
 }
