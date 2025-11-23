@@ -438,12 +438,16 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   // ============ Main Render ============
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 py-8 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 py-6 px-4">
       <div className="max-w-2xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">{event.name}</h1>
-          <p className="text-gray-600">사진을 선택하고 출력하세요</p>
+        <div className="text-center mb-6">
+          <div className="inline-block bg-white/80 backdrop-blur-sm rounded-full px-6 py-3 shadow-lg mb-4">
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 bg-clip-text text-transparent">
+              ✨ {event.name} ✨
+            </h1>
+          </div>
+          <p className="text-gray-600 text-sm font-medium">나만의 특별한 순간을 담아요 💕</p>
         </div>
 
         {/* Main Content */}
@@ -452,25 +456,27 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
           {step === 'select-layout' && (
             <div className="space-y-6">
               <div className="text-center">
-                <h2 className="text-xl font-bold text-gray-800 mb-2">레이아웃 선택</h2>
-                <p className="text-sm text-gray-600">원하시는 레이아웃을 선택하세요</p>
+                <h2 className="text-2xl font-bold text-gray-800 mb-2">어떤 스타일로 만들까요? 🎨</h2>
+                <p className="text-sm text-gray-500">마음에 드는 레이아웃을 골라보세요!</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 {LAYOUT_OPTIONS.map((option) => (
                   <button
                     key={option.type}
                     onClick={() => setFrameType(option.type)}
-                    className={`p-4 rounded-2xl border-2 transition-all ${
+                    className={`p-4 rounded-3xl border-2 transition-all duration-300 ${
                       frameType === option.type
-                        ? 'border-purple-600 bg-purple-50 shadow-lg scale-105'
-                        : 'border-gray-200 hover:border-purple-300 hover:shadow-md'
+                        ? 'border-pink-400 bg-gradient-to-br from-pink-50 to-purple-50 shadow-xl scale-105'
+                        : 'border-gray-200 hover:border-pink-300 hover:shadow-lg hover:scale-102 bg-white'
                     }`}
                   >
-                    <div className="flex flex-col items-center gap-3">
+                    <div className="flex flex-col items-center gap-2">
                       {renderLayoutOptionPreview(option.type)}
                       <div className="text-center">
-                        <div className="font-semibold text-gray-800">{option.name}</div>
+                        <div className={`font-bold text-sm ${frameType === option.type ? 'text-pink-600' : 'text-gray-800'}`}>
+                          {option.name}
+                        </div>
                         <div className="text-xs text-gray-500 mt-1">{option.description}</div>
                       </div>
                     </div>
@@ -480,9 +486,9 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
               <button
                 onClick={() => setStep(frameType === 'single' ? 'fill-photos' : 'select-color')}
-                className="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-semibold text-lg hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg active:scale-95"
+                className="w-full py-4 bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 text-white rounded-full font-bold text-lg hover:shadow-2xl hover:scale-105 transition-all shadow-lg active:scale-95"
               >
-                다음
+                다음 단계로 💫
               </button>
             </div>
           )}
@@ -491,26 +497,28 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
           {step === 'select-color' && (
             <div className="space-y-6">
               <div className="text-center">
-                <h2 className="text-xl font-bold text-gray-800 mb-2">배경색 선택</h2>
-                <p className="text-sm text-gray-600">사진 배경색을 선택하세요</p>
+                <h2 className="text-2xl font-bold text-gray-800 mb-2">어떤 색이 좋아요? 🎨</h2>
+                <p className="text-sm text-gray-500">배경색으로 분위기를 바꿔보세요!</p>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-3 gap-3">
                 {BACKGROUND_COLORS.map((color) => (
                   <button
                     key={color.value}
                     onClick={() => setBackgroundColor(color.value)}
-                    className={`p-4 rounded-2xl border-2 transition-all ${
+                    className={`p-3 rounded-3xl border-2 transition-all duration-300 ${
                       backgroundColor === color.value
-                        ? 'border-purple-600 shadow-lg scale-105'
-                        : 'border-gray-200 hover:border-purple-300'
+                        ? 'border-pink-400 shadow-2xl scale-110'
+                        : 'border-gray-200 hover:border-pink-300 hover:shadow-lg hover:scale-105'
                     }`}
                   >
                     <div
-                      className="w-full h-16 rounded-xl mb-2 shadow-md"
+                      className="w-full h-16 rounded-2xl mb-2 shadow-md ring-2 ring-white"
                       style={{ backgroundColor: color.value }}
                     />
-                    <div className="text-sm font-medium text-gray-700">{color.name}</div>
+                    <div className={`text-sm font-bold ${backgroundColor === color.value ? 'text-pink-600' : 'text-gray-700'}`}>
+                      {color.name}
+                    </div>
                   </button>
                 ))}
               </div>
@@ -518,15 +526,15 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
               <div className="flex gap-3">
                 <button
                   onClick={() => setStep('select-layout')}
-                  className="flex-1 py-4 bg-gray-200 text-gray-700 rounded-xl font-semibold text-lg hover:bg-gray-300 transition-colors active:scale-95"
+                  className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-full font-bold text-base hover:bg-gray-200 transition-all active:scale-95"
                 >
-                  이전
+                  ← 이전
                 </button>
                 <button
                   onClick={() => setStep('fill-photos')}
-                  className="flex-1 py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-semibold text-lg hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg active:scale-95"
+                  className="flex-1 py-3 bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 text-white rounded-full font-bold text-base hover:shadow-2xl hover:scale-105 transition-all shadow-lg active:scale-95"
                 >
-                  다음
+                  다음 단계로 💫
                 </button>
               </div>
             </div>
@@ -536,21 +544,21 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
           {step === 'fill-photos' && (
             <div className="space-y-6">
               {/* Header with layout info */}
-              <div className="bg-gradient-to-r from-purple-100 to-pink-100 rounded-2xl p-4 shadow-md">
+              <div className="bg-gradient-to-r from-pink-100 via-purple-100 to-blue-100 rounded-3xl p-5 shadow-lg">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-xl font-bold text-gray-800">
+                    <h2 className="text-xl font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
                       {LAYOUT_OPTIONS.find(l => l.type === frameType)?.name}
                     </h2>
-                    <p className="text-sm text-gray-600 mt-1">
+                    <p className="text-sm text-gray-600 mt-1 font-medium">
                       {LAYOUT_OPTIONS.find(l => l.type === frameType)?.description}
                     </p>
                   </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-bold text-purple-600">
+                  <div className="text-right bg-white/80 backdrop-blur-sm rounded-2xl px-4 py-2">
+                    <div className="text-2xl font-bold bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text text-transparent">
                       {photoSlots.filter(s => s.file).length}/{photoSlots.length}
                     </div>
-                    <div className="text-xs text-gray-600">사진 선택됨</div>
+                    <div className="text-xs text-gray-500 font-medium">완료됨 ✨</div>
                   </div>
                 </div>
               </div>
@@ -583,18 +591,17 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
               {/* Status Banner */}
               {allSlotsFilled ? (
-                <div className="bg-green-50 border-2 border-green-200 rounded-2xl p-4">
-                  <div className="flex items-center justify-center gap-2 text-green-700">
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span className="font-semibold">모든 사진이 준비되었습니다!</span>
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-3xl p-4 shadow-lg">
+                  <div className="flex items-center justify-center gap-2 text-green-600">
+                    <span className="text-2xl">🎉</span>
+                    <span className="font-bold text-lg">완벽해요! 이제 출력할 수 있어요!</span>
                   </div>
                 </div>
               ) : (
-                <div className="bg-blue-50 border-2 border-blue-200 rounded-2xl p-4">
-                  <p className="text-center text-blue-700 font-medium">
-                    📸 아래 영역을 탭하여 사진을 추가/수정하세요
+                <div className="bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 rounded-3xl p-4 shadow-md">
+                  <p className="text-center text-blue-600 font-bold flex items-center justify-center gap-2">
+                    <span className="text-xl">📸</span>
+                    영역을 탭해서 예쁜 사진을 올려보세요!
                   </p>
                 </div>
               )}
@@ -664,12 +671,12 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                   <button
                     onClick={handleDownload}
                     disabled={printing}
-                    className="w-full py-4 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl font-semibold text-lg hover:from-blue-700 hover:to-cyan-700 transition-all active:scale-95 shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="w-full py-4 bg-gradient-to-r from-blue-400 to-purple-400 text-white rounded-full font-bold text-lg hover:shadow-2xl hover:scale-105 transition-all active:scale-95 shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                     </svg>
-                    이미지 다운로드
+                    내 갤러리에 저장하기 💾
                   </button>
                 )}
 
@@ -680,20 +687,20 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                       setPreviewUrl(null)
                     }}
                     disabled={printing}
-                    className="flex-1 py-4 bg-gray-200 text-gray-700 rounded-xl font-semibold text-lg hover:bg-gray-300 transition-colors active:scale-95 disabled:opacity-50"
+                    className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-full font-bold text-base hover:bg-gray-200 transition-all active:scale-95 disabled:opacity-50"
                   >
                     ← 이전
                   </button>
                   <button
                     onClick={handlePrint}
                     disabled={!allSlotsFilled || processing || !previewUrl || printing}
-                    className={`flex-1 py-4 rounded-xl font-semibold text-lg transition-all active:scale-95 shadow-lg ${
+                    className={`flex-1 py-3 rounded-full font-bold text-base transition-all active:scale-95 shadow-lg ${
                       allSlotsFilled && previewUrl && !processing && !printing
-                        ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700'
+                        ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white hover:shadow-2xl hover:scale-105'
                         : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     }`}
                   >
-                    {printing ? '출력 중...' : '🖨️ 프린트하기'}
+                    {printing ? '출력 중... ⏳' : '프린트 하기 🖨️'}
                   </button>
                 </div>
               </div>
@@ -712,22 +719,20 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
           {/* Step 4: Success */}
           {step === 'success' && (
             <div className="space-y-6">
-              <div className="bg-white rounded-2xl p-8 shadow-lg text-center">
-                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-12 h-12 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-                <h2 className="text-2xl font-bold text-gray-800 mb-2">출력 완료!</h2>
-                <p className="text-gray-600 mb-6">
-                  사진이 프린터로 전송되었습니다.<br />
-                  잠시 후 출력물을 받아가세요.
+              <div className="bg-gradient-to-br from-pink-50 to-purple-50 rounded-3xl p-8 shadow-2xl text-center">
+                <div className="text-6xl mb-4 animate-bounce">🎉</div>
+                <h2 className="text-3xl font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent mb-3">
+                  완성되었어요!
+                </h2>
+                <p className="text-gray-600 mb-6 font-medium">
+                  소중한 추억이 프린터로 전송되었어요 💕<br />
+                  <span className="text-sm">곧 멋진 사진을 받아보실 수 있어요!</span>
                 </p>
                 <button
                   onClick={handleReset}
-                  className="px-8 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-semibold hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg active:scale-95"
+                  className="px-8 py-4 bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 text-white rounded-full font-bold text-lg hover:shadow-2xl hover:scale-105 transition-all shadow-lg active:scale-95"
                 >
-                  처음으로
+                  새로운 사진 만들기 ✨
                 </button>
               </div>
             </div>
@@ -736,41 +741,45 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
         {/* Action Modal */}
         {showActionModal && currentEditingSlot !== null && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 space-y-4">
-              <h3 className="text-xl font-bold text-gray-800 text-center">
-                사진 {currentEditingSlot + 1}
-              </h3>
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 space-y-4 animate-in zoom-in duration-300">
+              <div className="text-center mb-2">
+                <div className="inline-block bg-gradient-to-r from-pink-100 to-purple-100 rounded-full px-4 py-2">
+                  <h3 className="text-lg font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
+                    사진 {currentEditingSlot + 1} 💕
+                  </h3>
+                </div>
+              </div>
 
               <div className="space-y-3">
                 <button
                   onClick={handleEditPhoto}
-                  className="w-full py-4 bg-purple-600 text-white rounded-xl font-semibold hover:bg-purple-700 transition-all flex items-center justify-center gap-2"
+                  className="w-full py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full font-bold hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center gap-2"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                   </svg>
-                  사진 편집 (크롭/확대)
+                  사진 편집하기 ✨
                 </button>
 
                 <button
                   onClick={handleReplacePhoto}
-                  className="w-full py-4 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
+                  className="w-full py-4 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-full font-bold hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center gap-2"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
-                  사진 교체
+                  다른 사진으로 바꾸기 🔄
                 </button>
 
                 <button
                   onClick={handleDeletePhoto}
-                  className="w-full py-4 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 transition-all flex items-center justify-center gap-2"
+                  className="w-full py-4 bg-gradient-to-r from-red-400 to-pink-400 text-white rounded-full font-bold hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center gap-2"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                   </svg>
-                  사진 삭제
+                  사진 삭제하기 🗑️
                 </button>
 
                 <button
@@ -778,9 +787,9 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                     setShowActionModal(false)
                     setCurrentEditingSlot(null)
                   }}
-                  className="w-full py-4 bg-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-300 transition-all"
+                  className="w-full py-4 bg-gray-100 text-gray-600 rounded-full font-bold hover:bg-gray-200 transition-all"
                 >
-                  취소
+                  닫기
                 </button>
               </div>
             </div>

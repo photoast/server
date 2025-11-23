@@ -192,21 +192,24 @@ export default function FourCutCropEditor({ images, onComplete, onCancel, aspect
   const aspectRatio = propAspectRatio || (900 / 685) // Default to Life Four-Cut photo dimensions
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 bg-gradient-to-br from-pink-900/95 via-purple-900/95 to-blue-900/95 backdrop-blur-md z-50 flex items-center justify-center">
       <div className="w-full h-full max-w-4xl mx-auto p-4 flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div className="text-white">
-            <h2 className="text-2xl font-bold">사진 편집</h2>
-            <p className="text-sm text-gray-300">
-              사진 {currentIndex + 1} / {images.length}
+            <h2 className="text-2xl font-bold flex items-center gap-2">
+              <span className="text-3xl">✨</span>
+              사진 꾸미기
+            </h2>
+            <p className="text-sm text-pink-200 font-medium mt-1">
+              {currentIndex + 1} / {images.length} 장
             </p>
           </div>
           <button
             onClick={onCancel}
-            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition"
+            className="px-6 py-3 bg-white/20 backdrop-blur-sm text-white rounded-full hover:bg-white/30 transition-all font-bold"
           >
-            취소
+            닫기
           </button>
         </div>
 
@@ -215,19 +218,19 @@ export default function FourCutCropEditor({ images, onComplete, onCancel, aspect
           {images.map((_, index) => (
             <div
               key={index}
-              className={`flex-1 h-2 rounded-full transition-colors ${
+              className={`flex-1 h-3 rounded-full transition-all duration-300 ${
                 index === currentIndex
-                  ? 'bg-purple-500'
+                  ? 'bg-gradient-to-r from-pink-500 to-purple-500 shadow-lg scale-105'
                   : index < currentIndex
-                  ? 'bg-green-500'
-                  : 'bg-gray-600'
+                  ? 'bg-gradient-to-r from-green-400 to-emerald-400'
+                  : 'bg-white/20'
               }`}
             />
           ))}
         </div>
 
         {/* Cropper */}
-        <div className="flex-1 relative bg-gray-900 rounded-lg overflow-hidden">
+        <div className="flex-1 relative bg-black/50 backdrop-blur-sm rounded-3xl overflow-hidden shadow-2xl border-2 border-white/20">
           {imageUrls[currentIndex] && (
             <Cropper
               image={imageUrls[currentIndex]}
@@ -249,7 +252,9 @@ export default function FourCutCropEditor({ images, onComplete, onCancel, aspect
 
         {/* Zoom slider */}
         <div className="mt-4 px-4">
-          <label className="text-white text-sm mb-2 block">확대/축소</label>
+          <label className="text-white text-sm mb-2 block font-bold flex items-center gap-2">
+            <span>🔍</span> 확대/축소
+          </label>
           <input
             type="range"
             min={1}
@@ -257,40 +262,42 @@ export default function FourCutCropEditor({ images, onComplete, onCancel, aspect
             step={0.1}
             value={currentCrop.zoom}
             onChange={(e) => onZoomChange(parseFloat(e.target.value))}
-            className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer"
+            className="w-full h-3 bg-white/20 rounded-full appearance-none cursor-pointer accent-pink-500"
           />
         </div>
 
         {/* Controls */}
-        <div className="flex gap-4 mt-4">
+        <div className="flex gap-3 mt-4">
           <button
-            onClick={handlePrev}
-            disabled={currentIndex === 0}
-            className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={currentIndex === 0 ? onCancel : handlePrev}
+            className="px-6 py-3 bg-white/20 backdrop-blur-sm text-white rounded-full hover:bg-white/30 transition-all font-bold"
           >
-            ← 이전
+            {currentIndex === 0 ? '취소' : '← 이전'}
           </button>
           {currentIndex < images.length - 1 ? (
             <button
               onClick={handleNext}
-              className="flex-1 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+              className="flex-1 px-6 py-3 bg-gradient-to-r from-pink-500 to-purple-500 text-white rounded-full hover:shadow-2xl hover:scale-105 transition-all font-bold"
             >
-              다음 →
+              다음 사진 →
             </button>
           ) : (
             <button
               onClick={handleComplete}
               disabled={isProcessing}
-              className="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 px-6 py-3 bg-gradient-to-r from-green-400 to-emerald-400 text-white rounded-full hover:shadow-2xl hover:scale-105 transition-all font-bold disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isProcessing ? '처리 중...' : '완료 ✓'}
+              {isProcessing ? '처리 중... ⏳' : '완료! ✨'}
             </button>
           )}
         </div>
 
         {/* Instructions */}
-        <div className="mt-4 text-center text-gray-400 text-sm">
-          <p>드래그로 위치 조정, 핀치/슬라이더로 확대/축소</p>
+        <div className="mt-4 text-center text-white/80 text-sm font-medium">
+          <p className="flex items-center justify-center gap-2">
+            <span>💡</span>
+            드래그로 위치 조정, 슬라이더로 확대/축소
+          </p>
         </div>
       </div>
     </div>
