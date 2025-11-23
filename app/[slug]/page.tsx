@@ -256,6 +256,8 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         formData.append('backgroundColor', backgroundColor)
       }
 
+      console.log('Processing image with frameType:', frameType)
+
       const res = await fetch('/api/process-image', {
         method: 'POST',
         body: formData,
@@ -263,13 +265,28 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
       if (!res.ok) {
         const data = await res.json()
-        throw new Error(data.error || 'Failed to process image')
+        const errorMsg = data.error || `미리보기 생성 실패: ${res.status}`
+        console.error('Process image error:', errorMsg)
+        throw new Error(errorMsg)
       }
 
       const data = await res.json()
+      console.log('Preview URL received:', data.url)
+
+      if (!data.url) {
+        throw new Error('미리보기 URL을 받지 못했습니다')
+      }
+
+      // Validate URL format
+      if (typeof data.url !== 'string' || data.url.length === 0) {
+        throw new Error('잘못된 미리보기 URL 형식')
+      }
+
       setPreviewUrl(data.url)
+      console.log('Preview URL set successfully')
     } catch (err: any) {
-      setError(err.message)
+      console.error('handleProcess error:', err)
+      setError(err.message || '미리보기 생성에 실패했습니다')
     } finally {
       setProcessing(false)
     }
@@ -279,8 +296,18 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     if (!previewUrl) return
 
     try {
+      // Convert relative URL to absolute URL for better mobile compatibility
+      const absoluteUrl = previewUrl.startsWith('http')
+        ? previewUrl
+        : `${window.location.origin}${previewUrl}`
+
       // Fetch the image
-      const response = await fetch(previewUrl)
+      const response = await fetch(absoluteUrl)
+
+      if (!response.ok) {
+        throw new Error(`이미지 다운로드 실패: ${response.status}`)
+      }
+
       const blob = await response.blob()
 
       // Create download link
@@ -288,10 +315,11 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       const link = document.createElement('a')
       link.href = url
 
-      // Generate filename with timestamp
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)
-      const layoutName = LAYOUT_OPTIONS.find(l => l.type === frameType)?.nameEn || frameType
-      link.download = `photoast-${layoutName}-${timestamp}.jpg`
+      // Generate safe filename with timestamp (mobile-friendly)
+      const now = new Date()
+      const timestamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`
+      const layoutName = (LAYOUT_OPTIONS.find(l => l.type === frameType)?.nameEn || frameType).replace(/\s+/g, '-').toLowerCase()
+      link.download = `photoast_${layoutName}_${timestamp}.jpg`
 
       // Trigger download
       document.body.appendChild(link)
@@ -301,7 +329,8 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
     } catch (err: any) {
-      setError('다운로드에 실패했습니다')
+      console.error('Download error:', err)
+      setError(err.message || '다운로드에 실패했습니다')
     }
   }
 
