@@ -39,7 +39,7 @@ export const LAYOUT_OPTIONS: LayoutOption[] = [
   },
   {
     type: 'four-cut',
-    name: '인생네컷',
+    name: '1*4 네컷',
     nameEn: 'Four-Cut',
     description: '4장 세로 스트립 (2개)',
     photoCount: 4

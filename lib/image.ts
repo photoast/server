@@ -267,7 +267,7 @@ async function processFourCutImage(
     throw new Error('Four-cut frame requires exactly 4 images')
   }
 
-  // Life Four-Cut (인생네컷) specifications within 4x6 inch paper
+  // Life Four-Cut (네컷) specifications within 4x6 inch paper
   // - Total size: 1000×1500px (4x6 inch @ 300 DPI)
   // - Layout: 2 identical vertical strips side by side (for cutting in half)
   // - Each strip: 4 photos vertically

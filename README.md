@@ -15,7 +15,7 @@ Web-based instant photo printing platform for events using Next.js and Epson Ema
 - Scan QR code or use URL to access event
 - Multiple layout options:
   - **Single Photo**: 1 photo with optional logo
-  - **Life Four-Cut (인생네컷)**: 4 photos in dual strips (cut-ready)
+  - **Life Four-Cut (네컷)**: 4 photos in dual strips (cut-ready)
   - **2×2 Grid**: 4 photos in grid layout
 - Photo crop editor with zoom/pan controls
 - Photo reordering for multi-photo layouts
