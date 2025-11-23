@@ -335,7 +335,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                     src={imageUrl!}
                     alt="Photo 1"
                     fill
-                    className="object-cover"
+                    className={slot?.croppedImageUrl ? "object-contain" : "object-cover"}
                     unoptimized
                   />
                   <button
@@ -379,7 +379,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                         src={photoSlots[i].croppedImageUrl || URL.createObjectURL(photoSlots[i].file)}
                         alt={`Photo ${i + 1}`}
                         fill
-                        className="object-cover"
+                        className={photoSlots[i]?.croppedImageUrl ? "object-contain" : "object-cover"}
                         unoptimized
                       />
                       <button
@@ -413,7 +413,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                       src={photoSlots[i].croppedImageUrl || URL.createObjectURL(photoSlots[i].file)}
                       alt={`Photo ${i + 1} duplicate`}
                       fill
-                      className="object-cover"
+                      className={photoSlots[i]?.croppedImageUrl ? "object-contain" : "object-cover"}
                       unoptimized
                     />
                   )}
@@ -604,7 +604,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                         src={photoSlots[i].croppedImageUrl || URL.createObjectURL(photoSlots[i].file)}
                         alt={`Photo ${i + 1}`}
                         fill
-                        className="object-cover"
+                        className={photoSlots[i]?.croppedImageUrl ? "object-contain" : "object-cover"}
                         unoptimized
                       />
                       <button
