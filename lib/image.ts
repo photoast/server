@@ -123,10 +123,24 @@ export async function processImage(
   // If logo exists, add it FIRST (lower z-index)
   if (logoPath && logoHeight > 0) {
     try {
-      // Handle both /tmp paths (Vercel) and /uploads paths (local)
-      const logoFullPath = logoPath.startsWith('/tmp')
-        ? logoPath // Absolute path from Vercel
-        : path.join(process.cwd(), 'public', logoPath) // Relative path from local
+      // Convert URL to file path
+      let logoFullPath: string
+
+      if (logoPath.startsWith('/api/serve-image/')) {
+        // Vercel: /api/serve-image/filename → /tmp/uploads/filename
+        const filename = logoPath.replace('/api/serve-image/', '')
+        logoFullPath = path.join('/tmp/uploads', filename)
+      } else if (logoPath.startsWith('/uploads/')) {
+        // Local: /uploads/filename → public/uploads/filename
+        logoFullPath = path.join(process.cwd(), 'public', logoPath)
+      } else if (logoPath.startsWith('/tmp')) {
+        // Legacy absolute path (Vercel)
+        logoFullPath = logoPath
+      } else {
+        // Relative path (local)
+        logoFullPath = path.join(process.cwd(), 'public', logoPath)
+      }
+
       const logoExists = await fs.access(logoFullPath).then(() => true).catch(() => false)
 
       if (logoExists) {
@@ -485,7 +499,7 @@ export async function saveUploadedFile(
     await fs.writeFile(filepath, buffer)
 
     console.warn('⚠️ File saved to /tmp (temporary). Consider using Vercel Blob Storage for production.')
-    return filepath // Return absolute path for /tmp files
+    return `/api/serve-image/${filename}` // Return API route URL
   } else {
     // Local: Use public/uploads directory
     const uploadDir = path.join(process.cwd(), 'public', 'uploads')

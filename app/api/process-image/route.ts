@@ -113,7 +113,8 @@ export async function POST(request: NextRequest) {
       const filepath = path.join(uploadDir, filename)
       await fs.writeFile(filepath, processedBuffer)
 
-      return NextResponse.json({ url: filepath })
+      // Return API route URL to serve the image
+      return NextResponse.json({ url: `/api/serve-image/${filename}` })
     } else {
       const uploadDir = path.join(process.cwd(), 'public', 'uploads')
       await fs.mkdir(uploadDir, { recursive: true })

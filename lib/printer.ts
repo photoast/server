@@ -22,10 +22,23 @@ export async function printImage(
   printerUrl: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    // Handle both /tmp paths (Vercel) and /uploads paths (local)
-    const imagePath = imageUrl.startsWith('/tmp')
-      ? imageUrl // Absolute path from Vercel
-      : path.join(process.cwd(), 'public', imageUrl) // Relative path from local
+    // Convert URL to file path
+    let imagePath: string
+
+    if (imageUrl.startsWith('/api/serve-image/')) {
+      // Vercel: /api/serve-image/filename → /tmp/uploads/filename
+      const filename = imageUrl.replace('/api/serve-image/', '')
+      imagePath = path.join('/tmp/uploads', filename)
+    } else if (imageUrl.startsWith('/uploads/')) {
+      // Local: /uploads/filename → public/uploads/filename
+      imagePath = path.join(process.cwd(), 'public', imageUrl)
+    } else if (imageUrl.startsWith('/tmp')) {
+      // Legacy absolute path (Vercel)
+      imagePath = imageUrl
+    } else {
+      // Relative path (local)
+      imagePath = path.join(process.cwd(), 'public', imageUrl)
+    }
 
     console.log(`\n====================================`)
     console.log(`Print Job Request`)
