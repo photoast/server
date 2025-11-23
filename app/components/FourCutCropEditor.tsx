@@ -12,7 +12,10 @@ interface CropData {
 
 interface FourCutCropEditorProps {
   images: File[]
-  onComplete: (cropAreas: Array<{ x: number; y: number; width: number; height: number }>) => void
+  onComplete: (result: {
+    cropAreas: Array<{ x: number; y: number; width: number; height: number } | null>,
+    croppedImageUrls: string[]
+  }) => void
   onCancel: () => void
   aspectRatio?: number // Optional aspect ratio, defaults to life-four-cut ratio
 }
@@ -91,7 +94,49 @@ export default function FourCutCropEditor({ images, onComplete, onCancel, aspect
     }
   }
 
-  const handleComplete = () => {
+  const createCroppedImage = async (imageSrc: string, pixelCrop: Area): Promise<string> => {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image()
+      img.addEventListener('load', () => resolve(img))
+      img.addEventListener('error', error => reject(error))
+      img.src = imageSrc
+    })
+
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+
+    if (!ctx) {
+      throw new Error('No 2d context')
+    }
+
+    canvas.width = pixelCrop.width
+    canvas.height = pixelCrop.height
+
+    ctx.drawImage(
+      image,
+      pixelCrop.x,
+      pixelCrop.y,
+      pixelCrop.width,
+      pixelCrop.height,
+      0,
+      0,
+      pixelCrop.width,
+      pixelCrop.height
+    )
+
+    return new Promise((resolve, reject) => {
+      canvas.toBlob(blob => {
+        if (!blob) {
+          reject(new Error('Canvas is empty'))
+          return
+        }
+        const blobUrl = URL.createObjectURL(blob)
+        resolve(blobUrl)
+      }, 'image/jpeg')
+    })
+  }
+
+  const handleComplete = async () => {
     const cropAreas = cropData.map((data, index) => {
       if (data.croppedAreaPixels && data.croppedAreaPixels.width > 0 && data.croppedAreaPixels.height > 0) {
         console.log(`Image ${index + 1} crop area:`, data.croppedAreaPixels)
@@ -106,8 +151,21 @@ export default function FourCutCropEditor({ images, onComplete, onCancel, aspect
       console.log(`Image ${index + 1} has no crop area, will use full image`)
       return null as any
     })
+
+    // Create cropped image URLs
+    const croppedImageUrls = await Promise.all(
+      cropData.map(async (data, index) => {
+        if (data.croppedAreaPixels && data.croppedAreaPixels.width > 0 && data.croppedAreaPixels.height > 0) {
+          return await createCroppedImage(imageUrls[index], data.croppedAreaPixels)
+        }
+        // If no crop, return original image URL
+        return imageUrls[index]
+      })
+    )
+
     console.log('Completing crop with areas:', cropAreas)
-    onComplete(cropAreas)
+    console.log('Cropped image URLs:', croppedImageUrls)
+    onComplete({ cropAreas, croppedImageUrls })
   }
 
   const aspectRatio = propAspectRatio || (900 / 685) // Default to Life Four-Cut photo dimensions

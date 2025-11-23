@@ -36,6 +36,7 @@ interface PhotoSlot {
   index: number
   file: File | null
   cropArea: CropArea | null
+  croppedImageUrl: string | null // Blob URL of cropped image for preview
 }
 
 export default function GuestPage({ params }: { params: { slug: string } }) {
@@ -79,6 +80,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       index: i,
       file: null,
       cropArea: null,
+      croppedImageUrl: null,
     })))
   }, [frameType])
 
@@ -133,11 +135,12 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     }
   }
 
-  const handleCropComplete = (areas: CropArea[]) => {
+  const handleCropComplete = (result: { cropAreas: CropArea[], croppedImageUrls: string[] }) => {
     if (currentEditingSlot === null) return
 
     const newSlots = [...photoSlots]
-    newSlots[currentEditingSlot].cropArea = areas[0]
+    newSlots[currentEditingSlot].cropArea = result.cropAreas[0]
+    newSlots[currentEditingSlot].croppedImageUrl = result.croppedImageUrls[0]
     setPhotoSlots(newSlots)
     setShowCropEditor(false)
     setCurrentEditingSlot(null)
@@ -147,8 +150,13 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     if (currentEditingSlot === null) return
 
     const newSlots = [...photoSlots]
+    // Revoke blob URL if exists
+    if (newSlots[currentEditingSlot].croppedImageUrl) {
+      URL.revokeObjectURL(newSlots[currentEditingSlot].croppedImageUrl!)
+    }
     newSlots[currentEditingSlot].file = null
     newSlots[currentEditingSlot].cropArea = null
+    newSlots[currentEditingSlot].croppedImageUrl = null
     setPhotoSlots(newSlots)
     setShowCropEditor(false)
     setCurrentEditingSlot(null)
@@ -156,8 +164,13 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
   const handleRemovePhoto = (slotIndex: number) => {
     const newSlots = [...photoSlots]
+    // Revoke blob URL to free memory
+    if (newSlots[slotIndex].croppedImageUrl) {
+      URL.revokeObjectURL(newSlots[slotIndex].croppedImageUrl!)
+    }
     newSlots[slotIndex].file = null
     newSlots[slotIndex].cropArea = null
+    newSlots[slotIndex].croppedImageUrl = null
     setPhotoSlots(newSlots)
     // Clear preview when removing a photo
     setPreviewUrl(null)
@@ -301,7 +314,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
               {photoSlots[0]?.file ? (
                 <div className="relative w-full h-full">
                   <Image
-                    src={URL.createObjectURL(photoSlots[0].file)}
+                    src={photoSlots[0].croppedImageUrl || URL.createObjectURL(photoSlots[0].file)}
                     alt="Photo 1"
                     fill
                     className="object-cover"
@@ -345,7 +358,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                   {photoSlots[i]?.file ? (
                     <div className="relative w-full h-full">
                       <Image
-                        src={URL.createObjectURL(photoSlots[i].file)}
+                        src={photoSlots[i].croppedImageUrl || URL.createObjectURL(photoSlots[i].file)}
                         alt={`Photo ${i + 1}`}
                         fill
                         className="object-cover"
@@ -379,7 +392,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                 >
                   {photoSlots[i]?.file && (
                     <Image
-                      src={URL.createObjectURL(photoSlots[i].file)}
+                      src={photoSlots[i].croppedImageUrl || URL.createObjectURL(photoSlots[i].file)}
                       alt={`Photo ${i + 1} duplicate`}
                       fill
                       className="object-cover"
@@ -570,7 +583,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                   {photoSlots[i]?.file ? (
                     <div className="relative w-full h-full">
                       <Image
-                        src={URL.createObjectURL(photoSlots[i].file)}
+                        src={photoSlots[i].croppedImageUrl || URL.createObjectURL(photoSlots[i].file)}
                         alt={`Photo ${i + 1}`}
                         fill
                         className="object-cover"
