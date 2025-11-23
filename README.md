@@ -182,7 +182,28 @@ photoast/
 - For production, ensure your printer supports IPP protocol
 - Default admin credentials should be changed in production
 - MongoDB should be properly secured for production use
-- File uploads are stored in `public/uploads` directory
+- **Local**: File uploads stored in `public/uploads` directory
+- **Vercel**: File uploads stored in `/tmp` directory (temporary, cleared on function restart)
+  - ⚠️ For production on Vercel, consider using [Vercel Blob Storage](https://vercel.com/docs/storage/vercel-blob) or external storage (S3, Cloudinary) for persistent file storage
+
+## Vercel Deployment
+
+This app is ready to deploy on Vercel with the following considerations:
+
+1. **Environment Variables**: Set all required environment variables in Vercel dashboard:
+   - `ADMIN_USERNAME`
+   - `ADMIN_PASSWORD`
+   - `NEXT_PUBLIC_BASE_URL`
+   - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`
+
+2. **File Storage**: The app automatically detects Vercel environment and uses `/tmp` directory for file uploads. This is temporary storage that gets cleared on function restarts.
+   - Uploaded logos and processed images are stored temporarily
+   - For persistent storage, consider upgrading to Vercel Blob Storage or external storage service
+
+3. **Deploy**:
+   ```bash
+   vercel
+   ```
 
 ## Development
 

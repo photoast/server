@@ -123,7 +123,10 @@ export async function processImage(
   // If logo exists, add it FIRST (lower z-index)
   if (logoPath && logoHeight > 0) {
     try {
-      const logoFullPath = path.join(process.cwd(), 'public', logoPath)
+      // Handle both /tmp paths (Vercel) and /uploads paths (local)
+      const logoFullPath = logoPath.startsWith('/tmp')
+        ? logoPath // Absolute path from Vercel
+        : path.join(process.cwd(), 'public', logoPath) // Relative path from local
       const logoExists = await fs.access(logoFullPath).then(() => true).catch(() => false)
 
       if (logoExists) {
@@ -468,12 +471,28 @@ export async function saveUploadedFile(
   file: File,
   filename: string
 ): Promise<string> {
-  const uploadDir = path.join(process.cwd(), 'public', 'uploads')
-  await fs.mkdir(uploadDir, { recursive: true })
-
   const buffer = Buffer.from(await file.arrayBuffer())
-  const filepath = path.join(uploadDir, filename)
-  await fs.writeFile(filepath, buffer)
 
-  return `/uploads/${filename}`
+  // In Vercel (serverless), use /tmp directory (temporary, cleared on function restart)
+  // In local development, use public/uploads (persistent)
+  const isVercel = process.env.VERCEL === '1'
+
+  if (isVercel) {
+    // Vercel: Use /tmp directory (writable but temporary)
+    const uploadDir = '/tmp/uploads'
+    await fs.mkdir(uploadDir, { recursive: true })
+    const filepath = path.join(uploadDir, filename)
+    await fs.writeFile(filepath, buffer)
+
+    console.warn('⚠️ File saved to /tmp (temporary). Consider using Vercel Blob Storage for production.')
+    return filepath // Return absolute path for /tmp files
+  } else {
+    // Local: Use public/uploads directory
+    const uploadDir = path.join(process.cwd(), 'public', 'uploads')
+    await fs.mkdir(uploadDir, { recursive: true })
+    const filepath = path.join(uploadDir, filename)
+    await fs.writeFile(filepath, buffer)
+
+    return `/uploads/${filename}` // Return URL path for public files
+  }
 }

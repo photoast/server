@@ -102,12 +102,26 @@ export async function POST(request: NextRequest) {
     // Save processed image
     const timestamp = Date.now()
     const filename = `processed-${timestamp}.jpg`
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads')
-    await fs.mkdir(uploadDir, { recursive: true })
-    const filepath = path.join(uploadDir, filename)
-    await fs.writeFile(filepath, processedBuffer)
 
-    return NextResponse.json({ url: `/uploads/${filename}` })
+    // In Vercel (serverless), use /tmp directory
+    // In local development, use public/uploads
+    const isVercel = process.env.VERCEL === '1'
+
+    if (isVercel) {
+      const uploadDir = '/tmp/uploads'
+      await fs.mkdir(uploadDir, { recursive: true })
+      const filepath = path.join(uploadDir, filename)
+      await fs.writeFile(filepath, processedBuffer)
+
+      return NextResponse.json({ url: filepath })
+    } else {
+      const uploadDir = path.join(process.cwd(), 'public', 'uploads')
+      await fs.mkdir(uploadDir, { recursive: true })
+      const filepath = path.join(uploadDir, filename)
+      await fs.writeFile(filepath, processedBuffer)
+
+      return NextResponse.json({ url: `/uploads/${filename}` })
+    }
   } catch (error) {
     console.error('Error processing image:', error)
     return NextResponse.json(
