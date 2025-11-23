@@ -48,14 +48,31 @@ export async function printViaEmail(
     console.log(`\nStep 1: Resizing to ${CANVAS_WIDTH}×${CANVAS_HEIGHT}`)
     const resizedBuffer = await sharp(imagePath)
       .resize(CANVAS_WIDTH, CANVAS_HEIGHT, { fit: 'cover' })
+      .jpeg({ quality: 95 })
       .toBuffer()
 
+    // Save original (resized) version
+    const outputDir = path.join(process.cwd(), 'output')
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true })
+    }
+
+    const timestamp = Date.now()
+    const originalPath = path.join(outputDir, `email-original-${timestamp}.jpg`)
+    fs.writeFileSync(originalPath, resizedBuffer)
+    console.log(`원본(리사이즈) 저장: ${originalPath}`)
+
     // Step 2: Apply printer correction (shrink + vertical offset)
-    console.log('Step 2: Applying printer correction')
+    console.log('\nStep 2: Applying printer correction')
     const correctedBuffer = await applyPrinterCorrection(resizedBuffer, {
       canvasWidth: CANVAS_WIDTH,
       canvasHeight: CANVAS_HEIGHT,
     })
+
+    // Save corrected version
+    const correctedPath = path.join(outputDir, `email-corrected-${timestamp}.jpg`)
+    fs.writeFileSync(correctedPath, correctedBuffer)
+    console.log(`보정 버전 저장: ${correctedPath}`)
 
     // Create nodemailer transporter
     const transporter = nodemailer.createTransport({
