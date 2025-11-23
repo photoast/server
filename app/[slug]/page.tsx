@@ -35,7 +35,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   const [printSuccess, setPrintSuccess] = useState(false)
   const [showCropEditor, setShowCropEditor] = useState(false)
   const [cropAreas, setCropAreas] = useState<CropArea[]>([])
-  const [backgroundColor, setBackgroundColor] = useState('#000000') // Default black
+  const [backgroundColor, setBackgroundColor] = useState('#FFFFFF') // Default white (single photo starts as default)
   const [showLogo, setShowLogo] = useState(true) // For single photo: show logo or not
 
   useEffect(() => {
@@ -114,8 +114,8 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         }
         // Add logo preference
         formData.append('showLogo', showLogo.toString())
-        // Add background color
-        formData.append('backgroundColor', backgroundColor)
+        // Single photo always uses white background
+        formData.append('backgroundColor', '#FFFFFF')
       }
 
       const res = await fetch('/api/process-image', {
@@ -250,6 +250,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                     onClick={() => {
                       setFrameType('single')
                       setSelectedFiles([])
+                      setBackgroundColor('#FFFFFF') // Single photo always uses white background
                     }}
                     className={`p-4 rounded-lg border-2 transition-all ${
                       frameType === 'single'
@@ -265,6 +266,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                     onClick={() => {
                       setFrameType('four-cut')
                       setSelectedFiles([])
+                      setBackgroundColor('#000000') // Default black for multi-photo
                     }}
                     className={`p-4 rounded-lg border-2 transition-all ${
                       frameType === 'four-cut'
@@ -280,6 +282,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                     onClick={() => {
                       setFrameType('two-by-two')
                       setSelectedFiles([])
+                      setBackgroundColor('#000000') // Default black for multi-photo
                     }}
                     className={`p-4 rounded-lg border-2 transition-all ${
                       frameType === 'two-by-two'
@@ -294,42 +297,44 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                 </div>
               </div>
 
-              {/* Background Color Selection - Available for all layouts */}
-              <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg p-6 pb-8">
-                <h3 className="text-lg font-bold text-center mb-4">배경색 선택</h3>
-                <div className="grid grid-cols-5 gap-3 mb-8">
-                  {[
-                    { name: '블랙', color: '#000000' },
-                    { name: '화이트', color: '#FFFFFF' },
-                    { name: '네이비', color: '#2c3e50' },
-                    { name: '핑크', color: '#ffb6c1' },
-                    { name: '민트', color: '#98d8c8' },
-                    { name: '라벤더', color: '#b19cd9' },
-                    { name: '코랄', color: '#ff6b6b' },
-                    { name: '스카이', color: '#87ceeb' },
-                    { name: '그레이', color: '#6c757d' },
-                    { name: '베이지', color: '#f5f5dc' },
-                  ].map((preset) => (
-                    <div key={preset.color} className="flex flex-col items-center gap-2">
-                      <button
-                        onClick={() => setBackgroundColor(preset.color)}
-                        className={`w-full aspect-square rounded-lg border-2 transition-all hover:scale-105 flex items-center justify-center ${
-                          backgroundColor === preset.color
-                            ? 'border-purple-600 ring-2 ring-purple-300'
-                            : 'border-gray-300'
-                        }`}
-                        style={{ backgroundColor: preset.color }}
-                        title={preset.name}
-                      >
-                        {backgroundColor === preset.color && (
-                          <span className={`text-2xl ${preset.color === '#000000' || preset.color === '#2c3e50' || preset.color === '#6c757d' ? 'text-white' : 'text-gray-800'}`}>✓</span>
-                        )}
-                      </button>
-                      <span className="text-xs text-gray-600 whitespace-nowrap">{preset.name}</span>
-                    </div>
-                  ))}
+              {/* Background Color Selection - Only for multi-photo layouts */}
+              {frameType !== 'single' && (
+                <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg p-6 pb-8">
+                  <h3 className="text-lg font-bold text-center mb-4">배경색 선택</h3>
+                  <div className="grid grid-cols-5 gap-3 mb-8">
+                    {[
+                      { name: '블랙', color: '#000000' },
+                      { name: '화이트', color: '#FFFFFF' },
+                      { name: '네이비', color: '#2c3e50' },
+                      { name: '핑크', color: '#ffb6c1' },
+                      { name: '민트', color: '#98d8c8' },
+                      { name: '라벤더', color: '#b19cd9' },
+                      { name: '코랄', color: '#ff6b6b' },
+                      { name: '스카이', color: '#87ceeb' },
+                      { name: '그레이', color: '#6c757d' },
+                      { name: '베이지', color: '#f5f5dc' },
+                    ].map((preset) => (
+                      <div key={preset.color} className="flex flex-col items-center gap-2">
+                        <button
+                          onClick={() => setBackgroundColor(preset.color)}
+                          className={`w-full aspect-square rounded-lg border-2 transition-all hover:scale-105 flex items-center justify-center ${
+                            backgroundColor === preset.color
+                              ? 'border-purple-600 ring-2 ring-purple-300'
+                              : 'border-gray-300'
+                          }`}
+                          style={{ backgroundColor: preset.color }}
+                          title={preset.name}
+                        >
+                          {backgroundColor === preset.color && (
+                            <span className={`text-2xl ${preset.color === '#000000' || preset.color === '#2c3e50' || preset.color === '#6c757d' ? 'text-white' : 'text-gray-800'}`}>✓</span>
+                          )}
+                        </button>
+                        <span className="text-xs text-gray-600 whitespace-nowrap">{preset.name}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Photo selection UI */}
               {frameType === 'four-cut' || frameType === 'two-by-two' ? (
