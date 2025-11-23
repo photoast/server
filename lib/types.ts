@@ -7,7 +7,7 @@ export interface LogoSettings {
   y?: number // Custom Y position in logo area (0-100 percent)
 }
 
-export type FrameType = 'single' | 'four-cut' | 'two-by-two'
+export type FrameType = 'single' | 'four-cut' | 'two-by-two' | 'vertical-two' | 'horizontal-two' | 'one-plus-two'
 
 export interface Event {
   _id?: ObjectId

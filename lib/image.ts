@@ -28,7 +28,7 @@ export async function processImage(
   frameType: FrameType = 'single',
   backgroundColor?: string
 ): Promise<Buffer> {
-  // Handle four-cut frame
+  // Handle multi-photo layouts
   if (frameType === 'four-cut') {
     return processFourCutImage(
       inputBuffer as Buffer[],
@@ -40,9 +40,32 @@ export async function processImage(
     )
   }
 
-  // Handle two-by-two frame
   if (frameType === 'two-by-two') {
     return processTwoByTwoImage(
+      inputBuffer as Buffer[],
+      cropArea as CropArea[],
+      backgroundColor
+    )
+  }
+
+  if (frameType === 'vertical-two') {
+    return processVerticalTwoImage(
+      inputBuffer as Buffer[],
+      cropArea as CropArea[],
+      backgroundColor
+    )
+  }
+
+  if (frameType === 'horizontal-two') {
+    return processHorizontalTwoImage(
+      inputBuffer as Buffer[],
+      cropArea as CropArea[],
+      backgroundColor
+    )
+  }
+
+  if (frameType === 'one-plus-two') {
+    return processOnePlusTwoImage(
       inputBuffer as Buffer[],
       cropArea as CropArea[],
       backgroundColor
@@ -471,6 +494,388 @@ async function processTwoByTwoImage(
     })
 
     console.log(`Photo ${i + 1} positioned at (${left}, ${top})`)
+  }
+
+  finalImage = finalImage.composite(composites)
+
+  return finalImage.jpeg({
+    quality: 95,
+    chromaSubsampling: '4:4:4'
+  }).toBuffer()
+}
+
+async function processVerticalTwoImage(
+  inputBuffers: Buffer[],
+  cropAreas?: CropArea[],
+  backgroundColor?: string
+): Promise<Buffer> {
+  // Ensure we have exactly 2 images
+  if (!Array.isArray(inputBuffers) || inputBuffers.length !== 2) {
+    throw new Error('Vertical-two frame requires exactly 2 images')
+  }
+
+  // Vertical-two layout specifications (1×2 vertical stack)
+  // - Total size: 1000×1500px (4x6 inch @ 300 DPI)
+  // - Photo count: 2 (stacked vertically)
+  // - Gap between photos: 20px
+  // - Horizontal margin: 40px
+  // - Vertical margin: 60px
+  // - Background: Customizable (default black)
+
+  const MARGIN_HORIZONTAL = 40  // Left/Right margin
+  const MARGIN_VERTICAL = 60    // Top/Bottom margin
+  const GAP = 20                // Gap between photos
+
+  // Calculate available space
+  const availableWidth = TARGET_WIDTH - (MARGIN_HORIZONTAL * 2)   // 920px
+  const availableHeight = TARGET_HEIGHT - (MARGIN_VERTICAL * 2)   // 1380px
+
+  // Calculate photo dimensions (2 photos stacked vertically)
+  const photoWidth = availableWidth                              // 920px
+  const photoHeight = Math.round((availableHeight - GAP) / 2)   // 680px each
+
+  console.log(`Vertical-Two layout: 2 photos @ ${photoWidth}x${photoHeight}px each (vertical stack)`)
+  console.log(`Canvas: ${TARGET_WIDTH}x${TARGET_HEIGHT}px`)
+  console.log(`Margins: H=${MARGIN_HORIZONTAL}px, V=${MARGIN_VERTICAL}px, Gap=${GAP}px`)
+
+  // Process each of the 2 photos
+  const photoBuffers: Buffer[] = []
+  for (let i = 0; i < 2; i++) {
+    let image = sharp(inputBuffers[i]).rotate() // Auto-rotate based on EXIF
+
+    // Apply crop if provided
+    if (cropAreas && cropAreas[i] && cropAreas[i].width > 0 && cropAreas[i].height > 0) {
+      const metadata = await image.metadata()
+      const originalWidth = metadata.width || 0
+      const originalHeight = metadata.height || 0
+
+      console.log(`Photo ${i + 1} original: ${originalWidth}x${originalHeight}`)
+      console.log(`Photo ${i + 1} crop requested: ${cropAreas[i].width}x${cropAreas[i].height} at (${cropAreas[i].x}, ${cropAreas[i].y})`)
+
+      // Clamp crop area to image boundaries
+      const left = Math.max(0, Math.min(Math.round(cropAreas[i].x), originalWidth - 1))
+      const top = Math.max(0, Math.min(Math.round(cropAreas[i].y), originalHeight - 1))
+      const width = Math.min(Math.round(cropAreas[i].width), originalWidth - left)
+      const height = Math.min(Math.round(cropAreas[i].height), originalHeight - top)
+
+      if (width > 0 && height > 0) {
+        console.log(`Photo ${i + 1} crop applied: ${width}x${height} at (${left}, ${top})`)
+        image = image.extract({ left, top, width, height })
+      }
+    }
+
+    const processedPhoto = await image
+      .resize(photoWidth, photoHeight, {
+        fit: 'cover',
+        position: 'centre',
+      })
+      .toBuffer()
+
+    photoBuffers.push(processedPhoto)
+  }
+
+  // Parse background color (default black)
+  const bgColor = backgroundColor || '#000000'
+  const rgb = hexToRgb(bgColor)
+
+  // Create blank canvas with custom background
+  let finalImage = sharp({
+    create: {
+      width: TARGET_WIDTH,
+      height: TARGET_HEIGHT,
+      channels: 3,
+      background: { r: rgb.r, g: rgb.g, b: rgb.b }
+    }
+  })
+
+  const composites: any[] = []
+
+  // Add 2 photos vertically
+  // Layout:
+  // [0]
+  // [1]
+  for (let i = 0; i < 2; i++) {
+    const left = MARGIN_HORIZONTAL
+    const top = MARGIN_VERTICAL + (i * (photoHeight + GAP))
+
+    composites.push({
+      input: photoBuffers[i],
+      top,
+      left,
+    })
+
+    console.log(`Photo ${i + 1} positioned at (${left}, ${top})`)
+  }
+
+  finalImage = finalImage.composite(composites)
+
+  return finalImage.jpeg({
+    quality: 95,
+    chromaSubsampling: '4:4:4'
+  }).toBuffer()
+}
+
+async function processHorizontalTwoImage(
+  inputBuffers: Buffer[],
+  cropAreas?: CropArea[],
+  backgroundColor?: string
+): Promise<Buffer> {
+  // Ensure we have exactly 2 images
+  if (!Array.isArray(inputBuffers) || inputBuffers.length !== 2) {
+    throw new Error('Horizontal-two frame requires exactly 2 images')
+  }
+
+  // Horizontal-two layout specifications (2×1 horizontal)
+  // - Total size: 1000×1500px (4x6 inch @ 300 DPI)
+  // - Photo count: 2 (side by side)
+  // - Gap between photos: 20px
+  // - Horizontal margin: 40px
+  // - Vertical margin: 60px
+  // - Background: Customizable (default black)
+
+  const MARGIN_HORIZONTAL = 40  // Left/Right margin
+  const MARGIN_VERTICAL = 60    // Top/Bottom margin
+  const GAP = 20                // Gap between photos
+
+  // Calculate available space
+  const availableWidth = TARGET_WIDTH - (MARGIN_HORIZONTAL * 2)   // 920px
+  const availableHeight = TARGET_HEIGHT - (MARGIN_VERTICAL * 2)   // 1380px
+
+  // Calculate photo dimensions (2 photos side by side)
+  const photoWidth = Math.round((availableWidth - GAP) / 2)      // 450px each
+  const photoHeight = availableHeight                             // 1380px
+
+  console.log(`Horizontal-Two layout: 2 photos @ ${photoWidth}x${photoHeight}px each (side by side)`)
+  console.log(`Canvas: ${TARGET_WIDTH}x${TARGET_HEIGHT}px`)
+  console.log(`Margins: H=${MARGIN_HORIZONTAL}px, V=${MARGIN_VERTICAL}px, Gap=${GAP}px`)
+
+  // Process each of the 2 photos
+  const photoBuffers: Buffer[] = []
+  for (let i = 0; i < 2; i++) {
+    let image = sharp(inputBuffers[i]).rotate() // Auto-rotate based on EXIF
+
+    // Apply crop if provided
+    if (cropAreas && cropAreas[i] && cropAreas[i].width > 0 && cropAreas[i].height > 0) {
+      const metadata = await image.metadata()
+      const originalWidth = metadata.width || 0
+      const originalHeight = metadata.height || 0
+
+      console.log(`Photo ${i + 1} original: ${originalWidth}x${originalHeight}`)
+      console.log(`Photo ${i + 1} crop requested: ${cropAreas[i].width}x${cropAreas[i].height} at (${cropAreas[i].x}, ${cropAreas[i].y})`)
+
+      // Clamp crop area to image boundaries
+      const left = Math.max(0, Math.min(Math.round(cropAreas[i].x), originalWidth - 1))
+      const top = Math.max(0, Math.min(Math.round(cropAreas[i].y), originalHeight - 1))
+      const width = Math.min(Math.round(cropAreas[i].width), originalWidth - left)
+      const height = Math.min(Math.round(cropAreas[i].height), originalHeight - top)
+
+      if (width > 0 && height > 0) {
+        console.log(`Photo ${i + 1} crop applied: ${width}x${height} at (${left}, ${top})`)
+        image = image.extract({ left, top, width, height })
+      }
+    }
+
+    const processedPhoto = await image
+      .resize(photoWidth, photoHeight, {
+        fit: 'cover',
+        position: 'centre',
+      })
+      .toBuffer()
+
+    photoBuffers.push(processedPhoto)
+  }
+
+  // Parse background color (default black)
+  const bgColor = backgroundColor || '#000000'
+  const rgb = hexToRgb(bgColor)
+
+  // Create blank canvas with custom background
+  let finalImage = sharp({
+    create: {
+      width: TARGET_WIDTH,
+      height: TARGET_HEIGHT,
+      channels: 3,
+      background: { r: rgb.r, g: rgb.g, b: rgb.b }
+    }
+  })
+
+  const composites: any[] = []
+
+  // Add 2 photos horizontally
+  // Layout: [0] [1]
+  for (let i = 0; i < 2; i++) {
+    const left = MARGIN_HORIZONTAL + (i * (photoWidth + GAP))
+    const top = MARGIN_VERTICAL
+
+    composites.push({
+      input: photoBuffers[i],
+      top,
+      left,
+    })
+
+    console.log(`Photo ${i + 1} positioned at (${left}, ${top})`)
+  }
+
+  finalImage = finalImage.composite(composites)
+
+  return finalImage.jpeg({
+    quality: 95,
+    chromaSubsampling: '4:4:4'
+  }).toBuffer()
+}
+
+async function processOnePlusTwoImage(
+  inputBuffers: Buffer[],
+  cropAreas?: CropArea[],
+  backgroundColor?: string
+): Promise<Buffer> {
+  // Ensure we have exactly 3 images
+  if (!Array.isArray(inputBuffers) || inputBuffers.length !== 3) {
+    throw new Error('One-plus-two frame requires exactly 3 images')
+  }
+
+  // One-plus-two layout specifications (1 large on top, 2 small below)
+  // - Total size: 1000×1500px (4x6 inch @ 300 DPI)
+  // - Photo count: 3 (1 large top, 2 small bottom)
+  // - Gap between photos: 20px
+  // - Horizontal margin: 40px
+  // - Vertical margin: 60px
+  // - Background: Customizable (default black)
+
+  const MARGIN_HORIZONTAL = 40  // Left/Right margin
+  const MARGIN_VERTICAL = 60    // Top/Bottom margin
+  const GAP = 20                // Gap between photos
+
+  // Calculate available space
+  const availableWidth = TARGET_WIDTH - (MARGIN_HORIZONTAL * 2)   // 920px
+  const availableHeight = TARGET_HEIGHT - (MARGIN_VERTICAL * 2)   // 1380px
+
+  // Calculate photo dimensions
+  // Top photo: Full width, half height minus gap
+  const topPhotoWidth = availableWidth                            // 920px
+  const topPhotoHeight = Math.round((availableHeight - GAP) / 2) // 680px
+
+  // Bottom photos: Half width each, same height as top
+  const bottomPhotoWidth = Math.round((availableWidth - GAP) / 2) // 450px each
+  const bottomPhotoHeight = topPhotoHeight                         // 680px
+
+  console.log(`One-Plus-Two layout: 1 large photo @ ${topPhotoWidth}x${topPhotoHeight}px, 2 small photos @ ${bottomPhotoWidth}x${bottomPhotoHeight}px`)
+  console.log(`Canvas: ${TARGET_WIDTH}x${TARGET_HEIGHT}px`)
+  console.log(`Margins: H=${MARGIN_HORIZONTAL}px, V=${MARGIN_VERTICAL}px, Gap=${GAP}px`)
+
+  // Process all 3 photos
+  const photoBuffers: Buffer[] = []
+
+  // Process top photo (index 0)
+  {
+    let image = sharp(inputBuffers[0]).rotate() // Auto-rotate based on EXIF
+
+    // Apply crop if provided
+    if (cropAreas && cropAreas[0] && cropAreas[0].width > 0 && cropAreas[0].height > 0) {
+      const metadata = await image.metadata()
+      const originalWidth = metadata.width || 0
+      const originalHeight = metadata.height || 0
+
+      console.log(`Top photo original: ${originalWidth}x${originalHeight}`)
+      console.log(`Top photo crop requested: ${cropAreas[0].width}x${cropAreas[0].height} at (${cropAreas[0].x}, ${cropAreas[0].y})`)
+
+      // Clamp crop area to image boundaries
+      const left = Math.max(0, Math.min(Math.round(cropAreas[0].x), originalWidth - 1))
+      const top = Math.max(0, Math.min(Math.round(cropAreas[0].y), originalHeight - 1))
+      const width = Math.min(Math.round(cropAreas[0].width), originalWidth - left)
+      const height = Math.min(Math.round(cropAreas[0].height), originalHeight - top)
+
+      if (width > 0 && height > 0) {
+        console.log(`Top photo crop applied: ${width}x${height} at (${left}, ${top})`)
+        image = image.extract({ left, top, width, height })
+      }
+    }
+
+    const processedPhoto = await image
+      .resize(topPhotoWidth, topPhotoHeight, {
+        fit: 'cover',
+        position: 'centre',
+      })
+      .toBuffer()
+
+    photoBuffers.push(processedPhoto)
+  }
+
+  // Process bottom 2 photos (index 1, 2)
+  for (let i = 1; i < 3; i++) {
+    let image = sharp(inputBuffers[i]).rotate() // Auto-rotate based on EXIF
+
+    // Apply crop if provided
+    if (cropAreas && cropAreas[i] && cropAreas[i].width > 0 && cropAreas[i].height > 0) {
+      const metadata = await image.metadata()
+      const originalWidth = metadata.width || 0
+      const originalHeight = metadata.height || 0
+
+      console.log(`Bottom photo ${i} original: ${originalWidth}x${originalHeight}`)
+      console.log(`Bottom photo ${i} crop requested: ${cropAreas[i].width}x${cropAreas[i].height} at (${cropAreas[i].x}, ${cropAreas[i].y})`)
+
+      // Clamp crop area to image boundaries
+      const left = Math.max(0, Math.min(Math.round(cropAreas[i].x), originalWidth - 1))
+      const top = Math.max(0, Math.min(Math.round(cropAreas[i].y), originalHeight - 1))
+      const width = Math.min(Math.round(cropAreas[i].width), originalWidth - left)
+      const height = Math.min(Math.round(cropAreas[i].height), originalHeight - top)
+
+      if (width > 0 && height > 0) {
+        console.log(`Bottom photo ${i} crop applied: ${width}x${height} at (${left}, ${top})`)
+        image = image.extract({ left, top, width, height })
+      }
+    }
+
+    const processedPhoto = await image
+      .resize(bottomPhotoWidth, bottomPhotoHeight, {
+        fit: 'cover',
+        position: 'centre',
+      })
+      .toBuffer()
+
+    photoBuffers.push(processedPhoto)
+  }
+
+  // Parse background color (default black)
+  const bgColor = backgroundColor || '#000000'
+  const rgb = hexToRgb(bgColor)
+
+  // Create blank canvas with custom background
+  let finalImage = sharp({
+    create: {
+      width: TARGET_WIDTH,
+      height: TARGET_HEIGHT,
+      channels: 3,
+      background: { r: rgb.r, g: rgb.g, b: rgb.b }
+    }
+  })
+
+  const composites: any[] = []
+
+  // Add top photo (index 0)
+  composites.push({
+    input: photoBuffers[0],
+    top: MARGIN_VERTICAL,
+    left: MARGIN_HORIZONTAL,
+  })
+  console.log(`Top photo positioned at (${MARGIN_HORIZONTAL}, ${MARGIN_VERTICAL})`)
+
+  // Add bottom 2 photos (index 1, 2)
+  // Layout:
+  //   [0]
+  // [1] [2]
+  for (let i = 1; i < 3; i++) {
+    const col = i - 1  // 0 or 1
+    const left = MARGIN_HORIZONTAL + (col * (bottomPhotoWidth + GAP))
+    const top = MARGIN_VERTICAL + topPhotoHeight + GAP
+
+    composites.push({
+      input: photoBuffers[i],
+      top,
+      left,
+    })
+
+    console.log(`Bottom photo ${i} positioned at (${left}, ${top})`)
   }
 
   finalImage = finalImage.composite(composites)

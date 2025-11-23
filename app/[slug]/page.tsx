@@ -14,8 +14,16 @@ interface Event {
   photoAreaRatio?: number
 }
 
-type FrameType = 'single' | 'four-cut' | 'two-by-two'
+type FrameType = 'single' | 'four-cut' | 'two-by-two' | 'vertical-two' | 'horizontal-two' | 'one-plus-two'
 type Step = 'select-layout' | 'select-color' | 'fill-photos' | 'preview' | 'success'
+
+interface LayoutOption {
+  type: FrameType
+  name: string
+  nameEn: string
+  description: string
+  photoCount: number
+}
 
 interface CropArea {
   x: number
@@ -50,9 +58,23 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     fetchEvent()
   }, [params.slug])
 
+  const layoutOptions: LayoutOption[] = [
+    { type: 'single', name: '일반 1장', nameEn: 'Single Photo', description: '사진 1장', photoCount: 1 },
+    { type: 'vertical-two', name: '세로 2장', nameEn: 'Vertical 2', description: '세로로 2장', photoCount: 2 },
+    { type: 'horizontal-two', name: '가로 2장', nameEn: 'Horizontal 2', description: '가로로 2장', photoCount: 2 },
+    { type: 'one-plus-two', name: '1+2 레이아웃', nameEn: '1+2 Layout', description: '위 1장, 아래 2장', photoCount: 3 },
+    { type: 'four-cut', name: '인생네컷', nameEn: 'Four-Cut', description: '4장 세로 스트립 (2개)', photoCount: 4 },
+    { type: 'two-by-two', name: '2×2 그리드', nameEn: '2×2 Grid', description: '4장 그리드', photoCount: 4 },
+  ]
+
+  const getPhotoCount = (type: FrameType): number => {
+    const layout = layoutOptions.find(l => l.type === type)
+    return layout?.photoCount || 1
+  }
+
   useEffect(() => {
     // Initialize photo slots based on frame type
-    const slotCount = frameType === 'single' ? 1 : 4
+    const slotCount = getPhotoCount(frameType)
     setPhotoSlots(Array.from({ length: slotCount }, (_, i) => ({
       index: i,
       file: null,
@@ -150,14 +172,8 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       formData.append('slug', params.slug)
       formData.append('frameType', frameType)
 
-      if (frameType === 'four-cut' || frameType === 'two-by-two') {
-        photoSlots.forEach(slot => {
-          if (slot.file) formData.append('photos', slot.file)
-        })
-        const cropAreas = photoSlots.map(slot => slot.cropArea!)
-        formData.append('cropAreas', JSON.stringify(cropAreas))
-        formData.append('backgroundColor', backgroundColor)
-      } else {
+      if (frameType === 'single') {
+        // Single photo
         if (photoSlots[0].file) {
           formData.append('photo', photoSlots[0].file)
         }
@@ -166,6 +182,14 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         }
         formData.append('showLogo', showLogo.toString())
         formData.append('backgroundColor', '#FFFFFF')
+      } else {
+        // Multi-photo layouts
+        photoSlots.forEach(slot => {
+          if (slot.file) formData.append('photos', slot.file)
+        })
+        const cropAreas = photoSlots.map(slot => slot.cropArea!)
+        formData.append('cropAreas', JSON.stringify(cropAreas))
+        formData.append('backgroundColor', backgroundColor)
       }
 
       const res = await fetch('/api/process-image', {
@@ -232,9 +256,22 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   }
 
   const getCropAspectRatio = () => {
-    if (frameType === 'four-cut') return 485 / 357
-    if (frameType === 'two-by-two') return 450 / 680
-    return 1000 / 1500
+    switch (frameType) {
+      case 'four-cut':
+        return 485 / 357
+      case 'two-by-two':
+        return 450 / 680
+      case 'vertical-two':
+        return 1000 / 735 // 세로로 2장, 각 735px 높이
+      case 'horizontal-two':
+        return 485 / 1470 // 가로로 2장, 각 485px 폭
+      case 'one-plus-two':
+        // 슬롯별로 다른 비율 필요하지만, 기본값 설정
+        return currentEditingSlot === 0 ? 1000 / 900 : 485 / 585
+      case 'single':
+      default:
+        return 1000 / 1500
+    }
   }
 
   const getLayoutPreview = () => {
@@ -386,6 +423,167 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         </div>
       )
     }
+
+    if (frameType === 'vertical-two') {
+      return (
+        <div className="relative w-full max-w-sm mx-auto" style={{ aspectRatio: '2/3' }}>
+          <div className="absolute inset-0 flex flex-col gap-2 p-2 bg-gray-900 rounded-2xl shadow-lg">
+            {[0, 1].map((i) => (
+              <button
+                key={i}
+                onClick={() => handleSlotClick(i)}
+                className="flex-1 relative bg-gradient-to-br from-purple-100 to-pink-100 hover:from-purple-200 hover:to-pink-200 transition-colors rounded-lg overflow-hidden group"
+              >
+                {photoSlots[i]?.file ? (
+                  <div className="relative w-full h-full">
+                    <Image
+                      src={URL.createObjectURL(photoSlots[i].file)}
+                      alt={`Photo ${i + 1}`}
+                      fill
+                      className="object-cover"
+                      unoptimized
+                    />
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleRemovePhoto(i)
+                      }}
+                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm hover:bg-red-600 z-10 shadow-md"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full">
+                    <div className="text-4xl mb-2">📷</div>
+                    <div className="text-sm font-medium text-gray-700">{i + 1}</div>
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
+    if (frameType === 'horizontal-two') {
+      return (
+        <div className="relative w-full max-w-sm mx-auto" style={{ aspectRatio: '2/3' }}>
+          <div className="absolute inset-0 flex gap-2 p-2 bg-gray-900 rounded-2xl shadow-lg">
+            {[0, 1].map((i) => (
+              <button
+                key={i}
+                onClick={() => handleSlotClick(i)}
+                className="flex-1 relative bg-gradient-to-br from-purple-100 to-pink-100 hover:from-purple-200 hover:to-pink-200 transition-colors rounded-lg overflow-hidden group"
+              >
+                {photoSlots[i]?.file ? (
+                  <div className="relative w-full h-full">
+                    <Image
+                      src={URL.createObjectURL(photoSlots[i].file)}
+                      alt={`Photo ${i + 1}`}
+                      fill
+                      className="object-cover"
+                      unoptimized
+                    />
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleRemovePhoto(i)
+                      }}
+                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm hover:bg-red-600 z-10 shadow-md"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full">
+                    <div className="text-4xl mb-2">📷</div>
+                    <div className="text-sm font-medium text-gray-700">{i + 1}</div>
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
+    if (frameType === 'one-plus-two') {
+      return (
+        <div className="relative w-full max-w-sm mx-auto" style={{ aspectRatio: '2/3' }}>
+          <div className="absolute inset-0 flex flex-col gap-2 p-2 bg-gray-900 rounded-2xl shadow-lg">
+            {/* Top: 1 large photo */}
+            <button
+              onClick={() => handleSlotClick(0)}
+              className="flex-[3] relative bg-gradient-to-br from-purple-100 to-pink-100 hover:from-purple-200 hover:to-pink-200 transition-colors rounded-lg overflow-hidden group"
+            >
+              {photoSlots[0]?.file ? (
+                <div className="relative w-full h-full">
+                  <Image
+                    src={URL.createObjectURL(photoSlots[0].file)}
+                    alt="Photo 1"
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleRemovePhoto(0)
+                    }}
+                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm hover:bg-red-600 z-10 shadow-md"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full">
+                  <div className="text-5xl mb-2">📷</div>
+                  <div className="text-sm font-medium text-gray-700">1</div>
+                </div>
+              )}
+            </button>
+
+            {/* Bottom: 2 small photos */}
+            <div className="flex-[2] flex gap-2">
+              {[1, 2].map((i) => (
+                <button
+                  key={i}
+                  onClick={() => handleSlotClick(i)}
+                  className="flex-1 relative bg-gradient-to-br from-purple-100 to-pink-100 hover:from-purple-200 hover:to-pink-200 transition-colors rounded-lg overflow-hidden group"
+                >
+                  {photoSlots[i]?.file ? (
+                    <div className="relative w-full h-full">
+                      <Image
+                        src={URL.createObjectURL(photoSlots[i].file)}
+                        alt={`Photo ${i + 1}`}
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleRemovePhoto(i)
+                        }}
+                        className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm hover:bg-red-600 z-10 shadow-md"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full">
+                      <div className="text-4xl mb-1">📷</div>
+                      <div className="text-sm font-medium text-gray-700">{i + 1}</div>
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )
+    }
   }
 
   if (loading) {
@@ -438,45 +636,86 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                 <p className="text-sm text-gray-600">원하는 사진 레이아웃을 선택하세요</p>
               </div>
 
-              <div className="grid grid-cols-1 gap-4">
-                <button
-                  onClick={() => handleLayoutSelect('single')}
-                  className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all active:scale-95"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="text-5xl">🖼️</div>
-                    <div className="flex-1 text-left">
-                      <div className="text-lg font-bold text-gray-800">일반 1장</div>
-                      <div className="text-sm text-gray-600">Single Photo</div>
-                    </div>
-                  </div>
-                </button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {layoutOptions.map((layout) => (
+                  <button
+                    key={layout.type}
+                    onClick={() => handleLayoutSelect(layout.type)}
+                    className={`bg-white rounded-2xl p-4 transition-all active:scale-95 ${
+                      frameType === layout.type
+                        ? 'ring-4 ring-purple-600 shadow-xl'
+                        : 'shadow-lg hover:shadow-xl'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 mb-3">
+                      {/* Radio button */}
+                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                        frameType === layout.type
+                          ? 'border-purple-600 bg-purple-600'
+                          : 'border-gray-300'
+                      }`}>
+                        {frameType === layout.type && (
+                          <div className="w-2 h-2 bg-white rounded-full"></div>
+                        )}
+                      </div>
 
-                <button
-                  onClick={() => handleLayoutSelect('four-cut')}
-                  className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all active:scale-95"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="text-5xl">📸</div>
-                    <div className="flex-1 text-left">
-                      <div className="text-lg font-bold text-gray-800">인생네컷</div>
-                      <div className="text-sm text-gray-600">Four-Cut Style (반으로 자르기 가능)</div>
+                      {/* Layout name */}
+                      <div className="flex-1 text-left">
+                        <div className="font-bold text-gray-800">{layout.name}</div>
+                        <div className="text-xs text-gray-500">{layout.description}</div>
+                      </div>
                     </div>
-                  </div>
-                </button>
 
-                <button
-                  onClick={() => handleLayoutSelect('two-by-two')}
-                  className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all active:scale-95"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="text-5xl">🎞️</div>
-                    <div className="flex-1 text-left">
-                      <div className="text-lg font-bold text-gray-800">2×2 그리드</div>
-                      <div className="text-sm text-gray-600">2x2 Grid Layout</div>
+                    {/* Layout preview */}
+                    <div className="w-full aspect-[2/3] bg-gray-100 rounded-lg overflow-hidden">
+                      {layout.type === 'single' && (
+                        <div className="w-full h-full bg-gradient-to-br from-purple-200 to-pink-200"></div>
+                      )}
+                      {layout.type === 'vertical-two' && (
+                        <div className="w-full h-full flex flex-col gap-1 p-1">
+                          <div className="flex-1 bg-gradient-to-br from-purple-200 to-pink-200 rounded"></div>
+                          <div className="flex-1 bg-gradient-to-br from-purple-200 to-pink-200 rounded"></div>
+                        </div>
+                      )}
+                      {layout.type === 'horizontal-two' && (
+                        <div className="w-full h-full flex gap-1 p-1">
+                          <div className="flex-1 bg-gradient-to-br from-purple-200 to-pink-200 rounded"></div>
+                          <div className="flex-1 bg-gradient-to-br from-purple-200 to-pink-200 rounded"></div>
+                        </div>
+                      )}
+                      {layout.type === 'one-plus-two' && (
+                        <div className="w-full h-full flex flex-col gap-1 p-1">
+                          <div className="flex-[3] bg-gradient-to-br from-purple-200 to-pink-200 rounded"></div>
+                          <div className="flex-[2] flex gap-1">
+                            <div className="flex-1 bg-gradient-to-br from-purple-200 to-pink-200 rounded"></div>
+                            <div className="flex-1 bg-gradient-to-br from-purple-200 to-pink-200 rounded"></div>
+                          </div>
+                        </div>
+                      )}
+                      {layout.type === 'four-cut' && (
+                        <div className="w-full h-full flex gap-1 p-1">
+                          <div className="flex-1 flex flex-col gap-1">
+                            {[0, 1, 2, 3].map((i) => (
+                              <div key={i} className="flex-1 bg-gradient-to-br from-purple-200 to-pink-200 rounded"></div>
+                            ))}
+                          </div>
+                          <div className="flex-1 flex flex-col gap-1 opacity-40">
+                            {[0, 1, 2, 3].map((i) => (
+                              <div key={i} className="flex-1 bg-gradient-to-br from-purple-200 to-pink-200 rounded"></div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {layout.type === 'two-by-two' && (
+                        <div className="w-full h-full grid grid-cols-2 gap-1 p-1">
+                          {[0, 1, 2, 3].map((i) => (
+                            <div key={i} className="bg-gradient-to-br from-purple-200 to-pink-200 rounded"></div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                </button>
+                  </button>
+                ))}
               </div>
             </div>
           )}
