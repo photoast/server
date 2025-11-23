@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Photoast 프린터 확대율 캘리브레이션</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+          sans-serif;
+        background: #f3f4f6;
+      }
+
+      .container {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 24px 16px;
+        box-sizing: border-box;
+      }
+
+      .panel {
+        background: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.15);
+        padding: 16px 16px 20px;
+        max-width: 480px;
+        width: 100%;
+      }
+
+      .title {
+        font-size: 20px;
+        font-weight: 700;
+        margin-bottom: 8px;
+      }
+
+      .desc {
+        font-size: 13px;
+        color: #4b5563;
+        margin-bottom: 8px;
+      }
+
+      .steps {
+        font-size: 12px;
+        color: #4b5563;
+        margin: 4px 0 8px;
+        padding-left: 18px;
+      }
+
+      .steps li {
+        margin-bottom: 2px;
+      }
+
+      .hint {
+        font-size: 11px;
+        color: #9ca3af;
+        margin-top: 4px;
+      }
+
+      .frame-wrapper {
+        margin-top: 10px;
+        display: flex;
+        justify-content: center;
+      }
+
+      /* 화면에서 보이는 영역 숨김용 */
+      .no-print {
+        display: block;
+      }
+
+      /* 인쇄 시 세팅 */
+      @media print {
+        body {
+          background: #ffffff !important;
+        }
+        .no-print {
+          display: none !important;
+        }
+        .panel {
+          box-shadow: none !important;
+          border-radius: 0 !important;
+          padding: 0 !important;
+        }
+        .frame-wrapper {
+          margin: 0 !important;
+        }
+        /* 4×6 (대략 100×150mm) 크기 강제 */
+        #calibration-frame {
+          width: 100mm !important;
+          height: 150mm !important;
+        }
+      }
+
+      /* SVG 강제 비율 유지용 래퍼 */
+      #calibration-frame {
+        width: 340px;
+        height: 510px; /* 2:3 비율 */
+        max-width: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="panel">
+        <div class="no-print">
+          <div class="title">Photoast 프린터 확대율 캘리브레이션</div>
+          <p class="desc">
+            아래 4×6 비율(2:3) 캔버스 안에 여러 퍼센트(100%, 99.5%, 99%, …)의
+            테두리가 겹쳐 그려집니다. 실제 인쇄 결과를 보고 프린터의
+            <b>확대 비율</b>을 눈으로 추정할 수 있습니다.
+          </p>
+          <ol class="steps">
+            <li>이 페이지를 브라우저에서 엽니다.</li>
+            <li>프린터 용지를 <b>4×6 / 10×15cm</b> 사진용지로 설정합니다.</li>
+            <li>프린터 설정에서 <b>무테 인쇄(Borderless)</b>를 켭니다.</li>
+            <li>
+              인쇄 대화상자에서 크기 옵션은 가능하면
+              <b>100% / 실제 크기 / 맞춤 없음</b>에 가깝게 설정합니다.
+            </li>
+            <li>
+              인쇄 후, 종이 끝과 가장 잘 맞는 색 테두리의 퍼센트를 확인합니다.
+            </li>
+          </ol>
+          <p class="hint">
+            예) 인쇄물에서 <b>97.5%</b> 테두리가 종이 끝과 딱 맞으면, 프린터가
+            약 <b>1 / 0.975 ≈ 1.0256 (2.6% 확대)</b> 정도 한다고 볼 수 있습니다.
+          </p>
+        </div>
+
+        <div class="frame-wrapper">
+          <svg
+            id="calibration-frame"
+            viewBox="0 0 1000 1500"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <!-- 바탕 -->
+            <rect
+              x="0"
+              y="0"
+              width="1000"
+              height="1500"
+              fill="#ffffff"
+              stroke="#000000"
+              stroke-width="6"
+            />
+            <!-- JS에서 테두리들을 주입할 영역 -->
+            <g id="borders-layer"></g>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // 퍼센트 목록 (원하면 더 추가/수정 가능)
+      const PERCENTS = [
+        100,
+        99.5,
+        99,
+        98.5,
+        98,
+        97.5,
+        97,
+        96.5,
+        96,
+        95.5,
+        95,
+      ];
+
+      function getColorByIndex(index) {
+        // 인덱스마다 다른 HSL 색상
+        const hue = (index * 35) % 360;
+        return `hsl(${hue}, 80%, 55%)`;
+      }
+
+      (function drawBorders() {
+        const baseWidth = 1000;
+        const baseHeight = 1500;
+        const layer = document.getElementById('borders-layer');
+        if (!layer) return;
+
+        PERCENTS.forEach((percent, index) => {
+          const scale = percent / 100;
+          const w = baseWidth * scale;
+          const h = baseHeight * scale;
+          const x = (baseWidth - w) / 2;
+          const y = (baseHeight - h) / 2;
+          const color = getColorByIndex(index);
+
+          const rect = document.createElementNS(
+            'http://www.w3.org/2000/svg',
+            'rect',
+          );
+          rect.setAttribute('x', String(x));
+          rect.setAttribute('y', String(y));
+          rect.setAttribute('width', String(w));
+          rect.setAttribute('height', String(h));
+          rect.setAttribute('fill', 'none');
+          rect.setAttribute('stroke', color);
+          rect.setAttribute('stroke-width', '12');
+
+          const text = document.createElementNS(
+            'http://www.w3.org/2000/svg',
+            'text',
+          );
+          text.setAttribute('x', String(x + 24));
+          text.setAttribute('y', String(y + 70));
+          text.setAttribute('fill', color);
+          text.setAttribute('font-size', '70');
+          text.setAttribute('font-weight', 'bold');
+          text.textContent = percent + '%';
+
+          layer.appendChild(rect);
+          layer.appendChild(text);
+        });
+      })();
+    </script>
+  </body>
+</html>

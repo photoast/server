@@ -1,0 +1,37 @@
+{
+  "name": "photoast",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "NODE_NO_WARNINGS=1 next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "ipp": "^2.0.1",
+    "mongodb": "^6.0.0",
+    "next": "^14.2.0",
+    "nodemailer": "^7.0.10",
+    "qrcode": "^1.5.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-easy-crop": "^5.5.5",
+    "sharp": "^0.33.0"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^20.0.0",
+    "@types/nodemailer": "^7.0.4",
+    "@types/qrcode": "^1.5.5",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.4.0",
+    "eslint": "^8.0.0",
+    "eslint-config-next": "^14.2.0",
+    "postcss": "^8.4.0",
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.0.0"
+  }
+}
