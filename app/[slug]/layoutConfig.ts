@@ -68,8 +68,6 @@ export function getCropAspectRatio(type: FrameType): number {
     'two-by-two': 450 / 680,
     'vertical-two': 920 / 680,
     'horizontal-two': 450 / 1380,
-    'one-plus-two-top': 920 / 680,
-    'one-plus-two-bottom': 450 / 680,
     'one-plus-two': 920 / 680 // Default for first slot
   }
 

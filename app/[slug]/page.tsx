@@ -62,6 +62,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   const [photoSlots, setPhotoSlots] = useState<PhotoSlot[]>([])
   const [currentEditingSlot, setCurrentEditingSlot] = useState<number | null>(null)
   const [showCropEditor, setShowCropEditor] = useState(false)
+  const [showActionModal, setShowActionModal] = useState(false)
 
   // Processing state
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -112,9 +113,49 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
   const handleSlotClick = (slotIndex: number) => {
     setCurrentEditingSlot(slotIndex)
+
+    // If photo already exists, show action modal
+    if (photoSlots[slotIndex]?.file) {
+      setShowActionModal(true)
+    } else {
+      // Otherwise, open file picker
+      if (fileInputRef.current) {
+        fileInputRef.current.click()
+      }
+    }
+  }
+
+  const handleEditPhoto = () => {
+    setShowActionModal(false)
+    setShowCropEditor(true)
+  }
+
+  const handleReplacePhoto = () => {
+    setShowActionModal(false)
     if (fileInputRef.current) {
       fileInputRef.current.click()
     }
+  }
+
+  const handleDeletePhoto = () => {
+    if (currentEditingSlot === null) return
+
+    setPhotoSlots(prevSlots => {
+      const newSlots = [...prevSlots]
+      if (newSlots[currentEditingSlot].croppedImageUrl) {
+        URL.revokeObjectURL(newSlots[currentEditingSlot].croppedImageUrl!)
+      }
+      newSlots[currentEditingSlot] = {
+        ...newSlots[currentEditingSlot],
+        file: null,
+        cropArea: null,
+        croppedImageUrl: null
+      }
+      return newSlots
+    })
+    setPreviewUrl(null)
+    setShowActionModal(false)
+    setCurrentEditingSlot(null)
   }
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -147,7 +188,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     }
   }
 
-  const handleCropComplete = (result: { cropAreas: CropArea[], croppedImageUrls: string[] }) => {
+  const handleCropComplete = (result: { cropAreas: (CropArea | null)[], croppedImageUrls: string[] }) => {
     if (currentEditingSlot === null) return
 
     setPhotoSlots(prevSlots => {
@@ -160,6 +201,8 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       return newSlots
     })
 
+    // Clear preview to regenerate with new crop
+    setPreviewUrl(null)
     setShowCropEditor(false)
     setCurrentEditingSlot(null)
   }
@@ -185,22 +228,6 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     setCurrentEditingSlot(null)
   }
 
-  const handleRemovePhoto = (slotIndex: number) => {
-    setPhotoSlots(prevSlots => {
-      const newSlots = [...prevSlots]
-      if (newSlots[slotIndex].croppedImageUrl) {
-        URL.revokeObjectURL(newSlots[slotIndex].croppedImageUrl!)
-      }
-      newSlots[slotIndex] = {
-        ...newSlots[slotIndex],
-        file: null,
-        cropArea: null,
-        croppedImageUrl: null
-      }
-      return newSlots
-    })
-    setPreviewUrl(null)
-  }
 
   const handleProcess = async () => {
     setProcessing(true)
@@ -245,6 +272,36 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       setError(err.message)
     } finally {
       setProcessing(false)
+    }
+  }
+
+  const handleDownload = async () => {
+    if (!previewUrl) return
+
+    try {
+      // Fetch the image
+      const response = await fetch(previewUrl)
+      const blob = await response.blob()
+
+      // Create download link
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+
+      // Generate filename with timestamp
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)
+      const layoutName = LAYOUT_OPTIONS.find(l => l.type === frameType)?.nameEn || frameType
+      link.download = `photoast-${layoutName}-${timestamp}.jpg`
+
+      // Trigger download
+      document.body.appendChild(link)
+      link.click()
+
+      // Cleanup
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    } catch (err: any) {
+      setError('다운로드에 실패했습니다')
     }
   }
 
@@ -293,7 +350,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     const previewProps = {
       photoSlots,
       onSlotClick: handleSlotClick,
-      onRemovePhoto: handleRemovePhoto
+      backgroundColor
     }
 
     switch (frameType) {
@@ -478,9 +535,24 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
           {/* Step 3: Fill Photos */}
           {step === 'fill-photos' && (
             <div className="space-y-6">
-              <div className="text-center">
-                <h2 className="text-xl font-bold text-gray-800 mb-2">사진 선택</h2>
-                <p className="text-sm text-gray-600">각 영역을 탭하여 사진을 추가하세요</p>
+              {/* Header with layout info */}
+              <div className="bg-gradient-to-r from-purple-100 to-pink-100 rounded-2xl p-4 shadow-md">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-800">
+                      {LAYOUT_OPTIONS.find(l => l.type === frameType)?.name}
+                    </h2>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {LAYOUT_OPTIONS.find(l => l.type === frameType)?.description}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-bold text-purple-600">
+                      {photoSlots.filter(s => s.file).length}/{photoSlots.length}
+                    </div>
+                    <div className="text-xs text-gray-600">사진 선택됨</div>
+                  </div>
+                </div>
               </div>
 
               {/* Logo toggle for single photo */}
@@ -509,45 +581,71 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                 </div>
               )}
 
-              {/* Preview or Layout Selection */}
-              <div className="bg-white rounded-2xl p-6 shadow-lg">
-                {previewUrl && allSlotsFilled ? (
-                  <div className="space-y-4">
-                    <div className="relative w-full aspect-[2/3] max-w-sm mx-auto overflow-hidden rounded-xl shadow-2xl">
-                      <Image
-                        src={previewUrl}
-                        alt="Preview"
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                    <p className="text-center text-sm text-gray-600">
-                      출력 크기: 4×6 inch (102×152mm)
-                      {frameType === 'four-cut' && (
-                        <span className="block text-purple-600 mt-1">
-                          ✂️ 중앙을 세로로 자르면 2개의 동일한 스트립
-                        </span>
-                      )}
-                    </p>
+              {/* Status Banner */}
+              {allSlotsFilled ? (
+                <div className="bg-green-50 border-2 border-green-200 rounded-2xl p-4">
+                  <div className="flex items-center justify-center gap-2 text-green-700">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="font-semibold">모든 사진이 준비되었습니다!</span>
                   </div>
-                ) : (
-                  renderLayoutPreview()
-                )}
+                </div>
+              ) : (
+                <div className="bg-blue-50 border-2 border-blue-200 rounded-2xl p-4">
+                  <p className="text-center text-blue-700 font-medium">
+                    📸 아래 영역을 탭하여 사진을 추가/수정하세요
+                  </p>
+                </div>
+              )}
+
+              {/* Layout Preview */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between px-2">
+                  <h3 className="font-semibold text-gray-800">출력 미리보기</h3>
+                  {allSlotsFilled && (
+                    <span className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full font-medium">
+                      ✓ 준비완료
+                    </span>
+                  )}
+                </div>
+                {renderLayoutPreview()}
+                <div className="bg-white rounded-xl p-4 shadow-md">
+                  <p className="text-center text-sm text-gray-600 font-medium mb-2">
+                    사진을 탭하여 추가/변경/삭제
+                  </p>
+                  <p className="text-center text-xs text-gray-500">
+                    출력 크기: <span className="font-semibold">4×6 inch</span> (102×152mm)
+                  </p>
+                  {frameType === 'four-cut' && (
+                    <p className="text-center text-xs text-purple-600 mt-2">
+                      ✂️ 중앙을 세로로 자르면 2개의 동일한 스트립
+                    </p>
+                  )}
+                </div>
               </div>
 
-              {/* Progress */}
+              {/* Processing indicator */}
+              {processing && (
+                <div className="bg-purple-50 border-2 border-purple-200 rounded-2xl p-4">
+                  <div className="flex items-center justify-center gap-2 text-purple-700">
+                    <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-purple-600"></div>
+                    <span className="font-medium">미리보기 생성 중...</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Progress bar */}
               <div className="bg-white rounded-2xl p-4 shadow-md">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700">
-                    {photoSlots.filter(s => s.file).length} / {photoSlots.length} 완료
-                  </span>
+                  <span className="text-sm font-medium text-gray-700">진행률</span>
                   <span className="text-sm text-gray-600">
-                    {allSlotsFilled ? (processing ? '⏳ 이미지 처리 중...' : '✓ 출력 준비 완료') : '사진을 추가해주세요'}
+                    {Math.round((photoSlots.filter(s => s.file).length / photoSlots.length) * 100)}%
                   </span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="w-full bg-gray-200 rounded-full h-3">
                   <div
-                    className="bg-gradient-to-r from-purple-600 to-pink-600 h-2 rounded-full transition-all"
+                    className="bg-gradient-to-r from-purple-600 to-pink-600 h-3 rounded-full transition-all duration-500 ease-out"
                     style={{ width: `${(photoSlots.filter(s => s.file).length / photoSlots.length) * 100}%` }}
                   />
                 </div>
@@ -555,33 +653,49 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
               {error && (
                 <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-4">
-                  <p className="text-red-600 text-center">{error}</p>
+                  <p className="text-red-600 text-center font-medium">{error}</p>
                 </div>
               )}
 
               {/* Action Buttons */}
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    setStep(frameType === 'single' ? 'select-layout' : 'select-color')
-                    setPreviewUrl(null)
-                  }}
-                  disabled={printing}
-                  className="flex-1 py-4 bg-gray-200 text-gray-700 rounded-xl font-semibold text-lg hover:bg-gray-300 transition-colors active:scale-95 disabled:opacity-50"
-                >
-                  이전
-                </button>
-                <button
-                  onClick={handlePrint}
-                  disabled={!allSlotsFilled || processing || !previewUrl || printing}
-                  className={`flex-1 py-4 rounded-xl font-semibold text-lg transition-all active:scale-95 shadow-lg ${
-                    allSlotsFilled && previewUrl && !processing && !printing
-                      ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700'
-                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  }`}
-                >
-                  {printing ? '출력 중...' : '프린트하기'}
-                </button>
+              <div className="space-y-3">
+                {/* Download Button - Only show when preview is ready */}
+                {allSlotsFilled && previewUrl && !processing && (
+                  <button
+                    onClick={handleDownload}
+                    disabled={printing}
+                    className="w-full py-4 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl font-semibold text-lg hover:from-blue-700 hover:to-cyan-700 transition-all active:scale-95 shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    이미지 다운로드
+                  </button>
+                )}
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setStep(frameType === 'single' ? 'select-layout' : 'select-color')
+                      setPreviewUrl(null)
+                    }}
+                    disabled={printing}
+                    className="flex-1 py-4 bg-gray-200 text-gray-700 rounded-xl font-semibold text-lg hover:bg-gray-300 transition-colors active:scale-95 disabled:opacity-50"
+                  >
+                    ← 이전
+                  </button>
+                  <button
+                    onClick={handlePrint}
+                    disabled={!allSlotsFilled || processing || !previewUrl || printing}
+                    className={`flex-1 py-4 rounded-xl font-semibold text-lg transition-all active:scale-95 shadow-lg ${
+                      allSlotsFilled && previewUrl && !processing && !printing
+                        ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700'
+                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    {printing ? '출력 중...' : '🖨️ 프린트하기'}
+                  </button>
+                </div>
               </div>
 
               {/* Hidden file input */}
@@ -619,6 +733,59 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
             </div>
           )}
         </div>
+
+        {/* Action Modal */}
+        {showActionModal && currentEditingSlot !== null && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 space-y-4">
+              <h3 className="text-xl font-bold text-gray-800 text-center">
+                사진 {currentEditingSlot + 1}
+              </h3>
+
+              <div className="space-y-3">
+                <button
+                  onClick={handleEditPhoto}
+                  className="w-full py-4 bg-purple-600 text-white rounded-xl font-semibold hover:bg-purple-700 transition-all flex items-center justify-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  사진 편집 (크롭/확대)
+                </button>
+
+                <button
+                  onClick={handleReplacePhoto}
+                  className="w-full py-4 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  사진 교체
+                </button>
+
+                <button
+                  onClick={handleDeletePhoto}
+                  className="w-full py-4 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 transition-all flex items-center justify-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  사진 삭제
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowActionModal(false)
+                    setCurrentEditingSlot(null)
+                  }}
+                  className="w-full py-4 bg-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-300 transition-all"
+                >
+                  취소
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Crop Editor Modal */}
         {showCropEditor && currentEditingSlot !== null && photoSlots[currentEditingSlot]?.file && (

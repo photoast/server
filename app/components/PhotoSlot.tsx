@@ -7,7 +7,6 @@ interface PhotoSlotProps {
   croppedImageUrl: string | null
   slotNumber: number
   onClick: () => void
-  onRemove: () => void
   className?: string
   size?: 'small' | 'medium' | 'large'
 }
@@ -17,7 +16,6 @@ export default function PhotoSlot({
   croppedImageUrl,
   slotNumber,
   onClick,
-  onRemove,
   className = '',
   size = 'medium'
 }: PhotoSlotProps) {
@@ -27,16 +25,10 @@ export default function PhotoSlot({
     large: 'text-5xl'
   }
 
-  const buttonSizeClasses = {
-    small: 'w-6 h-6 text-xs top-1 right-1',
-    medium: 'w-8 h-8 text-sm top-2 right-2',
-    large: 'w-10 h-10 text-base top-3 right-3'
-  }
-
   return (
     <button
       onClick={onClick}
-      className={`relative bg-gradient-to-br from-purple-100 to-pink-100 hover:from-purple-200 hover:to-pink-200 transition-colors rounded-lg overflow-hidden group ${className}`}
+      className={`relative bg-gradient-to-br from-purple-100 to-pink-100 hover:from-purple-200 hover:to-pink-200 transition-all overflow-hidden group ${className} ${file ? 'hover:ring-4 hover:ring-purple-400' : ''}`}
     >
       {file ? (
         <div
@@ -47,18 +39,17 @@ export default function PhotoSlot({
             src={croppedImageUrl || URL.createObjectURL(file)}
             alt={`Photo ${slotNumber}`}
             fill
-            className={croppedImageUrl ? "object-contain" : "object-cover"}
+            className="object-cover"
             unoptimized
           />
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              onRemove()
-            }}
-            className={`absolute bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 z-10 shadow-md ${buttonSizeClasses[size]}`}
-          >
-            ✕
-          </button>
+          {/* Hover overlay */}
+          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all flex items-center justify-center">
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white rounded-full p-2 shadow-lg">
+              <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+            </div>
+          </div>
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center h-full">
