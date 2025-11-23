@@ -144,42 +144,59 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       croppedImageUrl: result.croppedImageUrls[0]
     })
 
-    const newSlots = [...photoSlots]
-    newSlots[currentEditingSlot].cropArea = result.cropAreas[0]
-    newSlots[currentEditingSlot].croppedImageUrl = result.croppedImageUrls[0]
-    setPhotoSlots(newSlots)
+    // Create new array AND new object to ensure React detects the change
+    setPhotoSlots(prevSlots => {
+      const newSlots = [...prevSlots]
+      newSlots[currentEditingSlot] = {
+        ...newSlots[currentEditingSlot],
+        cropArea: result.cropAreas[0],
+        croppedImageUrl: result.croppedImageUrls[0]
+      }
+      console.log('✅ Updated slots:', newSlots)
+      return newSlots
+    })
+
     setShowCropEditor(false)
     setCurrentEditingSlot(null)
-
-    console.log('✅ Updated slots:', newSlots)
   }
 
   const handleCropCancel = () => {
     if (currentEditingSlot === null) return
 
-    const newSlots = [...photoSlots]
-    // Revoke blob URL if exists
-    if (newSlots[currentEditingSlot].croppedImageUrl) {
-      URL.revokeObjectURL(newSlots[currentEditingSlot].croppedImageUrl!)
-    }
-    newSlots[currentEditingSlot].file = null
-    newSlots[currentEditingSlot].cropArea = null
-    newSlots[currentEditingSlot].croppedImageUrl = null
-    setPhotoSlots(newSlots)
+    setPhotoSlots(prevSlots => {
+      const newSlots = [...prevSlots]
+      // Revoke blob URL if exists
+      if (newSlots[currentEditingSlot].croppedImageUrl) {
+        URL.revokeObjectURL(newSlots[currentEditingSlot].croppedImageUrl!)
+      }
+      newSlots[currentEditingSlot] = {
+        ...newSlots[currentEditingSlot],
+        file: null,
+        cropArea: null,
+        croppedImageUrl: null
+      }
+      return newSlots
+    })
+
     setShowCropEditor(false)
     setCurrentEditingSlot(null)
   }
 
   const handleRemovePhoto = (slotIndex: number) => {
-    const newSlots = [...photoSlots]
-    // Revoke blob URL to free memory
-    if (newSlots[slotIndex].croppedImageUrl) {
-      URL.revokeObjectURL(newSlots[slotIndex].croppedImageUrl!)
-    }
-    newSlots[slotIndex].file = null
-    newSlots[slotIndex].cropArea = null
-    newSlots[slotIndex].croppedImageUrl = null
-    setPhotoSlots(newSlots)
+    setPhotoSlots(prevSlots => {
+      const newSlots = [...prevSlots]
+      // Revoke blob URL to free memory
+      if (newSlots[slotIndex].croppedImageUrl) {
+        URL.revokeObjectURL(newSlots[slotIndex].croppedImageUrl!)
+      }
+      newSlots[slotIndex] = {
+        ...newSlots[slotIndex],
+        file: null,
+        cropArea: null,
+        croppedImageUrl: null
+      }
+      return newSlots
+    })
     // Clear preview when removing a photo
     setPreviewUrl(null)
   }
@@ -332,6 +349,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
               {photoSlots[0]?.file ? (
                 <div className="relative w-full h-full">
                   <Image
+                    key={slot?.croppedImageUrl || 'original-0'}
                     src={imageUrl!}
                     alt="Photo 1"
                     fill
@@ -374,7 +392,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                   className="flex-1 relative bg-gradient-to-br from-purple-100 to-pink-100 hover:from-purple-200 hover:to-pink-200 transition-colors rounded-lg overflow-hidden group"
                 >
                   {photoSlots[i]?.file ? (
-                    <div className="relative w-full h-full">
+                    <div key={`photo-${i}-${photoSlots[i]?.croppedImageUrl || 'original'}`} className="relative w-full h-full">
                       <Image
                         src={photoSlots[i].croppedImageUrl || URL.createObjectURL(photoSlots[i].file)}
                         alt={`Photo ${i + 1}`}
@@ -410,6 +428,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                 >
                   {photoSlots[i]?.file && (
                     <Image
+                      key={`photo-dup-${i}-${photoSlots[i]?.croppedImageUrl || 'original'}`}
                       src={photoSlots[i].croppedImageUrl || URL.createObjectURL(photoSlots[i].file)}
                       alt={`Photo ${i + 1} duplicate`}
                       fill
@@ -439,12 +458,12 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                 className="relative bg-gradient-to-br from-purple-100 to-pink-100 hover:from-purple-200 hover:to-pink-200 transition-colors rounded-lg overflow-hidden group"
               >
                 {photoSlots[i]?.file ? (
-                  <div className="relative w-full h-full">
+                  <div key={`photo-${i}-${photoSlots[i]?.croppedImageUrl || 'original'}`} className="relative w-full h-full">
                     <Image
-                      src={URL.createObjectURL(photoSlots[i].file)}
+                      src={photoSlots[i].croppedImageUrl || URL.createObjectURL(photoSlots[i].file)}
                       alt={`Photo ${i + 1}`}
                       fill
-                      className="object-cover"
+                      className={photoSlots[i]?.croppedImageUrl ? "object-contain" : "object-cover"}
                       unoptimized
                     />
                     <button
@@ -481,12 +500,12 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                 className="flex-1 relative bg-gradient-to-br from-purple-100 to-pink-100 hover:from-purple-200 hover:to-pink-200 transition-colors rounded-lg overflow-hidden group"
               >
                 {photoSlots[i]?.file ? (
-                  <div className="relative w-full h-full">
+                  <div key={`photo-${i}-${photoSlots[i]?.croppedImageUrl || 'original'}`} className="relative w-full h-full">
                     <Image
-                      src={URL.createObjectURL(photoSlots[i].file)}
+                      src={photoSlots[i].croppedImageUrl || URL.createObjectURL(photoSlots[i].file)}
                       alt={`Photo ${i + 1}`}
                       fill
-                      className="object-cover"
+                      className={photoSlots[i]?.croppedImageUrl ? "object-contain" : "object-cover"}
                       unoptimized
                     />
                     <button
@@ -523,12 +542,12 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                 className="flex-1 relative bg-gradient-to-br from-purple-100 to-pink-100 hover:from-purple-200 hover:to-pink-200 transition-colors rounded-lg overflow-hidden group"
               >
                 {photoSlots[i]?.file ? (
-                  <div className="relative w-full h-full">
+                  <div key={`photo-${i}-${photoSlots[i]?.croppedImageUrl || 'original'}`} className="relative w-full h-full">
                     <Image
-                      src={URL.createObjectURL(photoSlots[i].file)}
+                      src={photoSlots[i].croppedImageUrl || URL.createObjectURL(photoSlots[i].file)}
                       alt={`Photo ${i + 1}`}
                       fill
-                      className="object-cover"
+                      className={photoSlots[i]?.croppedImageUrl ? "object-contain" : "object-cover"}
                       unoptimized
                     />
                     <button
@@ -564,12 +583,12 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
               className="flex-[3] relative bg-gradient-to-br from-purple-100 to-pink-100 hover:from-purple-200 hover:to-pink-200 transition-colors rounded-lg overflow-hidden group"
             >
               {photoSlots[0]?.file ? (
-                <div className="relative w-full h-full">
+                <div key={`photo-0-${photoSlots[0]?.croppedImageUrl || 'original'}`} className="relative w-full h-full">
                   <Image
-                    src={URL.createObjectURL(photoSlots[0].file)}
+                    src={photoSlots[0].croppedImageUrl || URL.createObjectURL(photoSlots[0].file)}
                     alt="Photo 1"
                     fill
-                    className="object-cover"
+                    className={photoSlots[0]?.croppedImageUrl ? "object-contain" : "object-cover"}
                     unoptimized
                   />
                   <button
