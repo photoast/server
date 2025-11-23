@@ -7,6 +7,7 @@ import fs from "fs"
 import path from "path"
 import sharp from "sharp"
 import https from "https"
+import { applyPrinterCorrection } from "./image-correction"
 
 // @ts-ignore (ipp에 타입 없음)
 import ipp from "ipp"
@@ -15,8 +16,6 @@ import ipp from "ipp"
 // 환경설정 (필요하면 값 고정도 가능)
 // =============================================
 const SHRINK_PERCENT = Number(process.env.SHRINK_PERCENT || "95.25")
-const SHRINK_SCALE = SHRINK_PERCENT / 100
-
 const VERTICAL_OFFSET_PX = Number(process.env.VERTICAL_OFFSET_PX || "-5")
 
 const CANVAS_WIDTH = 1200
@@ -63,42 +62,21 @@ async function buildCorrected4x6Image(imagePath: string): Promise<Buffer> {
 
   console.log("=== 이미지 처리 시작 ===")
   console.log(`- 원본: ${imagePath}`)
-  console.log(`- SHRINK_PERCENT: ${SHRINK_PERCENT}%`)
-  console.log(`- VERTICAL_OFFSET_PX: ${VERTICAL_OFFSET_PX}px`)
 
-  // 1) 원본 → shrink 적용 크기 계산
-  const targetW = Math.round(CANVAS_WIDTH * SHRINK_SCALE)
-  const targetH = Math.round(CANVAS_HEIGHT * SHRINK_SCALE)
-
-  console.log(`- 축소 크기: ${targetW}×${targetH}`)
-
-  const resized = await sharp(imagePath)
-    .resize(targetW, targetH, { fit: "cover", background: "#ffffff" })
+  // Resize to canvas size first
+  const resizedBuffer = await sharp(imagePath)
+    .resize(CANVAS_WIDTH, CANVAS_HEIGHT, { fit: "cover" })
     .toBuffer()
 
-  // 2) 4×6 캔버스에 중앙정렬 + 세로 오프셋 적용하여 합성
-  const left = Math.round((CANVAS_WIDTH - targetW) / 2)
-  const top = Math.round((CANVAS_HEIGHT - targetH) / 2 + VERTICAL_OFFSET_PX)
-
-  console.log(`- 합성 위치: left=${left}, top=${top}`)
-
-  const finalJpeg = await sharp({
-    create: {
-      width: CANVAS_WIDTH,
-      height: CANVAS_HEIGHT,
-      channels: 3,
-      background: "#ffffff",
-    },
+  // Apply printer correction using common function
+  const correctedBuffer = await applyPrinterCorrection(resizedBuffer, {
+    shrinkPercent: SHRINK_PERCENT,
+    verticalOffsetPx: VERTICAL_OFFSET_PX,
+    canvasWidth: CANVAS_WIDTH,
+    canvasHeight: CANVAS_HEIGHT,
   })
-    .composite([{ input: resized, left, top }])
-    .jpeg({ quality: 95 })
-    .toBuffer()
 
-  console.log(
-    `- 최종 JPEG 크기: ${(finalJpeg.length / 1024).toFixed(1)} KB`
-  )
-
-  return finalJpeg
+  return correctedBuffer
 }
 
 // =============================================

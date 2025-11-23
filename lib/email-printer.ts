@@ -1,9 +1,15 @@
 import nodemailer from 'nodemailer'
 import path from 'path'
 import fs from 'fs'
+import sharp from 'sharp'
+import { applyPrinterCorrection } from './image-correction'
 
 // Epson Email Print address
 const EPSON_PRINT_EMAIL = 'eyx3988j7dyi07@print.epsonconnect.com'
+
+// Target canvas size for printer correction (same as pm.ts)
+const CANVAS_WIDTH = 1200
+const CANVAS_HEIGHT = 1800
 
 /**
  * Send image to Epson Email Print service
@@ -38,6 +44,19 @@ export async function printViaEmail(
     console.log(`SMTP Server: ${smtpHost}:${smtpPort}`)
     console.log(`From: ${smtpFrom}`)
 
+    // Step 1: Resize image to printer canvas size (1200×1800)
+    console.log(`\nStep 1: Resizing to ${CANVAS_WIDTH}×${CANVAS_HEIGHT}`)
+    const resizedBuffer = await sharp(imagePath)
+      .resize(CANVAS_WIDTH, CANVAS_HEIGHT, { fit: 'cover' })
+      .toBuffer()
+
+    // Step 2: Apply printer correction (shrink + vertical offset)
+    console.log('Step 2: Applying printer correction')
+    const correctedBuffer = await applyPrinterCorrection(resizedBuffer, {
+      canvasWidth: CANVAS_WIDTH,
+      canvasHeight: CANVAS_HEIGHT,
+    })
+
     // Create nodemailer transporter
     const transporter = nodemailer.createTransport({
       host: smtpHost,
@@ -53,8 +72,8 @@ export async function printViaEmail(
     await transporter.verify()
     console.log('SMTP connection verified')
 
-    // Send email with image attachment
-    const filename = path.basename(imagePath)
+    // Send email with corrected image attachment
+    const filename = `corrected-${path.basename(imagePath)}`
     const info = await transporter.sendMail({
       from: smtpFrom,
       to: EPSON_PRINT_EMAIL,
@@ -63,7 +82,7 @@ export async function printViaEmail(
       attachments: [
         {
           filename: filename,
-          path: imagePath,
+          content: correctedBuffer,
         },
       ],
     })
