@@ -15,7 +15,7 @@ interface Event {
 }
 
 type FrameType = 'single' | 'four-cut' | 'two-by-two' | 'vertical-two' | 'horizontal-two' | 'one-plus-two'
-type Step = 'select-layout' | 'select-color' | 'fill-photos' | 'preview' | 'success'
+type Step = 'select-layout' | 'select-color' | 'fill-photos' | 'success'
 
 interface LayoutOption {
   type: FrameType
@@ -159,9 +159,18 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     newSlots[slotIndex].file = null
     newSlots[slotIndex].cropArea = null
     setPhotoSlots(newSlots)
+    // Clear preview when removing a photo
+    setPreviewUrl(null)
   }
 
   const allSlotsFilled = photoSlots.every(slot => slot.file !== null)
+
+  // Auto-process image when all slots are filled or settings change
+  useEffect(() => {
+    if (allSlotsFilled && photoSlots.length > 0 && !processing && !previewUrl && step === 'fill-photos') {
+      handleProcess()
+    }
+  }, [allSlotsFilled, photoSlots.length, showLogo, backgroundColor, step])
 
   const handleProcess = async () => {
     setProcessing(true)
@@ -211,7 +220,6 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
       const data = await res.json()
       setPreviewUrl(data.url)
-      setStep('preview')
     } catch (err: any) {
       setError(err.message)
     } finally {
@@ -803,7 +811,10 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                       <input
                         type="checkbox"
                         checked={showLogo}
-                        onChange={(e) => setShowLogo(e.target.checked)}
+                        onChange={(e) => {
+                          setShowLogo(e.target.checked)
+                          setPreviewUrl(null) // Clear preview to reprocess
+                        }}
                         className="sr-only"
                       />
                       <div className={`w-14 h-8 rounded-full transition-colors ${showLogo ? 'bg-purple-600' : 'bg-gray-300'}`}>
@@ -817,9 +828,30 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                 </div>
               )}
 
-              {/* Layout Preview */}
+              {/* Preview or Layout Selection */}
               <div className="bg-white rounded-2xl p-6 shadow-lg">
-                {getLayoutPreview()}
+                {previewUrl && allSlotsFilled ? (
+                  <div className="space-y-4">
+                    <div className="relative w-full aspect-[2/3] max-w-sm mx-auto overflow-hidden rounded-xl shadow-2xl">
+                      <Image
+                        src={previewUrl}
+                        alt="Preview"
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                    <p className="text-center text-sm text-gray-600">
+                      출력 크기: 4×6 inch (102×152mm)
+                      {frameType === 'four-cut' && (
+                        <span className="block text-purple-600 mt-1">
+                          ✂️ 중앙을 세로로 자르면 2개의 동일한 스트립
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                ) : (
+                  getLayoutPreview()
+                )}
               </div>
 
               {/* Progress */}
@@ -829,7 +861,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                     {photoSlots.filter(s => s.file).length} / {photoSlots.length} 완료
                   </span>
                   <span className="text-sm text-gray-600">
-                    {allSlotsFilled ? '✓ 모든 사진 준비 완료' : '사진을 추가해주세요'}
+                    {allSlotsFilled ? (processing ? '⏳ 이미지 처리 중...' : '✓ 출력 준비 완료') : '사진을 추가해주세요'}
                   </span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
@@ -849,21 +881,25 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
               {/* Action Buttons */}
               <div className="flex gap-3">
                 <button
-                  onClick={() => setStep(frameType === 'single' ? 'select-layout' : 'select-color')}
-                  className="flex-1 py-4 bg-gray-200 text-gray-700 rounded-xl font-semibold text-lg hover:bg-gray-300 transition-colors active:scale-95"
+                  onClick={() => {
+                    setStep(frameType === 'single' ? 'select-layout' : 'select-color')
+                    setPreviewUrl(null)
+                  }}
+                  disabled={printing}
+                  className="flex-1 py-4 bg-gray-200 text-gray-700 rounded-xl font-semibold text-lg hover:bg-gray-300 transition-colors active:scale-95 disabled:opacity-50"
                 >
                   이전
                 </button>
                 <button
-                  onClick={handleProcess}
-                  disabled={!allSlotsFilled || processing}
+                  onClick={handlePrint}
+                  disabled={!allSlotsFilled || processing || !previewUrl || printing}
                   className={`flex-1 py-4 rounded-xl font-semibold text-lg transition-all active:scale-95 shadow-lg ${
-                    allSlotsFilled && !processing
-                      ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700'
+                    allSlotsFilled && previewUrl && !processing && !printing
+                      ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700'
                       : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   }`}
                 >
-                  {processing ? '처리 중...' : '프리뷰 보기'}
+                  {printing ? '출력 중...' : '프린트하기'}
                 </button>
               </div>
 
@@ -878,59 +914,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
             </div>
           )}
 
-          {/* Step 4: Preview */}
-          {step === 'preview' && previewUrl && (
-            <div className="space-y-6">
-              <div className="text-center">
-                <h2 className="text-xl font-bold text-gray-800 mb-2">프리뷰</h2>
-                <p className="text-sm text-gray-600">출력 전 최종 확인</p>
-              </div>
-
-              <div className="bg-white rounded-2xl p-6 shadow-lg">
-                <div className="relative w-full aspect-[2/3] max-w-sm mx-auto overflow-hidden rounded-xl shadow-2xl">
-                  <Image
-                    src={previewUrl}
-                    alt="Preview"
-                    fill
-                    className="object-cover"
-                  />
-                </div>
-                <p className="text-center text-sm text-gray-600 mt-4">
-                  출력 크기: 4×6 inch (102×152mm)
-                  {frameType === 'four-cut' && (
-                    <span className="block text-purple-600 mt-1">
-                      ✂️ 중앙을 세로로 자르면 2개의 동일한 스트립
-                    </span>
-                  )}
-                </p>
-              </div>
-
-              {error && (
-                <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-4">
-                  <p className="text-red-600 text-center">{error}</p>
-                </div>
-              )}
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setStep('fill-photos')}
-                  disabled={printing}
-                  className="flex-1 py-4 bg-gray-200 text-gray-700 rounded-xl font-semibold text-lg hover:bg-gray-300 transition-colors active:scale-95 disabled:opacity-50"
-                >
-                  다시 선택
-                </button>
-                <button
-                  onClick={handlePrint}
-                  disabled={printing}
-                  className="flex-1 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-semibold text-lg hover:from-green-700 hover:to-emerald-700 transition-colors active:scale-95 shadow-lg disabled:opacity-50"
-                >
-                  {printing ? '출력 중...' : '프린트하기'}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Step 5: Success */}
+          {/* Step 4: Success */}
           {step === 'success' && (
             <div className="space-y-6">
               <div className="bg-white rounded-2xl p-8 shadow-lg text-center">
