@@ -167,14 +167,17 @@ photoast/
 ### Images & Printing
 - `POST /api/upload` - Upload file (logo or photo)
 - `POST /api/process-image` - Process photo (resize + logo)
-- `POST /api/print` - Send print job to IPP printer
+- `POST /api/print` - Send print job to Epson Email Print
+- `GET /api/serve-image/[filename]` - Serve uploaded images (for Vercel /tmp access)
 
 ## Image Specifications
 
-- **Output Size**: 5x7 inch (1500x2100 pixels at 300 DPI)
+- **Output Size**: 4x6 inch (1200x1800 pixels at 300 DPI)
+- **Print Size**: 4x6 inch (102x152mm)
 - **Format**: JPEG
 - **Quality**: 95%
-- **Logo**: Max 300px width, positioned at bottom-right with 50px padding
+- **Logo**: Customizable size and position
+- **Printer Correction**: 95.25% shrink + -5px vertical offset (compensates for borderless printing)
 
 ## Notes
 
@@ -197,7 +200,8 @@ This app is ready to deploy on Vercel with the following considerations:
    - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`
 
 2. **File Storage**: The app automatically detects Vercel environment and uses `/tmp` directory for file uploads. This is temporary storage that gets cleared on function restarts.
-   - Uploaded logos and processed images are stored temporarily
+   - Uploaded logos and processed images are stored temporarily in `/tmp/uploads`
+   - Images are served via `/api/serve-image/[filename]` route (since `/tmp` is not publicly accessible)
    - For persistent storage, consider upgrading to Vercel Blob Storage or external storage service
 
 3. **Deploy**:
