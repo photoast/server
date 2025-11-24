@@ -2,15 +2,14 @@ import sharp from 'sharp'
 import path from 'path'
 import fs from 'fs/promises'
 import { LogoSettings, FrameType } from './types'
+import { CANVAS_WIDTH, CANVAS_HEIGHT, DEFAULT_PHOTO_RATIO, LAYOUT_CONFIG, FOUR_CUT_CONFIG } from './layoutConstants'
 
 // Standard print sizes at 300 DPI (4x6 inch)
-const TARGET_WIDTH = 1000    // 4 inch * 300 DPI
-const TARGET_HEIGHT = 1500   // 6 inch * 300 DPI
+const TARGET_WIDTH = CANVAS_WIDTH    // 4 inch * 300 DPI
+const TARGET_HEIGHT = CANVAS_HEIGHT   // 6 inch * 300 DPI
 
 // All layouts use standard 4x6 inch paper
 // Life Four-Cut will fit 4 photos vertically within this size
-
-const DEFAULT_PHOTO_RATIO = 85 // Default photo area is 85%
 
 export interface CropArea {
   x: number      // pixels from left
@@ -279,14 +278,12 @@ async function processFourCutImage(
   // - Total size: 1000×1500px (4x6 inch @ 300 DPI)
   // - Layout: 2 identical vertical strips side by side (for cutting in half)
   // - Each strip: 4 photos vertically
-  // - Gap between photos: 10px
-  // - Gap between strips: 10px (center)
-  // - Outer margins: 20px
+  // - Gap between photos: configurable
+  // - Gap between strips: configurable
+  // - Outer margins: configurable
   // - Background: Customizable (default black)
 
-  const MARGIN_OUTER = 20       // Outer margin (left, right, top, bottom)
-  const GAP_CENTER = 10         // Gap between two strips
-  const GAP_BETWEEN_PHOTOS = 10 // Gap between photos within a strip
+  const { MARGIN_OUTER, GAP_CENTER, GAP_BETWEEN_PHOTOS } = FOUR_CUT_CONFIG
 
   // Calculate strip dimensions
   const stripWidth = Math.round((TARGET_WIDTH - (MARGIN_OUTER * 2) - GAP_CENTER) / 2)  // ~485px each strip
@@ -555,25 +552,30 @@ async function processTwoByTwoImage(
   // Two-by-two layout specifications (2x2 grid)
   // - Total size: 1000×1500px (4x6 inch @ 300 DPI)
   // - Photo count: 4 (2 rows × 2 columns)
-  // - Gap between photos: 20px
-  // - Left/Right margin: 40px
-  // - Top/Bottom margin: 60px
+  // - Gap between photos: configurable
+  // - Left/Right margin: configurable
+  // - Top/Bottom margin: configurable
   // - Background: Customizable (default black)
 
-  const MARGIN_HORIZONTAL = 40  // Left/Right margin
-  const MARGIN_VERTICAL = 60    // Top/Bottom margin
-  const GAP = 20                // Gap between photos
+  const { MARGIN_HORIZONTAL, MARGIN_VERTICAL, GAP } = LAYOUT_CONFIG
 
-  // Calculate available space
+  // Calculate photo area (same as single photo logic)
+  const ratio = logoPath ? Math.max(0, Math.min(100, DEFAULT_PHOTO_RATIO)) : 100
+  const photoAreaHeight = Math.round(TARGET_HEIGHT * (ratio / 100))
+  const logoAreaHeight = TARGET_HEIGHT - photoAreaHeight
+
+  console.log(`Two-by-Two layout: Photo area ${ratio}% (${photoAreaHeight}px), Logo area ${100-ratio}% (${logoAreaHeight}px)`)
+
+  // Calculate available space within photo area
   const availableWidth = TARGET_WIDTH - (MARGIN_HORIZONTAL * 2)
-  const availableHeight = TARGET_HEIGHT - (MARGIN_VERTICAL * 2)
+  const availableHeight = photoAreaHeight - (MARGIN_VERTICAL * 2)
 
   // Calculate photo dimensions (2x2 grid)
   const photoWidth = Math.round((availableWidth - GAP) / 2)  // 450px
   const photoHeight = Math.round((availableHeight - GAP) / 2) // 680px
 
-  console.log(`Two-by-Two layout: 4 photos @ ${photoWidth}x${photoHeight}px each (2x2 grid)`)
-  console.log(`Canvas: ${TARGET_WIDTH}x${TARGET_HEIGHT}px, White background`)
+  console.log(`Two-by-Two: 4 photos @ ${photoWidth}x${photoHeight}px each (2x2 grid)`)
+  console.log(`Canvas: ${TARGET_WIDTH}x${TARGET_HEIGHT}px`)
   console.log(`Margins: H=${MARGIN_HORIZONTAL}px, V=${MARGIN_VERTICAL}px, Gap=${GAP}px`)
 
   // Process each of the 4 photos
@@ -652,13 +654,14 @@ async function processTwoByTwoImage(
     console.log(`Photo ${i + 1} positioned at (${left}, ${top})`)
   }
 
-  // Add logo overlay at bottom center
-  if (logoPath && logoSettings) {
-    const logoData = await addLogoOverlay(logoPath, logoSettings, TARGET_WIDTH, TARGET_HEIGHT)
+  // Add logo in dedicated logo area (below photo area)
+  if (logoPath && logoSettings && logoAreaHeight > 0) {
+    const logoData = await addLogoOverlay(logoPath, logoSettings, TARGET_WIDTH, logoAreaHeight)
 
     if (logoData) {
+      // Center logo in logo area
       const logoLeft = Math.round((TARGET_WIDTH - logoData.width) / 2)
-      const logoTop = TARGET_HEIGHT - MARGIN_VERTICAL - logoData.height - 10
+      const logoTop = photoAreaHeight + Math.round((logoAreaHeight - logoData.height) / 2)
 
       composites.push({
         input: logoData.buffer,
@@ -666,7 +669,7 @@ async function processTwoByTwoImage(
         left: logoLeft,
       })
 
-      console.log(`Logo added: ${logoData.width}x${logoData.height}px, size setting: ${logoSettings.size}%`)
+      console.log(`Logo added in dedicated area: ${logoData.width}x${logoData.height}px at (${logoLeft}, ${logoTop})`)
     }
   }
 
@@ -693,24 +696,29 @@ async function processVerticalTwoImage(
   // Vertical-two layout specifications (1×2 vertical stack)
   // - Total size: 1000×1500px (4x6 inch @ 300 DPI)
   // - Photo count: 2 (stacked vertically)
-  // - Gap between photos: 20px
-  // - Horizontal margin: 40px
-  // - Vertical margin: 60px
+  // - Gap between photos: configurable
+  // - Horizontal margin: configurable
+  // - Vertical margin: configurable
   // - Background: Customizable (default black)
 
-  const MARGIN_HORIZONTAL = 40  // Left/Right margin
-  const MARGIN_VERTICAL = 60    // Top/Bottom margin
-  const GAP = 20                // Gap between photos
+  const { MARGIN_HORIZONTAL, MARGIN_VERTICAL, GAP } = LAYOUT_CONFIG
 
-  // Calculate available space
+  // Calculate photo area (same as single photo logic)
+  const ratio = logoPath ? Math.max(0, Math.min(100, DEFAULT_PHOTO_RATIO)) : 100
+  const photoAreaHeight = Math.round(TARGET_HEIGHT * (ratio / 100))
+  const logoAreaHeight = TARGET_HEIGHT - photoAreaHeight
+
+  console.log(`Vertical-Two layout: Photo area ${ratio}% (${photoAreaHeight}px), Logo area ${100-ratio}% (${logoAreaHeight}px)`)
+
+  // Calculate available space within photo area
   const availableWidth = TARGET_WIDTH - (MARGIN_HORIZONTAL * 2)   // 920px
-  const availableHeight = TARGET_HEIGHT - (MARGIN_VERTICAL * 2)   // 1380px
+  const availableHeight = photoAreaHeight - (MARGIN_VERTICAL * 2)
 
   // Calculate photo dimensions (2 photos stacked vertically)
   const photoWidth = availableWidth                              // 920px
   const photoHeight = Math.round((availableHeight - GAP) / 2)   // 680px each
 
-  console.log(`Vertical-Two layout: 2 photos @ ${photoWidth}x${photoHeight}px each (vertical stack)`)
+  console.log(`Vertical-Two: 2 photos @ ${photoWidth}x${photoHeight}px each (vertical stack)`)
   console.log(`Canvas: ${TARGET_WIDTH}x${TARGET_HEIGHT}px`)
   console.log(`Margins: H=${MARGIN_HORIZONTAL}px, V=${MARGIN_VERTICAL}px, Gap=${GAP}px`)
 
@@ -787,49 +795,22 @@ async function processVerticalTwoImage(
     console.log(`Photo ${i + 1} positioned at (${left}, ${top})`)
   }
 
-  // Add logo overlay at bottom center
-  if (logoPath) {
-    try {
-      let logoFullPath: string
-      if (logoPath.startsWith('/api/serve-image/')) {
-        const filename = logoPath.replace('/api/serve-image/', '')
-        logoFullPath = path.join('/tmp/uploads', filename)
-      } else if (logoPath.startsWith('/uploads/')) {
-        logoFullPath = path.join(process.cwd(), 'public', logoPath)
-      } else if (logoPath.startsWith('/tmp')) {
-        logoFullPath = logoPath
-      } else {
-        logoFullPath = path.join(process.cwd(), 'public', logoPath)
-      }
+  // Add logo in dedicated logo area (below photo area)
+  if (logoPath && logoSettings && logoAreaHeight > 0) {
+    const logoData = await addLogoOverlay(logoPath, logoSettings, TARGET_WIDTH, logoAreaHeight)
 
-      const logoExists = await fs.access(logoFullPath).then(() => true).catch(() => false)
+    if (logoData) {
+      // Center logo in logo area
+      const logoLeft = Math.round((TARGET_WIDTH - logoData.width) / 2)
+      const logoTop = photoAreaHeight + Math.round((logoAreaHeight - logoData.height) / 2)
 
-      if (logoExists) {
-        const logoHeight = Math.round(TARGET_HEIGHT * 0.06)
+      composites.push({
+        input: logoData.buffer,
+        top: logoTop,
+        left: logoLeft,
+      })
 
-        const logoBuffer = await sharp(logoFullPath)
-          .resize(null, logoHeight, {
-            fit: 'inside',
-            withoutEnlargement: false,
-          })
-          .toBuffer()
-
-        const logoMetadata = await sharp(logoBuffer).metadata()
-        const logoWidth = logoMetadata.width || 0
-
-        const logoLeft = Math.round((TARGET_WIDTH - logoWidth) / 2)
-        const logoTop = TARGET_HEIGHT - MARGIN_VERTICAL - logoHeight - 10
-
-        composites.push({
-          input: logoBuffer,
-          top: logoTop,
-          left: logoLeft,
-        })
-
-        console.log(`Logo added at bottom center (${logoLeft}, ${logoTop})`)
-      }
-    } catch (error) {
-      console.error('Error adding logo:', error)
+      console.log(`Logo added in dedicated area: ${logoData.width}x${logoData.height}px at (${logoLeft}, ${logoTop})`)
     }
   }
 
@@ -856,24 +837,29 @@ async function processHorizontalTwoImage(
   // Horizontal-two layout specifications (2×1 horizontal)
   // - Total size: 1000×1500px (4x6 inch @ 300 DPI)
   // - Photo count: 2 (side by side)
-  // - Gap between photos: 20px
-  // - Horizontal margin: 40px
-  // - Vertical margin: 60px
+  // - Gap between photos: configurable
+  // - Horizontal margin: configurable
+  // - Vertical margin: configurable
   // - Background: Customizable (default black)
 
-  const MARGIN_HORIZONTAL = 40  // Left/Right margin
-  const MARGIN_VERTICAL = 60    // Top/Bottom margin
-  const GAP = 20                // Gap between photos
+  const { MARGIN_HORIZONTAL, MARGIN_VERTICAL, GAP } = LAYOUT_CONFIG
 
-  // Calculate available space
+  // Calculate photo area (same as single photo logic)
+  const ratio = logoPath ? Math.max(0, Math.min(100, DEFAULT_PHOTO_RATIO)) : 100
+  const photoAreaHeight = Math.round(TARGET_HEIGHT * (ratio / 100))
+  const logoAreaHeight = TARGET_HEIGHT - photoAreaHeight
+
+  console.log(`Horizontal-Two layout: Photo area ${ratio}% (${photoAreaHeight}px), Logo area ${100-ratio}% (${logoAreaHeight}px)`)
+
+  // Calculate available space within photo area
   const availableWidth = TARGET_WIDTH - (MARGIN_HORIZONTAL * 2)   // 920px
-  const availableHeight = TARGET_HEIGHT - (MARGIN_VERTICAL * 2)   // 1380px
+  const availableHeight = photoAreaHeight - (MARGIN_VERTICAL * 2)
 
   // Calculate photo dimensions (2 photos side by side)
   const photoWidth = Math.round((availableWidth - GAP) / 2)      // 450px each
-  const photoHeight = availableHeight                             // 1380px
+  const photoHeight = availableHeight
 
-  console.log(`Horizontal-Two layout: 2 photos @ ${photoWidth}x${photoHeight}px each (side by side)`)
+  console.log(`Horizontal-Two: 2 photos @ ${photoWidth}x${photoHeight}px each (side by side)`)
   console.log(`Canvas: ${TARGET_WIDTH}x${TARGET_HEIGHT}px`)
   console.log(`Margins: H=${MARGIN_HORIZONTAL}px, V=${MARGIN_VERTICAL}px, Gap=${GAP}px`)
 
@@ -948,49 +934,22 @@ async function processHorizontalTwoImage(
     console.log(`Photo ${i + 1} positioned at (${left}, ${top})`)
   }
 
-  // Add logo overlay at bottom center
-  if (logoPath) {
-    try {
-      let logoFullPath: string
-      if (logoPath.startsWith('/api/serve-image/')) {
-        const filename = logoPath.replace('/api/serve-image/', '')
-        logoFullPath = path.join('/tmp/uploads', filename)
-      } else if (logoPath.startsWith('/uploads/')) {
-        logoFullPath = path.join(process.cwd(), 'public', logoPath)
-      } else if (logoPath.startsWith('/tmp')) {
-        logoFullPath = logoPath
-      } else {
-        logoFullPath = path.join(process.cwd(), 'public', logoPath)
-      }
+  // Add logo in dedicated logo area (below photo area)
+  if (logoPath && logoSettings && logoAreaHeight > 0) {
+    const logoData = await addLogoOverlay(logoPath, logoSettings, TARGET_WIDTH, logoAreaHeight)
 
-      const logoExists = await fs.access(logoFullPath).then(() => true).catch(() => false)
+    if (logoData) {
+      // Center logo in logo area
+      const logoLeft = Math.round((TARGET_WIDTH - logoData.width) / 2)
+      const logoTop = photoAreaHeight + Math.round((logoAreaHeight - logoData.height) / 2)
 
-      if (logoExists) {
-        const logoHeight = Math.round(TARGET_HEIGHT * 0.06)
+      composites.push({
+        input: logoData.buffer,
+        top: logoTop,
+        left: logoLeft,
+      })
 
-        const logoBuffer = await sharp(logoFullPath)
-          .resize(null, logoHeight, {
-            fit: 'inside',
-            withoutEnlargement: false,
-          })
-          .toBuffer()
-
-        const logoMetadata = await sharp(logoBuffer).metadata()
-        const logoWidth = logoMetadata.width || 0
-
-        const logoLeft = Math.round((TARGET_WIDTH - logoWidth) / 2)
-        const logoTop = TARGET_HEIGHT - MARGIN_VERTICAL - logoHeight - 10
-
-        composites.push({
-          input: logoBuffer,
-          top: logoTop,
-          left: logoLeft,
-        })
-
-        console.log(`Logo added at bottom center (${logoLeft}, ${logoTop})`)
-      }
-    } catch (error) {
-      console.error('Error adding logo:', error)
+      console.log(`Logo added in dedicated area: ${logoData.width}x${logoData.height}px at (${logoLeft}, ${logoTop})`)
     }
   }
 
@@ -1017,18 +976,23 @@ async function processOnePlusTwoImage(
   // One-plus-two layout specifications (1 large on top, 2 small below)
   // - Total size: 1000×1500px (4x6 inch @ 300 DPI)
   // - Photo count: 3 (1 large top, 2 small bottom)
-  // - Gap between photos: 20px
-  // - Horizontal margin: 40px
-  // - Vertical margin: 60px
+  // - Gap between photos: configurable
+  // - Horizontal margin: configurable
+  // - Vertical margin: configurable
   // - Background: Customizable (default black)
 
-  const MARGIN_HORIZONTAL = 40  // Left/Right margin
-  const MARGIN_VERTICAL = 60    // Top/Bottom margin
-  const GAP = 20                // Gap between photos
+  const { MARGIN_HORIZONTAL, MARGIN_VERTICAL, GAP } = LAYOUT_CONFIG
 
-  // Calculate available space
+  // Calculate photo area (same as single photo logic)
+  const ratio = logoPath ? Math.max(0, Math.min(100, DEFAULT_PHOTO_RATIO)) : 100
+  const photoAreaHeight = Math.round(TARGET_HEIGHT * (ratio / 100))
+  const logoAreaHeight = TARGET_HEIGHT - photoAreaHeight
+
+  console.log(`One-Plus-Two layout: Photo area ${ratio}% (${photoAreaHeight}px), Logo area ${100-ratio}% (${logoAreaHeight}px)`)
+
+  // Calculate available space within photo area
   const availableWidth = TARGET_WIDTH - (MARGIN_HORIZONTAL * 2)   // 920px
-  const availableHeight = TARGET_HEIGHT - (MARGIN_VERTICAL * 2)   // 1380px
+  const availableHeight = photoAreaHeight - (MARGIN_VERTICAL * 2)
 
   // Calculate photo dimensions
   // Top photo: Full width, half height minus gap
@@ -1166,49 +1130,22 @@ async function processOnePlusTwoImage(
     console.log(`Bottom photo ${i} positioned at (${left}, ${top})`)
   }
 
-  // Add logo overlay at bottom center
-  if (logoPath) {
-    try {
-      let logoFullPath: string
-      if (logoPath.startsWith('/api/serve-image/')) {
-        const filename = logoPath.replace('/api/serve-image/', '')
-        logoFullPath = path.join('/tmp/uploads', filename)
-      } else if (logoPath.startsWith('/uploads/')) {
-        logoFullPath = path.join(process.cwd(), 'public', logoPath)
-      } else if (logoPath.startsWith('/tmp')) {
-        logoFullPath = logoPath
-      } else {
-        logoFullPath = path.join(process.cwd(), 'public', logoPath)
-      }
+  // Add logo in dedicated logo area (below photo area)
+  if (logoPath && logoSettings && logoAreaHeight > 0) {
+    const logoData = await addLogoOverlay(logoPath, logoSettings, TARGET_WIDTH, logoAreaHeight)
 
-      const logoExists = await fs.access(logoFullPath).then(() => true).catch(() => false)
+    if (logoData) {
+      // Center logo in logo area
+      const logoLeft = Math.round((TARGET_WIDTH - logoData.width) / 2)
+      const logoTop = photoAreaHeight + Math.round((logoAreaHeight - logoData.height) / 2)
 
-      if (logoExists) {
-        const logoHeight = Math.round(TARGET_HEIGHT * 0.06)
+      composites.push({
+        input: logoData.buffer,
+        top: logoTop,
+        left: logoLeft,
+      })
 
-        const logoBuffer = await sharp(logoFullPath)
-          .resize(null, logoHeight, {
-            fit: 'inside',
-            withoutEnlargement: false,
-          })
-          .toBuffer()
-
-        const logoMetadata = await sharp(logoBuffer).metadata()
-        const logoWidth = logoMetadata.width || 0
-
-        const logoLeft = Math.round((TARGET_WIDTH - logoWidth) / 2)
-        const logoTop = TARGET_HEIGHT - MARGIN_VERTICAL - logoHeight - 10
-
-        composites.push({
-          input: logoBuffer,
-          top: logoTop,
-          left: logoLeft,
-        })
-
-        console.log(`Logo added at bottom center (${logoLeft}, ${logoTop})`)
-      }
-    } catch (error) {
-      console.error('Error adding logo:', error)
+      console.log(`Logo added in dedicated area: ${logoData.width}x${logoData.height}px at (${logoLeft}, ${logoTop})`)
     }
   }
 

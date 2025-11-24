@@ -2,6 +2,7 @@
 
 import PhotoSlot from './PhotoSlot'
 import Image from 'next/image'
+import { CANVAS_WIDTH, CANVAS_HEIGHT, DEFAULT_PHOTO_RATIO, LAYOUT_CONFIG, FOUR_CUT_CONFIG } from '@/lib/layoutConstants'
 
 interface PhotoSlotData {
   index: number
@@ -49,32 +50,59 @@ export function SinglePhotoPreview({ photoSlots, onSlotClick, logoUrl }: LayoutP
 }
 
 export function FourCutPreview({ photoSlots, onSlotClick, logoUrl }: LayoutPreviewProps) {
+  // Match exact dimensions from lib/image.ts processFourCutImage
+  const { MARGIN_OUTER, GAP_CENTER, GAP_BETWEEN_PHOTOS } = FOUR_CUT_CONFIG
+
+  // Calculate percentages from pixel values
+  const marginVerticalPercent = (MARGIN_OUTER / CANVAS_HEIGHT * 100).toFixed(2)
+  const marginHorizontalPercent = (MARGIN_OUTER / CANVAS_WIDTH * 100).toFixed(2)
+  const gapCenterPercent = (GAP_CENTER / CANVAS_WIDTH * 100).toFixed(2)
+  const gapBetweenPhotosPercent = (GAP_BETWEEN_PHOTOS / CANVAS_HEIGHT * 100).toFixed(2)
+
   return (
     <div className="relative w-full max-w-sm mx-auto" style={{ aspectRatio: '2/3' }}>
-      <div className="absolute inset-0 bg-black overflow-hidden shadow-2xl" style={{ padding: '4% 3.5%' }}>
-        <div className="flex h-full relative" style={{ gap: '7%' }}>
-          {/* Left strip */}
-          <div className="flex-1 flex flex-col" style={{ gap: '1.33%' }}>
-            {[0, 1, 2, 3].map((i) => (
+      <div
+        className="absolute inset-0 bg-black overflow-hidden shadow-2xl relative"
+        style={{
+          padding: `${marginVerticalPercent}% ${marginHorizontalPercent}%`,
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: `0 ${gapCenterPercent}%`
+        }}
+      >
+        {/* Left strip */}
+        <div
+          className="grid"
+          style={{
+            gridTemplateRows: '1fr 1fr 1fr 1fr',
+            gap: `${gapBetweenPhotosPercent}% 0`
+          }}
+        >
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} style={{ aspectRatio: '475/358' }}>
               <PhotoSlot
-                key={i}
                 file={photoSlots[i]?.file}
                 croppedImageUrl={photoSlots[i]?.croppedImageUrl}
                 slotNumber={i + 1}
                 onClick={() => onSlotClick(i)}
-                className="flex-1"
+                className="w-full h-full"
                 size="small"
               />
-            ))}
-          </div>
+            </div>
+          ))}
+        </div>
 
-          {/* Right strip (duplicate preview) */}
-          <div className="flex-1 flex flex-col opacity-50" style={{ gap: '1.33%' }}>
-            {[0, 1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="flex-1 relative bg-gradient-to-br from-purple-100 to-pink-100 overflow-hidden"
-              >
+        {/* Right strip (duplicate preview) */}
+        <div
+          className="grid opacity-50"
+          style={{
+            gridTemplateRows: '1fr 1fr 1fr 1fr',
+            gap: `${gapBetweenPhotosPercent}% 0`
+          }}
+        >
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} style={{ aspectRatio: '475/358' }}>
+              <div className="relative bg-gradient-to-br from-purple-100 to-pink-100 overflow-hidden w-full h-full">
                 {photoSlots[i]?.file && (
                   <img
                     src={photoSlots[i].croppedImageUrl || URL.createObjectURL(photoSlots[i].file)}
@@ -83,37 +111,37 @@ export function FourCutPreview({ photoSlots, onSlotClick, logoUrl }: LayoutPrevi
                   />
                 )}
               </div>
-            ))}
-          </div>
-
-          {/* Logo overlay on both strips */}
-          {logoUrl && (
-            <>
-              <div className="absolute bottom-2 left-0 right-[53%] h-[8%] flex items-center justify-center pointer-events-none">
-                <div className="relative h-full w-[80%]">
-                  <Image
-                    src={logoUrl}
-                    alt="Logo"
-                    fill
-                    className="object-contain"
-                    unoptimized
-                  />
-                </div>
-              </div>
-              <div className="absolute bottom-2 left-[53%] right-0 h-[8%] flex items-center justify-center pointer-events-none opacity-50">
-                <div className="relative h-full w-[80%]">
-                  <Image
-                    src={logoUrl}
-                    alt="Logo"
-                    fill
-                    className="object-contain"
-                    unoptimized
-                  />
-                </div>
-              </div>
-            </>
-          )}
+            </div>
+          ))}
         </div>
+
+        {/* Logo overlay on both strips */}
+        {logoUrl && (
+          <>
+            <div className="absolute bottom-2 left-0 right-[53%] h-[8%] flex items-center justify-center pointer-events-none">
+              <div className="relative h-full w-[80%]">
+                <Image
+                  src={logoUrl}
+                  alt="Logo"
+                  fill
+                  className="object-contain"
+                  unoptimized
+                />
+              </div>
+            </div>
+            <div className="absolute bottom-2 left-[53%] right-0 h-[8%] flex items-center justify-center pointer-events-none opacity-50">
+              <div className="relative h-full w-[80%]">
+                <Image
+                  src={logoUrl}
+                  alt="Logo"
+                  fill
+                  className="object-contain"
+                  unoptimized
+                />
+              </div>
+            </div>
+          </>
+        )}
       </div>
       <div className="text-center mt-3 text-sm text-gray-500">
         ✂️ 중앙을 잘라서 2개의 스트립으로
@@ -123,42 +151,83 @@ export function FourCutPreview({ photoSlots, onSlotClick, logoUrl }: LayoutPrevi
 }
 
 export function TwoByTwoPreview({ photoSlots, onSlotClick, backgroundColor = '#000000', logoUrl }: LayoutPreviewProps) {
-  // Match exact margins from lib/image.ts processTwoByTwoImage
-  // MARGIN_HORIZONTAL = 40px / 1000px = 4%
-  // MARGIN_VERTICAL = 60px / 1500px = 4%
-  // GAP = 20px (both horizontal and vertical)
-  // Horizontal gap: 20px / 1000px = 2%
-  // Vertical gap: 20px / 1500px = 1.33%
+  // Exact pixel coordinates from lib/image.ts processTwoByTwoImage
+  const { MARGIN_HORIZONTAL: MARGIN_H, MARGIN_VERTICAL: MARGIN_V, GAP } = LAYOUT_CONFIG
+
+  const photoAreaHeight = logoUrl ? Math.round(CANVAS_HEIGHT * (DEFAULT_PHOTO_RATIO / 100)) : CANVAS_HEIGHT
+  const logoAreaHeight = CANVAS_HEIGHT - photoAreaHeight
+
+  const availableWidth = CANVAS_WIDTH - (MARGIN_H * 2)  // 920px
+  const availableHeight = photoAreaHeight - (MARGIN_V * 2)
+
+  const photoWidth = Math.round((availableWidth - GAP) / 2)  // 450px
+  const photoHeight = Math.round((availableHeight - GAP) / 2)
+
+  // Calculate positions for 2x2 grid
+  const positions = [
+    { row: 0, col: 0 },
+    { row: 0, col: 1 },
+    { row: 1, col: 0 },
+    { row: 1, col: 1 }
+  ].map(({ row, col }) => ({
+    left: (MARGIN_H + (col * (photoWidth + GAP))) / CANVAS_WIDTH * 100,
+    top: (MARGIN_V + (row * (photoHeight + GAP))) / photoAreaHeight * 100,
+    width: photoWidth / CANVAS_WIDTH * 100,
+    height: photoHeight / photoAreaHeight * 100
+  }))
+
   return (
     <div className="relative w-full max-w-sm mx-auto" style={{ aspectRatio: '2/3' }}>
-      <div
-        className="absolute inset-0 grid grid-cols-2 overflow-hidden shadow-2xl relative"
-        style={{
-          backgroundColor,
-          padding: '4% 4%',
-          gap: '1.33% 2%'  // vertical gap 1.33%, horizontal gap 2%
-        }}
-      >
-        {[0, 1, 2, 3].map((i) => (
-          <PhotoSlot
-            key={i}
-            file={photoSlots[i]?.file}
-            croppedImageUrl={photoSlots[i]?.croppedImageUrl}
-            slotNumber={i + 1}
-            onClick={() => onSlotClick(i)}
-            size="medium"
-          />
-        ))}
-        {/* Logo overlay at bottom center */}
+      <div className="absolute inset-0 overflow-hidden shadow-2xl" style={{ backgroundColor }}>
+        {/* Photo area */}
+        <div
+          className="relative"
+          style={{
+            height: `${(photoAreaHeight / CANVAS_HEIGHT) * 100}%`
+          }}
+        >
+          {[0, 1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="absolute"
+              style={{
+                left: `${positions[i].left}%`,
+                top: `${positions[i].top}%`,
+                width: `${positions[i].width}%`,
+                height: `${positions[i].height}%`
+              }}
+            >
+              <PhotoSlot
+                file={photoSlots[i]?.file}
+                croppedImageUrl={photoSlots[i]?.croppedImageUrl}
+                slotNumber={i + 1}
+                onClick={() => onSlotClick(i)}
+                className="w-full h-full"
+                size="medium"
+              />
+            </div>
+          ))}
+        </div>
+
+        {/* Logo area */}
         {logoUrl && (
-          <div className="absolute bottom-[4%] left-1/2 -translate-x-1/2 h-[6%] w-[40%] pointer-events-none">
-            <Image
-              src={logoUrl}
-              alt="Logo"
-              fill
-              className="object-contain drop-shadow-lg"
-              unoptimized
-            />
+          <div
+            className="flex items-center justify-center pointer-events-none"
+            style={{
+              height: `${(logoAreaHeight / CANVAS_HEIGHT) * 100}%`,
+              backgroundColor
+            }}
+          >
+            <div className="relative w-[80%] max-h-full">
+              <Image
+                src={logoUrl}
+                alt="Logo"
+                width={800}
+                height={200}
+                className="object-contain w-full h-auto"
+                unoptimized
+              />
+            </div>
           </div>
         )}
       </div>
@@ -167,41 +236,77 @@ export function TwoByTwoPreview({ photoSlots, onSlotClick, backgroundColor = '#0
 }
 
 export function VerticalTwoPreview({ photoSlots, onSlotClick, backgroundColor = '#000000', logoUrl }: LayoutPreviewProps) {
-  // Match exact margins from lib/image.ts processVerticalTwoImage
-  // MARGIN_HORIZONTAL = 40px / 1000px = 4%
-  // MARGIN_VERTICAL = 60px / 1500px = 4%
-  // GAP = 20px / 1500px = 1.33%
+  // Exact pixel coordinates from lib/image.ts processVerticalTwoImage
+  const { MARGIN_HORIZONTAL: MARGIN_H, MARGIN_VERTICAL: MARGIN_V, GAP } = LAYOUT_CONFIG
+
+  const photoAreaHeight = logoUrl ? Math.round(CANVAS_HEIGHT * (DEFAULT_PHOTO_RATIO / 100)) : CANVAS_HEIGHT
+  const logoAreaHeight = CANVAS_HEIGHT - photoAreaHeight
+
+  const availableWidth = CANVAS_WIDTH - (MARGIN_H * 2)  // 920px
+  const availableHeight = photoAreaHeight - (MARGIN_V * 2)
+
+  const photoWidth = availableWidth
+  const photoHeight = Math.round((availableHeight - GAP) / 2)
+
+  const positions = [0, 1].map((i) => ({
+    left: MARGIN_H / CANVAS_WIDTH * 100,
+    top: (MARGIN_V + (i * (photoHeight + GAP))) / photoAreaHeight * 100,
+    width: photoWidth / CANVAS_WIDTH * 100,
+    height: photoHeight / photoAreaHeight * 100
+  }))
+
   return (
     <div className="relative w-full max-w-sm mx-auto" style={{ aspectRatio: '2/3' }}>
-      <div
-        className="absolute inset-0 flex flex-col overflow-hidden shadow-2xl relative"
-        style={{
-          backgroundColor,
-          padding: '4% 4%',  // vertical 4%, horizontal 4%
-          gap: '1.33%'
-        }}
-      >
-        {[0, 1].map((i) => (
-          <PhotoSlot
-            key={i}
-            file={photoSlots[i]?.file}
-            croppedImageUrl={photoSlots[i]?.croppedImageUrl}
-            slotNumber={i + 1}
-            onClick={() => onSlotClick(i)}
-            className="flex-1"
-            size="medium"
-          />
-        ))}
-        {/* Logo overlay at bottom center */}
+      <div className="absolute inset-0 overflow-hidden shadow-2xl" style={{ backgroundColor }}>
+        {/* Photo area */}
+        <div
+          className="relative"
+          style={{
+            height: `${(photoAreaHeight / CANVAS_HEIGHT) * 100}%`
+          }}
+        >
+          {[0, 1].map((i) => (
+            <div
+              key={i}
+              className="absolute"
+              style={{
+                left: `${positions[i].left}%`,
+                top: `${positions[i].top}%`,
+                width: `${positions[i].width}%`,
+                height: `${positions[i].height}%`
+              }}
+            >
+              <PhotoSlot
+                file={photoSlots[i]?.file}
+                croppedImageUrl={photoSlots[i]?.croppedImageUrl}
+                slotNumber={i + 1}
+                onClick={() => onSlotClick(i)}
+                className="w-full h-full"
+                size="medium"
+              />
+            </div>
+          ))}
+        </div>
+
+        {/* Logo area */}
         {logoUrl && (
-          <div className="absolute bottom-[4%] left-1/2 -translate-x-1/2 h-[6%] w-[40%] pointer-events-none">
-            <Image
-              src={logoUrl}
-              alt="Logo"
-              fill
-              className="object-contain drop-shadow-lg"
-              unoptimized
-            />
+          <div
+            className="flex items-center justify-center pointer-events-none"
+            style={{
+              height: `${(logoAreaHeight / CANVAS_HEIGHT) * 100}%`,
+              backgroundColor
+            }}
+          >
+            <div className="relative w-[80%] max-h-full">
+              <Image
+                src={logoUrl}
+                alt="Logo"
+                width={800}
+                height={200}
+                className="object-contain w-full h-auto"
+                unoptimized
+              />
+            </div>
           </div>
         )}
       </div>
@@ -210,41 +315,77 @@ export function VerticalTwoPreview({ photoSlots, onSlotClick, backgroundColor = 
 }
 
 export function HorizontalTwoPreview({ photoSlots, onSlotClick, backgroundColor = '#000000', logoUrl }: LayoutPreviewProps) {
-  // Match exact margins from lib/image.ts processHorizontalTwoImage
-  // MARGIN_HORIZONTAL = 40px / 1000px = 4%
-  // MARGIN_VERTICAL = 60px / 1500px = 4%
-  // GAP = 20px / 1000px = 2% (horizontal gap)
+  // Exact pixel coordinates from lib/image.ts processHorizontalTwoImage
+  const { MARGIN_HORIZONTAL: MARGIN_H, MARGIN_VERTICAL: MARGIN_V, GAP } = LAYOUT_CONFIG
+
+  const photoAreaHeight = logoUrl ? Math.round(CANVAS_HEIGHT * (DEFAULT_PHOTO_RATIO / 100)) : CANVAS_HEIGHT
+  const logoAreaHeight = CANVAS_HEIGHT - photoAreaHeight
+
+  const availableWidth = CANVAS_WIDTH - (MARGIN_H * 2)
+  const availableHeight = photoAreaHeight - (MARGIN_V * 2)
+
+  const photoWidth = Math.round((availableWidth - GAP) / 2)  // 450px
+  const photoHeight = availableHeight
+
+  const positions = [0, 1].map((i) => ({
+    left: (MARGIN_H + (i * (photoWidth + GAP))) / CANVAS_WIDTH * 100,
+    top: MARGIN_V / photoAreaHeight * 100,
+    width: photoWidth / CANVAS_WIDTH * 100,
+    height: photoHeight / photoAreaHeight * 100
+  }))
+
   return (
     <div className="relative w-full max-w-sm mx-auto" style={{ aspectRatio: '2/3' }}>
-      <div
-        className="absolute inset-0 flex overflow-hidden shadow-2xl relative"
-        style={{
-          backgroundColor,
-          padding: '4% 4%',
-          gap: '2%'  // 20px / 1000px
-        }}
-      >
-        {[0, 1].map((i) => (
-          <PhotoSlot
-            key={i}
-            file={photoSlots[i]?.file}
-            croppedImageUrl={photoSlots[i]?.croppedImageUrl}
-            slotNumber={i + 1}
-            onClick={() => onSlotClick(i)}
-            className="flex-1"
-            size="medium"
-          />
-        ))}
-        {/* Logo overlay at bottom center */}
+      <div className="absolute inset-0 overflow-hidden shadow-2xl" style={{ backgroundColor }}>
+        {/* Photo area */}
+        <div
+          className="relative"
+          style={{
+            height: `${(photoAreaHeight / CANVAS_HEIGHT) * 100}%`
+          }}
+        >
+          {[0, 1].map((i) => (
+            <div
+              key={i}
+              className="absolute"
+              style={{
+                left: `${positions[i].left}%`,
+                top: `${positions[i].top}%`,
+                width: `${positions[i].width}%`,
+                height: `${positions[i].height}%`
+              }}
+            >
+              <PhotoSlot
+                file={photoSlots[i]?.file}
+                croppedImageUrl={photoSlots[i]?.croppedImageUrl}
+                slotNumber={i + 1}
+                onClick={() => onSlotClick(i)}
+                className="w-full h-full"
+                size="medium"
+              />
+            </div>
+          ))}
+        </div>
+
+        {/* Logo area */}
         {logoUrl && (
-          <div className="absolute bottom-[4%] left-1/2 -translate-x-1/2 h-[6%] w-[40%] pointer-events-none">
-            <Image
-              src={logoUrl}
-              alt="Logo"
-              fill
-              className="object-contain drop-shadow-lg"
-              unoptimized
-            />
+          <div
+            className="flex items-center justify-center pointer-events-none"
+            style={{
+              height: `${(logoAreaHeight / CANVAS_HEIGHT) * 100}%`,
+              backgroundColor
+            }}
+          >
+            <div className="relative w-[80%] max-h-full">
+              <Image
+                src={logoUrl}
+                alt="Logo"
+                width={800}
+                height={200}
+                className="object-contain w-full h-auto"
+                unoptimized
+              />
+            </div>
           </div>
         )}
       </div>
@@ -253,57 +394,107 @@ export function HorizontalTwoPreview({ photoSlots, onSlotClick, backgroundColor 
 }
 
 export function OnePlusTwoPreview({ photoSlots, onSlotClick, backgroundColor = '#000000', logoUrl }: LayoutPreviewProps) {
-  // Match exact margins from lib/image.ts processOnePlusTwoImage
-  // MARGIN_HORIZONTAL = 40px / 1000px = 4%
-  // MARGIN_VERTICAL = 60px / 1500px = 4%
-  // GAP = 20px
-  // Vertical gap: 20px / 1500px = 1.33%
-  // Horizontal gap: 20px / 1000px = 2%
+  // Exact pixel coordinates from lib/image.ts processOnePlusTwoImage
+  const { MARGIN_HORIZONTAL: MARGIN_H, MARGIN_VERTICAL: MARGIN_V, GAP } = LAYOUT_CONFIG
+
+  const photoAreaHeight = logoUrl ? Math.round(CANVAS_HEIGHT * (DEFAULT_PHOTO_RATIO / 100)) : CANVAS_HEIGHT
+  const logoAreaHeight = CANVAS_HEIGHT - photoAreaHeight
+
+  const availableWidth = CANVAS_WIDTH - (MARGIN_H * 2)  // 920px
+  const availableHeight = photoAreaHeight - (MARGIN_V * 2)
+
+  const topPhotoWidth = availableWidth  // 920px
+  const topPhotoHeight = Math.round((availableHeight - GAP) / 2)
+  const bottomPhotoWidth = Math.round((availableWidth - GAP) / 2)  // 450px
+  const bottomPhotoHeight = topPhotoHeight
+
+  const topPosition = {
+    left: MARGIN_H / CANVAS_WIDTH * 100,
+    top: MARGIN_V / photoAreaHeight * 100,
+    width: topPhotoWidth / CANVAS_WIDTH * 100,
+    height: topPhotoHeight / photoAreaHeight * 100
+  }
+
+  const bottomPositions = [0, 1].map((i) => ({
+    left: (MARGIN_H + (i * (bottomPhotoWidth + GAP))) / CANVAS_WIDTH * 100,
+    top: (MARGIN_V + topPhotoHeight + GAP) / photoAreaHeight * 100,
+    width: bottomPhotoWidth / CANVAS_WIDTH * 100,
+    height: bottomPhotoHeight / photoAreaHeight * 100
+  }))
+
   return (
     <div className="relative w-full max-w-sm mx-auto" style={{ aspectRatio: '2/3' }}>
-      <div
-        className="absolute inset-0 flex flex-col overflow-hidden shadow-2xl relative"
-        style={{
-          backgroundColor,
-          padding: '4% 4%',
-          gap: '1.33%'
-        }}
-      >
-        {/* Top: 1 large photo */}
-        <PhotoSlot
-          file={photoSlots[0]?.file}
-          croppedImageUrl={photoSlots[0]?.croppedImageUrl}
-          slotNumber={1}
-          onClick={() => onSlotClick(0)}
-          className="flex-[3]"
-          size="large"
-        />
-
-        {/* Bottom: 2 small photos */}
-        <div className="flex-[2] flex" style={{ gap: '2%' }}>
-          {[1, 2].map((i) => (
+      <div className="absolute inset-0 overflow-hidden shadow-2xl" style={{ backgroundColor }}>
+        {/* Photo area */}
+        <div
+          className="relative"
+          style={{
+            height: `${(photoAreaHeight / CANVAS_HEIGHT) * 100}%`
+          }}
+        >
+          {/* Top photo */}
+          <div
+            className="absolute"
+            style={{
+              left: `${topPosition.left}%`,
+              top: `${topPosition.top}%`,
+              width: `${topPosition.width}%`,
+              height: `${topPosition.height}%`
+            }}
+          >
             <PhotoSlot
-              key={i}
-              file={photoSlots[i]?.file}
-              croppedImageUrl={photoSlots[i]?.croppedImageUrl}
-              slotNumber={i + 1}
-              onClick={() => onSlotClick(i)}
-              className="flex-1"
-              size="medium"
+              file={photoSlots[0]?.file}
+              croppedImageUrl={photoSlots[0]?.croppedImageUrl}
+              slotNumber={1}
+              onClick={() => onSlotClick(0)}
+              className="w-full h-full"
+              size="large"
             />
+          </div>
+
+          {/* Bottom 2 photos */}
+          {[1, 2].map((i) => (
+            <div
+              key={i}
+              className="absolute"
+              style={{
+                left: `${bottomPositions[i - 1].left}%`,
+                top: `${bottomPositions[i - 1].top}%`,
+                width: `${bottomPositions[i - 1].width}%`,
+                height: `${bottomPositions[i - 1].height}%`
+              }}
+            >
+              <PhotoSlot
+                file={photoSlots[i]?.file}
+                croppedImageUrl={photoSlots[i]?.croppedImageUrl}
+                slotNumber={i + 1}
+                onClick={() => onSlotClick(i)}
+                className="w-full h-full"
+                size="medium"
+              />
+            </div>
           ))}
         </div>
 
-        {/* Logo overlay at bottom center */}
+        {/* Logo area */}
         {logoUrl && (
-          <div className="absolute bottom-[4%] left-1/2 -translate-x-1/2 h-[6%] w-[40%] pointer-events-none">
-            <Image
-              src={logoUrl}
-              alt="Logo"
-              fill
-              className="object-contain drop-shadow-lg"
-              unoptimized
-            />
+          <div
+            className="flex items-center justify-center pointer-events-none"
+            style={{
+              height: `${(logoAreaHeight / CANVAS_HEIGHT) * 100}%`,
+              backgroundColor
+            }}
+          >
+            <div className="relative w-[80%] max-h-full">
+              <Image
+                src={logoUrl}
+                alt="Logo"
+                width={800}
+                height={200}
+                className="object-contain w-full h-auto"
+                unoptimized
+              />
+            </div>
           </div>
         )}
       </div>
