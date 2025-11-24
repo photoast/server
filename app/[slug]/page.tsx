@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Image from 'next/image'
 import FourCutCropEditor from '../components/FourCutCropEditor'
 import {
@@ -100,15 +100,78 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     fetchEvent()
   }, [params.slug])
 
+  // ============ Event Handlers ============
+
+  // Process image handler (defined before useEffect that uses it)
+  const handleProcess = useCallback(async () => {
+    setProcessing(true)
+    setError('')
+
+    try {
+      const formData = new FormData()
+      formData.append('slug', params.slug)
+      formData.append('frameType', frameType)
+
+      if (frameType === 'single') {
+        if (photoSlots[0].file) {
+          formData.append('photo', photoSlots[0].file)
+        }
+        if (photoSlots[0].cropArea) {
+          formData.append('cropArea', JSON.stringify(photoSlots[0].cropArea))
+        }
+        formData.append('backgroundColor', '#FFFFFF')
+      } else {
+        photoSlots.forEach(slot => {
+          if (slot.file) formData.append('photos', slot.file)
+        })
+        const cropAreas = photoSlots.map(slot => slot.cropArea)
+        formData.append('cropAreas', JSON.stringify(cropAreas))
+        formData.append('backgroundColor', backgroundColor)
+      }
+
+      console.log('Processing image with frameType:', frameType)
+
+      const res = await fetch('/api/process-image', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        const errorMsg = data.error || `미리보기 생성 실패: ${res.status}`
+        console.error('Process image error:', errorMsg)
+        throw new Error(errorMsg)
+      }
+
+      const data = await res.json()
+      console.log('Preview URL received:', data.url)
+
+      if (!data.url) {
+        throw new Error('미리보기 URL을 받지 못했습니다')
+      }
+
+      // Validate URL format
+      if (typeof data.url !== 'string' || data.url.length === 0) {
+        throw new Error('잘못된 미리보기 URL 형식')
+      }
+
+      setPreviewUrl(data.url)
+      console.log('Preview URL set successfully')
+    } catch (err: any) {
+      console.error('handleProcess error:', err)
+      setError(err.message || '미리보기 생성에 실패했습니다')
+    } finally {
+      setProcessing(false)
+    }
+  }, [params.slug, frameType, photoSlots, backgroundColor])
+
   // Auto-process image when all slots are filled
   useEffect(() => {
     const allSlotsFilled = photoSlots.every(slot => slot.file !== null)
     if (allSlotsFilled && photoSlots.length > 0 && !processing && !previewUrl && step === 'fill-photos') {
       handleProcess()
     }
-  }, [photoSlots, step])
-
-  // ============ Event Handlers ============
+  }, [photoSlots, step, previewUrl, processing, handleProcess])
 
   const handleSlotClick = (slotIndex: number) => {
     setCurrentEditingSlot(slotIndex)
@@ -200,7 +263,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       return newSlots
     })
 
-    // Clear preview to regenerate with new crop
+    // Clear preview to trigger regeneration via useEffect
     setPreviewUrl(null)
     setShowCropEditor(false)
     setCurrentEditingSlot(null)
@@ -225,69 +288,6 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
     setShowCropEditor(false)
     setCurrentEditingSlot(null)
-  }
-
-
-  const handleProcess = async () => {
-    setProcessing(true)
-    setError('')
-
-    try {
-      const formData = new FormData()
-      formData.append('slug', params.slug)
-      formData.append('frameType', frameType)
-
-      if (frameType === 'single') {
-        if (photoSlots[0].file) {
-          formData.append('photo', photoSlots[0].file)
-        }
-        if (photoSlots[0].cropArea) {
-          formData.append('cropArea', JSON.stringify(photoSlots[0].cropArea))
-        }
-        formData.append('backgroundColor', '#FFFFFF')
-      } else {
-        photoSlots.forEach(slot => {
-          if (slot.file) formData.append('photos', slot.file)
-        })
-        const cropAreas = photoSlots.map(slot => slot.cropArea)
-        formData.append('cropAreas', JSON.stringify(cropAreas))
-        formData.append('backgroundColor', backgroundColor)
-      }
-
-      console.log('Processing image with frameType:', frameType)
-
-      const res = await fetch('/api/process-image', {
-        method: 'POST',
-        body: formData,
-      })
-
-      if (!res.ok) {
-        const data = await res.json()
-        const errorMsg = data.error || `미리보기 생성 실패: ${res.status}`
-        console.error('Process image error:', errorMsg)
-        throw new Error(errorMsg)
-      }
-
-      const data = await res.json()
-      console.log('Preview URL received:', data.url)
-
-      if (!data.url) {
-        throw new Error('미리보기 URL을 받지 못했습니다')
-      }
-
-      // Validate URL format
-      if (typeof data.url !== 'string' || data.url.length === 0) {
-        throw new Error('잘못된 미리보기 URL 형식')
-      }
-
-      setPreviewUrl(data.url)
-      console.log('Preview URL set successfully')
-    } catch (err: any) {
-      console.error('handleProcess error:', err)
-      setError(err.message || '미리보기 생성에 실패했습니다')
-    } finally {
-      setProcessing(false)
-    }
   }
 
   const handleDownload = async () => {
