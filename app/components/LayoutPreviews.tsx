@@ -123,14 +123,20 @@ export function FourCutPreview({ photoSlots, onSlotClick, logoUrl }: LayoutPrevi
 }
 
 export function TwoByTwoPreview({ photoSlots, onSlotClick, backgroundColor = '#000000', logoUrl }: LayoutPreviewProps) {
+  // Match exact margins from lib/image.ts processTwoByTwoImage
+  // MARGIN_HORIZONTAL = 40px / 1000px = 4%
+  // MARGIN_VERTICAL = 60px / 1500px = 4%
+  // GAP = 20px (both horizontal and vertical)
+  // Horizontal gap: 20px / 1000px = 2%
+  // Vertical gap: 20px / 1500px = 1.33%
   return (
     <div className="relative w-full max-w-sm mx-auto" style={{ aspectRatio: '2/3' }}>
       <div
         className="absolute inset-0 grid grid-cols-2 overflow-hidden shadow-2xl relative"
         style={{
           backgroundColor,
-          padding: '4%',
-          gap: '1.33%'
+          padding: '4% 4%',
+          gap: '1.33% 2%'  // vertical gap 1.33%, horizontal gap 2%
         }}
       >
         {[0, 1, 2, 3].map((i) => (
@@ -145,7 +151,7 @@ export function TwoByTwoPreview({ photoSlots, onSlotClick, backgroundColor = '#0
         ))}
         {/* Logo overlay at bottom center */}
         {logoUrl && (
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 h-[6%] w-[40%] pointer-events-none">
+          <div className="absolute bottom-[4%] left-1/2 -translate-x-1/2 h-[6%] w-[40%] pointer-events-none">
             <Image
               src={logoUrl}
               alt="Logo"
@@ -161,13 +167,17 @@ export function TwoByTwoPreview({ photoSlots, onSlotClick, backgroundColor = '#0
 }
 
 export function VerticalTwoPreview({ photoSlots, onSlotClick, backgroundColor = '#000000', logoUrl }: LayoutPreviewProps) {
+  // Match exact margins from lib/image.ts processVerticalTwoImage
+  // MARGIN_HORIZONTAL = 40px / 1000px = 4%
+  // MARGIN_VERTICAL = 60px / 1500px = 4%
+  // GAP = 20px / 1500px = 1.33%
   return (
     <div className="relative w-full max-w-sm mx-auto" style={{ aspectRatio: '2/3' }}>
       <div
         className="absolute inset-0 flex flex-col overflow-hidden shadow-2xl relative"
         style={{
           backgroundColor,
-          padding: '4%',
+          padding: '4% 4%',  // vertical 4%, horizontal 4%
           gap: '1.33%'
         }}
       >
@@ -184,7 +194,7 @@ export function VerticalTwoPreview({ photoSlots, onSlotClick, backgroundColor = 
         ))}
         {/* Logo overlay at bottom center */}
         {logoUrl && (
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 h-[6%] w-[40%] pointer-events-none">
+          <div className="absolute bottom-[4%] left-1/2 -translate-x-1/2 h-[6%] w-[40%] pointer-events-none">
             <Image
               src={logoUrl}
               alt="Logo"
@@ -200,14 +210,18 @@ export function VerticalTwoPreview({ photoSlots, onSlotClick, backgroundColor = 
 }
 
 export function HorizontalTwoPreview({ photoSlots, onSlotClick, backgroundColor = '#000000', logoUrl }: LayoutPreviewProps) {
+  // Match exact margins from lib/image.ts processHorizontalTwoImage
+  // MARGIN_HORIZONTAL = 40px / 1000px = 4%
+  // MARGIN_VERTICAL = 60px / 1500px = 4%
+  // GAP = 20px / 1000px = 2% (horizontal gap)
   return (
     <div className="relative w-full max-w-sm mx-auto" style={{ aspectRatio: '2/3' }}>
       <div
         className="absolute inset-0 flex overflow-hidden shadow-2xl relative"
         style={{
           backgroundColor,
-          padding: '4%',
-          gap: '1.33%'
+          padding: '4% 4%',
+          gap: '2%'  // 20px / 1000px
         }}
       >
         {[0, 1].map((i) => (
@@ -223,7 +237,7 @@ export function HorizontalTwoPreview({ photoSlots, onSlotClick, backgroundColor 
         ))}
         {/* Logo overlay at bottom center */}
         {logoUrl && (
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 h-[6%] w-[40%] pointer-events-none">
+          <div className="absolute bottom-[4%] left-1/2 -translate-x-1/2 h-[6%] w-[40%] pointer-events-none">
             <Image
               src={logoUrl}
               alt="Logo"
@@ -239,13 +253,19 @@ export function HorizontalTwoPreview({ photoSlots, onSlotClick, backgroundColor 
 }
 
 export function OnePlusTwoPreview({ photoSlots, onSlotClick, backgroundColor = '#000000', logoUrl }: LayoutPreviewProps) {
+  // Match exact margins from lib/image.ts processOnePlusTwoImage
+  // MARGIN_HORIZONTAL = 40px / 1000px = 4%
+  // MARGIN_VERTICAL = 60px / 1500px = 4%
+  // GAP = 20px
+  // Vertical gap: 20px / 1500px = 1.33%
+  // Horizontal gap: 20px / 1000px = 2%
   return (
     <div className="relative w-full max-w-sm mx-auto" style={{ aspectRatio: '2/3' }}>
       <div
         className="absolute inset-0 flex flex-col overflow-hidden shadow-2xl relative"
         style={{
           backgroundColor,
-          padding: '4%',
+          padding: '4% 4%',
           gap: '1.33%'
         }}
       >
@@ -260,7 +280,7 @@ export function OnePlusTwoPreview({ photoSlots, onSlotClick, backgroundColor = '
         />
 
         {/* Bottom: 2 small photos */}
-        <div className="flex-[2] flex" style={{ gap: '1.33%' }}>
+        <div className="flex-[2] flex" style={{ gap: '2%' }}>
           {[1, 2].map((i) => (
             <PhotoSlot
               key={i}
@@ -276,7 +296,7 @@ export function OnePlusTwoPreview({ photoSlots, onSlotClick, backgroundColor = '
 
         {/* Logo overlay at bottom center */}
         {logoUrl && (
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 h-[6%] w-[40%] pointer-events-none">
+          <div className="absolute bottom-[4%] left-1/2 -translate-x-1/2 h-[6%] w-[40%] pointer-events-none">
             <Image
               src={logoUrl}
               alt="Logo"
