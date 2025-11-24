@@ -376,7 +376,8 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     const previewProps = {
       photoSlots,
       onSlotClick: handleSlotClick,
-      backgroundColor
+      backgroundColor,
+      logoUrl: event?.logoUrl
     }
 
     switch (frameType) {
