@@ -45,7 +45,8 @@ export async function processImage(
       inputBuffer as Buffer[],
       cropArea as CropArea[],
       backgroundColor,
-      logoPath
+      logoPath,
+      logoSettings
     )
   }
 
@@ -54,7 +55,8 @@ export async function processImage(
       inputBuffer as Buffer[],
       cropArea as CropArea[],
       backgroundColor,
-      logoPath
+      logoPath,
+      logoSettings
     )
   }
 
@@ -63,7 +65,8 @@ export async function processImage(
       inputBuffer as Buffer[],
       cropArea as CropArea[],
       backgroundColor,
-      logoPath
+      logoPath,
+      logoSettings
     )
   }
 
@@ -72,7 +75,8 @@ export async function processImage(
       inputBuffer as Buffer[],
       cropArea as CropArea[],
       backgroundColor,
-      logoPath
+      logoPath,
+      logoSettings
     )
   }
 
@@ -380,62 +384,32 @@ async function processFourCutImage(
 
   console.log(`Composed ${composites.length} photos (2 identical strips of 4 photos each)`)
 
-  // Add logo overlay to both strips (bottom center of each strip)
-  if (logoPath) {
-    try {
-      let logoFullPath: string
-      if (logoPath.startsWith('/api/serve-image/')) {
-        const filename = logoPath.replace('/api/serve-image/', '')
-        logoFullPath = path.join('/tmp/uploads', filename)
-      } else if (logoPath.startsWith('/uploads/')) {
-        logoFullPath = path.join(process.cwd(), 'public', logoPath)
-      } else if (logoPath.startsWith('/tmp')) {
-        logoFullPath = logoPath
-      } else {
-        logoFullPath = path.join(process.cwd(), 'public', logoPath)
-      }
+  // Add logo overlay to both strips
+  if (logoPath && logoSettings) {
+    const logoData = await addLogoOverlay(logoPath, logoSettings, stripWidth, TARGET_HEIGHT)
 
-      const logoExists = await fs.access(logoFullPath).then(() => true).catch(() => false)
+    if (logoData) {
+      // Position logo at bottom center of left strip
+      const leftStripLogoLeft = MARGIN_OUTER + Math.round((stripWidth - logoData.width) / 2)
+      const leftStripLogoTop = TARGET_HEIGHT - MARGIN_OUTER - logoData.height - 10
 
-      if (logoExists) {
-        // Logo size: 8% of strip height
-        const logoHeight = Math.round(stripHeight * 0.08)
+      // Position logo at bottom center of right strip
+      const rightStripLogoLeft = MARGIN_OUTER + stripWidth + GAP_CENTER + Math.round((stripWidth - logoData.width) / 2)
+      const rightStripLogoTop = leftStripLogoTop
 
-        // Resize logo proportionally
-        const logoBuffer = await sharp(logoFullPath)
-          .resize(null, logoHeight, {
-            fit: 'inside',
-            withoutEnlargement: false,
-          })
-          .toBuffer()
+      composites.push({
+        input: logoData.buffer,
+        top: leftStripLogoTop,
+        left: leftStripLogoLeft,
+      })
 
-        const logoMetadata = await sharp(logoBuffer).metadata()
-        const logoWidth = logoMetadata.width || 0
+      composites.push({
+        input: logoData.buffer,
+        top: rightStripLogoTop,
+        left: rightStripLogoLeft,
+      })
 
-        // Position logo at bottom center of left strip
-        const leftStripLogoLeft = MARGIN_OUTER + Math.round((stripWidth - logoWidth) / 2)
-        const leftStripLogoTop = TARGET_HEIGHT - MARGIN_OUTER - logoHeight - 10
-
-        // Position logo at bottom center of right strip
-        const rightStripLogoLeft = MARGIN_OUTER + stripWidth + GAP_CENTER + Math.round((stripWidth - logoWidth) / 2)
-        const rightStripLogoTop = leftStripLogoTop
-
-        composites.push({
-          input: logoBuffer,
-          top: leftStripLogoTop,
-          left: leftStripLogoLeft,
-        })
-
-        composites.push({
-          input: logoBuffer,
-          top: rightStripLogoTop,
-          left: rightStripLogoLeft,
-        })
-
-        console.log(`Logo added to both strips at height ${logoHeight}px`)
-      }
-    } catch (error) {
-      console.error('Error adding logo to four-cut:', error)
+      console.log(`Logo added to both strips: ${logoData.width}x${logoData.height}px, size setting: ${logoSettings.size}%`)
     }
   }
 
@@ -461,11 +435,117 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
   return { r, g, b }
 }
 
+// Helper function to get logo full path
+function getLogoFullPath(logoPath: string): string {
+  if (logoPath.startsWith('/api/serve-image/')) {
+    const filename = logoPath.replace('/api/serve-image/', '')
+    return path.join('/tmp/uploads', filename)
+  } else if (logoPath.startsWith('/uploads/')) {
+    return path.join(process.cwd(), 'public', logoPath)
+  } else if (logoPath.startsWith('/tmp')) {
+    return logoPath
+  } else {
+    return path.join(process.cwd(), 'public', logoPath)
+  }
+}
+
+// Helper function to add logo to composites array
+async function addLogoOverlay(
+  logoPath: string,
+  logoSettings: LogoSettings | undefined,
+  canvasWidth: number,
+  canvasHeight: number,
+  bottomMargin: number = 0
+): Promise<{ buffer: Buffer; width: number; height: number } | null> {
+  try {
+    const logoFullPath = getLogoFullPath(logoPath)
+    const logoExists = await fs.access(logoFullPath).then(() => true).catch(() => false)
+
+    if (!logoExists) {
+      return null
+    }
+
+    // Get logo settings or use defaults
+    const sizePercent = logoSettings?.size || 80 // Default 80% of canvas width
+
+    // Calculate logo width based on settings (percentage of canvas width)
+    const targetLogoWidth = Math.round(canvasWidth * (sizePercent / 100))
+
+    // Resize logo proportionally based on width
+    const logoBuffer = await sharp(logoFullPath)
+      .resize(targetLogoWidth, null, {
+        fit: 'inside',
+        withoutEnlargement: false,
+      })
+      .toBuffer()
+
+    const logoMetadata = await sharp(logoBuffer).metadata()
+    const logoWidth = logoMetadata.width || 0
+    const logoHeight = logoMetadata.height || 0
+
+    return { buffer: logoBuffer, width: logoWidth, height: logoHeight }
+  } catch (error) {
+    console.error('Error processing logo:', error)
+    return null
+  }
+}
+
+// Helper function to position logo based on settings
+function calculateLogoPosition(
+  logoSettings: LogoSettings | undefined,
+  logoWidth: number,
+  logoHeight: number,
+  canvasWidth: number,
+  canvasHeight: number,
+  photoHeight: number,
+  logoAreaHeight: number
+): { left: number; top: number } {
+  const position = logoSettings?.position || 'bottom-center'
+
+  if (position === 'custom' && logoSettings?.x !== undefined && logoSettings?.y !== undefined) {
+    // Use custom position (percentage of logo area)
+    const centerX = Math.round((logoSettings.x / 100) * canvasWidth)
+    const centerY = photoHeight + Math.round((logoSettings.y / 100) * logoAreaHeight)
+
+    return {
+      left: centerX - Math.round(logoWidth / 2),
+      top: centerY - Math.round(logoHeight / 2)
+    }
+  }
+
+  // Parse position string
+  const [vertical, horizontal] = position.split('-')
+
+  let left = 0
+  let top = 0
+
+  // Calculate horizontal position
+  if (horizontal === 'left') {
+    left = 20 // Left padding
+  } else if (horizontal === 'center') {
+    left = Math.round((canvasWidth - logoWidth) / 2)
+  } else if (horizontal === 'right') {
+    left = canvasWidth - logoWidth - 20 // Right padding
+  }
+
+  // Calculate vertical position within logo area
+  if (vertical === 'top') {
+    top = photoHeight + 20 // Top of logo area with padding
+  } else if (vertical === 'center') {
+    top = photoHeight + Math.round((logoAreaHeight - logoHeight) / 2)
+  } else if (vertical === 'bottom') {
+    top = canvasHeight - logoHeight - 20 // Bottom with padding
+  }
+
+  return { left, top }
+}
+
 async function processTwoByTwoImage(
   inputBuffers: Buffer[],
   cropAreas?: CropArea[],
   backgroundColor?: string,
-  logoPath?: string
+  logoPath?: string,
+  logoSettings?: LogoSettings
 ): Promise<Buffer> {
   // Ensure we have exactly 4 images
   if (!Array.isArray(inputBuffers) || inputBuffers.length !== 4) {
@@ -573,50 +653,20 @@ async function processTwoByTwoImage(
   }
 
   // Add logo overlay at bottom center
-  if (logoPath) {
-    try {
-      let logoFullPath: string
-      if (logoPath.startsWith('/api/serve-image/')) {
-        const filename = logoPath.replace('/api/serve-image/', '')
-        logoFullPath = path.join('/tmp/uploads', filename)
-      } else if (logoPath.startsWith('/uploads/')) {
-        logoFullPath = path.join(process.cwd(), 'public', logoPath)
-      } else if (logoPath.startsWith('/tmp')) {
-        logoFullPath = logoPath
-      } else {
-        logoFullPath = path.join(process.cwd(), 'public', logoPath)
-      }
+  if (logoPath && logoSettings) {
+    const logoData = await addLogoOverlay(logoPath, logoSettings, TARGET_WIDTH, TARGET_HEIGHT)
 
-      const logoExists = await fs.access(logoFullPath).then(() => true).catch(() => false)
+    if (logoData) {
+      const logoLeft = Math.round((TARGET_WIDTH - logoData.width) / 2)
+      const logoTop = TARGET_HEIGHT - MARGIN_VERTICAL - logoData.height - 10
 
-      if (logoExists) {
-        // Logo size: 6% of total height
-        const logoHeight = Math.round(TARGET_HEIGHT * 0.06)
+      composites.push({
+        input: logoData.buffer,
+        top: logoTop,
+        left: logoLeft,
+      })
 
-        const logoBuffer = await sharp(logoFullPath)
-          .resize(null, logoHeight, {
-            fit: 'inside',
-            withoutEnlargement: false,
-          })
-          .toBuffer()
-
-        const logoMetadata = await sharp(logoBuffer).metadata()
-        const logoWidth = logoMetadata.width || 0
-
-        // Position at bottom center
-        const logoLeft = Math.round((TARGET_WIDTH - logoWidth) / 2)
-        const logoTop = TARGET_HEIGHT - MARGIN_VERTICAL - logoHeight - 10
-
-        composites.push({
-          input: logoBuffer,
-          top: logoTop,
-          left: logoLeft,
-        })
-
-        console.log(`Logo added at bottom center (${logoLeft}, ${logoTop})`)
-      }
-    } catch (error) {
-      console.error('Error adding logo:', error)
+      console.log(`Logo added: ${logoData.width}x${logoData.height}px, size setting: ${logoSettings.size}%`)
     }
   }
 
@@ -632,7 +682,8 @@ async function processVerticalTwoImage(
   inputBuffers: Buffer[],
   cropAreas?: CropArea[],
   backgroundColor?: string,
-  logoPath?: string
+  logoPath?: string,
+  logoSettings?: LogoSettings
 ): Promise<Buffer> {
   // Ensure we have exactly 2 images
   if (!Array.isArray(inputBuffers) || inputBuffers.length !== 2) {
@@ -794,7 +845,8 @@ async function processHorizontalTwoImage(
   inputBuffers: Buffer[],
   cropAreas?: CropArea[],
   backgroundColor?: string,
-  logoPath?: string
+  logoPath?: string,
+  logoSettings?: LogoSettings
 ): Promise<Buffer> {
   // Ensure we have exactly 2 images
   if (!Array.isArray(inputBuffers) || inputBuffers.length !== 2) {
@@ -954,7 +1006,8 @@ async function processOnePlusTwoImage(
   inputBuffers: Buffer[],
   cropAreas?: CropArea[],
   backgroundColor?: string,
-  logoPath?: string
+  logoPath?: string,
+  logoSettings?: LogoSettings
 ): Promise<Buffer> {
   // Ensure we have exactly 3 images
   if (!Array.isArray(inputBuffers) || inputBuffers.length !== 3) {
