@@ -13,8 +13,6 @@ export async function POST(request: NextRequest) {
     const cropAreasStr = formData.get('cropAreas') as string | null
     const frameType = (formData.get('frameType') as string || 'single') as FrameType
     const backgroundColor = formData.get('backgroundColor') as string | null
-    const showLogoStr = formData.get('showLogo') as string | null
-    const showLogo = showLogoStr === 'true'
 
     if (!slug) {
       return NextResponse.json(
@@ -93,15 +91,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Get photo area ratio from event (default 85%)
-    // If logo is disabled for single photo, use 100% (full area)
+    // If logo URL doesn't exist, use 100% (full area without logo space)
     let photoAreaRatio = event.photoAreaRatio ?? 85
-    if (frameType === 'single' && !showLogo) {
-      photoAreaRatio = 100 // Use full area when logo is disabled
+    if (!event.logoUrl) {
+      photoAreaRatio = 100 // Use full area when no logo
     }
 
     // Process image (crop + resize + add logo)
-    // For single photo, check showLogo flag
-    const finalLogoUrl = (frameType === 'single' && !showLogo) ? undefined : event.logoUrl
+    // Apply logo to all layouts if logoUrl exists
+    const finalLogoUrl = event.logoUrl || undefined
 
     const processedBuffer = await processImage(
       buffers,

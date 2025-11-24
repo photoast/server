@@ -56,7 +56,6 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   const [step, setStep] = useState<Step>('select-layout')
   const [frameType, setFrameType] = useState<FrameType>('single')
   const [backgroundColor, setBackgroundColor] = useState('#000000')
-  const [showLogo, setShowLogo] = useState(true)
 
   // Photo management state
   const [photoSlots, setPhotoSlots] = useState<PhotoSlot[]>([])
@@ -245,7 +244,6 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         if (photoSlots[0].cropArea) {
           formData.append('cropArea', JSON.stringify(photoSlots[0].cropArea))
         }
-        formData.append('showLogo', showLogo.toString())
         formData.append('backgroundColor', '#FFFFFF')
       } else {
         photoSlots.forEach(slot => {
@@ -367,7 +365,6 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     setStep('select-layout')
     setFrameType('single')
     setBackgroundColor('#000000')
-    setShowLogo(true)
     setPhotoSlots([])
     setPreviewUrl(null)
     setError('')
@@ -592,31 +589,6 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                 </div>
               </div>
 
-              {/* Logo toggle for single photo */}
-              {frameType === 'single' && (
-                <div className="bg-gradient-to-r from-yellow-100 to-orange-100 rounded-2xl p-4 shadow-md">
-                  <label className="flex items-center justify-center gap-3 cursor-pointer">
-                    <span className="font-semibold text-gray-700">로고 포함</span>
-                    <div className="relative">
-                      <input
-                        type="checkbox"
-                        checked={showLogo}
-                        onChange={(e) => {
-                          setShowLogo(e.target.checked)
-                          setPreviewUrl(null)
-                        }}
-                        className="sr-only"
-                      />
-                      <div className={`w-14 h-8 rounded-full transition-colors ${showLogo ? 'bg-purple-600' : 'bg-gray-300'}`}>
-                        <div className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full transition-transform ${showLogo ? 'translate-x-6' : ''}`}></div>
-                      </div>
-                    </div>
-                    <span className="text-sm text-gray-600">
-                      {showLogo ? '로고가 함께 출력됩니다' : '사진만 출력됩니다'}
-                    </span>
-                  </label>
-                </div>
-              )}
 
               {/* Status Banner */}
               {allSlotsFilled ? (
@@ -829,7 +801,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         {showCropEditor && currentEditingSlot !== null && photoSlots[currentEditingSlot]?.file && (
           <FourCutCropEditor
             images={[photoSlots[currentEditingSlot].file!]}
-            aspectRatio={getCropAspectRatioForSlot(frameType, currentEditingSlot)}
+            aspectRatio={getCropAspectRatioForSlot(frameType, currentEditingSlot, !!event?.logoUrl)}
             onComplete={handleCropComplete}
             onCancel={handleCropCancel}
           />

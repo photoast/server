@@ -61,22 +61,36 @@ export function getPhotoCount(type: FrameType): number {
   return getLayoutOption(type)?.photoCount || 1
 }
 
-export function getCropAspectRatio(type: FrameType): number {
-  const ratios: Record<FrameType, number> = {
-    'single': 1000 / 1500,
-    'four-cut': 900 / 685,
-    'two-by-two': 450 / 680,
-    'vertical-two': 920 / 680,
-    'horizontal-two': 450 / 1380,
-    'one-plus-two': 920 / 680 // Default for first slot
+export function getCropAspectRatio(type: FrameType, hasLogo: boolean = false): number {
+  // Base ratios for layouts WITHOUT logo (100% photo area)
+  const baseRatios: Record<FrameType, number> = {
+    'single': 1000 / 1500,        // 2:3 ratio
+    'four-cut': 900 / 685,        // Four-cut strip ratio
+    'two-by-two': 450 / 680,      // Grid cell ratio
+    'vertical-two': 920 / 680,    // Vertical split ratio
+    'horizontal-two': 450 / 1380, // Horizontal split ratio
+    'one-plus-two': 920 / 680     // Default for first slot
   }
 
-  return ratios[type] || 1000 / 1500
+  const baseRatio = baseRatios[type] || 1000 / 1500
+
+  // If logo exists, adjust the crop ratio to account for logo space
+  // Logo typically takes up ~15% of the height in single layout
+  // For multi-photo layouts, logo is overlaid so no adjustment needed
+  if (hasLogo && type === 'single') {
+    // Adjust height to account for logo space (85% of total height for photo)
+    // So crop ratio should be width / (height * 0.85)
+    return baseRatio / 0.85
+  }
+
+  return baseRatio
 }
 
-export function getCropAspectRatioForSlot(type: FrameType, slotIndex: number): number {
+export function getCropAspectRatioForSlot(type: FrameType, slotIndex: number, hasLogo: boolean = false): number {
   if (type === 'one-plus-two') {
-    return slotIndex === 0 ? 920 / 680 : 450 / 680
+    const topRatio = 920 / 680
+    const bottomRatio = 450 / 680
+    return slotIndex === 0 ? topRatio : bottomRatio
   }
-  return getCropAspectRatio(type)
+  return getCropAspectRatio(type, hasLogo)
 }
