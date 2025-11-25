@@ -157,28 +157,22 @@ export async function POST(request: NextRequest) {
     )
     console.log('[API] Image processed successfully, buffer size:', processedBuffer.length, 'bytes')
 
-    // Save processed image
-    const timestamp = Date.now()
-    const filename = `processed-${timestamp}.jpg`
-
-    // In Vercel (serverless), use /tmp directory
-    // In local development, use public/uploads
+    // In Vercel (serverless), return image as base64 data URL
+    // In local development, save to public/uploads
     const isVercel = process.env.VERCEL === '1'
 
-    console.log('[API] Saving processed image:', { filename, isVercel })
+    console.log('[API] Preparing response:', { isVercel })
 
     if (isVercel) {
-      const uploadDir = '/tmp/uploads'
-      await fs.mkdir(uploadDir, { recursive: true })
-      const filepath = path.join(uploadDir, filename)
-      await fs.writeFile(filepath, processedBuffer)
-      console.log('[API] File saved to:', filepath)
-
-      // Return API route URL to serve the image
-      const url = `/api/serve-image/${filename}`
-      console.log('[API] Success! Returning URL:', url)
-      return NextResponse.json({ url })
+      // Convert buffer to base64 data URL
+      const base64 = processedBuffer.toString('base64')
+      const dataUrl = `data:image/jpeg;base64,${base64}`
+      console.log('[API] Success! Returning data URL, size:', base64.length, 'chars')
+      return NextResponse.json({ url: dataUrl })
     } else {
+      // Save to local filesystem for development
+      const timestamp = Date.now()
+      const filename = `processed-${timestamp}.jpg`
       const uploadDir = path.join(process.cwd(), 'public', 'uploads')
       await fs.mkdir(uploadDir, { recursive: true })
       const filepath = path.join(uploadDir, filename)
