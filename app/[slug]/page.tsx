@@ -182,7 +182,8 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     if (allSlotsFilled && photoSlots.length > 0 && !processing && !previewUrl && step === 'fill-photos') {
       handleProcess()
     }
-  }, [photoSlots, step, previewUrl, processing, handleProcess])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [photoSlots, step, previewUrl, processing])
 
   const handleSlotClick = (slotIndex: number) => {
     setCurrentEditingSlot(slotIndex)
