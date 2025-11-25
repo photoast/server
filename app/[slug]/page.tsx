@@ -5,10 +5,10 @@ import Image from 'next/image'
 import FourCutCropEditor from '../components/FourCutCropEditor'
 import {
   SinglePhotoPreview,
+  SingleWithLogoPreview,
   FourCutPreview,
   TwoByTwoPreview,
   VerticalTwoPreview,
-  HorizontalTwoPreview,
   OnePlusTwoPreview
 } from '../components/LayoutPreviews'
 import { LAYOUT_OPTIONS, getPhotoCount, getCropAspectRatioForSlot } from './layoutConfig'
@@ -115,7 +115,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       formData.append('slug', params.slug)
       formData.append('frameType', frameType)
 
-      if (frameType === 'single') {
+      if (frameType === 'single' || frameType === 'single-with-logo') {
         if (photoSlots[0].file) {
           formData.append('photo', photoSlots[0].file)
         }
@@ -392,26 +392,25 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   // ============ Render Helpers ============
 
   const renderLayoutPreview = () => {
-    const previewProps = {
+    const baseProps = {
       photoSlots,
       onSlotClick: handleSlotClick,
-      backgroundColor,
-      logoUrl: event?.logoUrl
+      backgroundColor
     }
 
     switch (frameType) {
       case 'single':
-        return <SinglePhotoPreview {...previewProps} />
+        return <SinglePhotoPreview {...baseProps} />
+      case 'single-with-logo':
+        return <SingleWithLogoPreview {...baseProps} logoUrl={event?.logoUrl} />
       case 'four-cut':
-        return <FourCutPreview {...previewProps} />
+        return <FourCutPreview {...baseProps} />
       case 'two-by-two':
-        return <TwoByTwoPreview {...previewProps} />
+        return <TwoByTwoPreview {...baseProps} />
       case 'vertical-two':
-        return <VerticalTwoPreview {...previewProps} />
-      case 'horizontal-two':
-        return <HorizontalTwoPreview {...previewProps} />
+        return <VerticalTwoPreview {...baseProps} />
       case 'one-plus-two':
-        return <OnePlusTwoPreview {...previewProps} />
+        return <OnePlusTwoPreview {...baseProps} />
       default:
         return null
     }
@@ -420,8 +419,8 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   const renderLayoutOptionPreview = (type: FrameType) => {
     const gridStyles: Record<FrameType, string> = {
       'single': 'grid-cols-1 grid-rows-1',
+      'single-with-logo': 'grid-cols-1 grid-rows-1',
       'vertical-two': 'grid-cols-1 grid-rows-2',
-      'horizontal-two': 'grid-cols-2 grid-rows-1',
       'one-plus-two': 'grid-cols-2 grid-rows-2',
       'four-cut': 'grid-cols-2 grid-rows-4',
       'two-by-two': 'grid-cols-2 grid-rows-2'
@@ -430,8 +429,8 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     const getCells = (): { colspan?: number, rowspan?: number }[] => {
       switch (type) {
         case 'single': return [{ colspan: 1, rowspan: 1 }]
+        case 'single-with-logo': return [{ colspan: 1, rowspan: 1 }]
         case 'vertical-two': return [{}, {}]
-        case 'horizontal-two': return [{}, {}]
         case 'one-plus-two': return [{ colspan: 2 }, {}, {}]
         case 'four-cut': return [{}, {}, {}, {}, {}, {}, {}, {}]
         case 'two-by-two': return [{}, {}, {}, {}]
@@ -444,7 +443,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         {getCells().map((cell, i) => (
           <div
             key={i}
-            className="bg-purple-400"
+            className={type === 'single-with-logo' && i === 0 ? 'bg-purple-400 border-b-2 border-yellow-400' : 'bg-purple-400'}
             style={{
               gridColumn: cell.colspan ? `span ${cell.colspan}` : undefined,
               gridRow: cell.rowspan ? `span ${cell.rowspan}` : undefined
@@ -531,7 +530,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
               </div>
 
               <button
-                onClick={() => setStep(frameType === 'single' ? 'fill-photos' : 'select-color')}
+                onClick={() => setStep((frameType === 'single' || frameType === 'single-with-logo') ? 'fill-photos' : 'select-color')}
                 className="w-full py-4 bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 text-white rounded-full font-bold text-lg hover:shadow-2xl hover:scale-105 transition-all shadow-lg active:scale-95"
               >
                 다음 단계로 💫

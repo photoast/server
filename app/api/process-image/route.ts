@@ -30,8 +30,8 @@ export async function POST(request: NextRequest) {
     // Define expected photo counts for each layout
     const photoCountMap: Record<FrameType, number> = {
       'single': 1,
+      'single-with-logo': 1,
       'vertical-two': 2,
-      'horizontal-two': 2,
       'one-plus-two': 3,
       'four-cut': 4,
       'two-by-two': 4,
@@ -91,15 +91,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Get photo area ratio from event (default 85%)
-    // If logo URL doesn't exist, use 100% (full area without logo space)
     let photoAreaRatio = event.photoAreaRatio ?? 85
-    if (!event.logoUrl) {
-      photoAreaRatio = 100 // Use full area when no logo
-    }
 
-    // Process image (crop + resize + add logo)
-    // Apply logo to all layouts if logoUrl exists
-    const finalLogoUrl = event.logoUrl || undefined
+    // Only apply logo to specific layouts
+    // single-with-logo: always shows logo if available
+    // four-cut: shows logo overlay if available
+    const shouldHaveLogo = frameType === 'single-with-logo' || frameType === 'four-cut'
+    const finalLogoUrl = shouldHaveLogo ? (event.logoUrl || undefined) : undefined
 
     const processedBuffer = await processImage(
       buffers,

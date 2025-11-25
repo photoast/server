@@ -18,17 +18,17 @@ export const LAYOUT_OPTIONS: LayoutOption[] = [
     photoCount: 1
   },
   {
+    type: 'single-with-logo',
+    name: '로고 포함 1장',
+    nameEn: 'Single with Logo',
+    description: '사진 1장 + 로고',
+    photoCount: 1
+  },
+  {
     type: 'vertical-two',
     name: '세로 2장',
     nameEn: 'Vertical 2',
     description: '세로로 2장',
-    photoCount: 2
-  },
-  {
-    type: 'horizontal-two',
-    name: '가로 2장',
-    nameEn: 'Horizontal 2',
-    description: '가로로 2장',
     photoCount: 2
   },
   {
@@ -68,7 +68,11 @@ export function getCropAspectRatio(type: FrameType, hasLogo: boolean = false): n
 
   let baseRatio: number
 
-  if (type === 'four-cut') {
+  if (type === 'single-with-logo') {
+    // Single with logo: photo area is 85% of height
+    const photoAreaHeight = Math.round(CANVAS_HEIGHT * 0.85)
+    baseRatio = CANVAS_WIDTH / photoAreaHeight
+  } else if (type === 'four-cut') {
     // Match lib/image.ts processFourCutImage calculations
     const { MARGIN_OUTER, GAP_CENTER, GAP_BETWEEN_PHOTOS } = FOUR_CUT_CONFIG
     const stripWidth = Math.round((CANVAS_WIDTH - (MARGIN_OUTER * 2) - GAP_CENTER) / 2)
@@ -80,7 +84,7 @@ export function getCropAspectRatio(type: FrameType, hasLogo: boolean = false): n
   } else if (type === 'two-by-two') {
     // Match lib/image.ts processTwoByTwoImage
     const { MARGIN_HORIZONTAL, MARGIN_VERTICAL, GAP } = LAYOUT_CONFIG
-    const photoAreaHeight = CANVAS_HEIGHT // No logo in crop, assume 100%
+    const photoAreaHeight = CANVAS_HEIGHT
     const availableWidth = CANVAS_WIDTH - (MARGIN_HORIZONTAL * 2)
     const availableHeight = photoAreaHeight - (MARGIN_VERTICAL * 2)
     const photoWidth = Math.round((availableWidth - GAP) / 2)
@@ -95,15 +99,6 @@ export function getCropAspectRatio(type: FrameType, hasLogo: boolean = false): n
     const photoWidth = availableWidth
     const photoHeight = Math.round((availableHeight - GAP) / 2)
     baseRatio = photoWidth / photoHeight
-  } else if (type === 'horizontal-two') {
-    // Match lib/image.ts processHorizontalTwoImage
-    const { MARGIN_HORIZONTAL, MARGIN_VERTICAL, GAP } = LAYOUT_CONFIG
-    const photoAreaHeight = CANVAS_HEIGHT
-    const availableWidth = CANVAS_WIDTH - (MARGIN_HORIZONTAL * 2)
-    const availableHeight = photoAreaHeight - (MARGIN_VERTICAL * 2)
-    const photoWidth = Math.round((availableWidth - GAP) / 2)
-    const photoHeight = availableHeight
-    baseRatio = photoWidth / photoHeight
   } else if (type === 'one-plus-two') {
     // Match lib/image.ts processOnePlusTwoImage - top photo
     const { MARGIN_HORIZONTAL, MARGIN_VERTICAL, GAP } = LAYOUT_CONFIG
@@ -114,17 +109,8 @@ export function getCropAspectRatio(type: FrameType, hasLogo: boolean = false): n
     const topPhotoHeight = Math.round((availableHeight - GAP) / 2)
     baseRatio = topPhotoWidth / topPhotoHeight
   } else {
-    // Single photo default
+    // Single photo default (no logo)
     baseRatio = CANVAS_WIDTH / CANVAS_HEIGHT
-  }
-
-  // If logo exists, adjust the crop ratio to account for logo space
-  // Logo typically takes up ~15% of the height in single layout
-  // For multi-photo layouts, logo is overlaid so no adjustment needed
-  if (hasLogo && type === 'single') {
-    // Adjust height to account for logo space (85% of total height for photo)
-    // So crop ratio should be width / (height * 0.85)
-    return baseRatio / 0.85
   }
 
   return baseRatio

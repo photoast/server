@@ -43,9 +43,7 @@ export async function processImage(
     return processTwoByTwoImage(
       inputBuffer as Buffer[],
       cropArea as CropArea[],
-      backgroundColor,
-      logoPath,
-      logoSettings
+      backgroundColor
     )
   }
 
@@ -53,19 +51,7 @@ export async function processImage(
     return processVerticalTwoImage(
       inputBuffer as Buffer[],
       cropArea as CropArea[],
-      backgroundColor,
-      logoPath,
-      logoSettings
-    )
-  }
-
-  if (frameType === 'horizontal-two') {
-    return processHorizontalTwoImage(
-      inputBuffer as Buffer[],
-      cropArea as CropArea[],
-      backgroundColor,
-      logoPath,
-      logoSettings
+      backgroundColor
     )
   }
 
@@ -73,23 +59,37 @@ export async function processImage(
     return processOnePlusTwoImage(
       inputBuffer as Buffer[],
       cropArea as CropArea[],
-      backgroundColor,
-      logoPath,
-      logoSettings
+      backgroundColor
     )
   }
 
-  // Handle single frame (existing logic)
+  // Handle single frame with logo
+  if (frameType === 'single-with-logo') {
+    const singleBuffer = Array.isArray(inputBuffer) ? inputBuffer[0] : inputBuffer
+    const singleCropArea = Array.isArray(cropArea) ? cropArea[0] : cropArea
+    return processSingleImage(singleBuffer, singleCropArea, logoPath, logoSettings)
+  }
+
+  // Handle single frame (no logo)
   const singleBuffer = Array.isArray(inputBuffer) ? inputBuffer[0] : inputBuffer
   const singleCropArea = Array.isArray(cropArea) ? cropArea[0] : cropArea
-  // Validate and clamp photo area ratio
-  const ratio = Math.max(0, Math.min(100, photoAreaRatio))
+  return processSingleImage(singleBuffer, singleCropArea)
+}
+
+async function processSingleImage(
+  inputBuffer: Buffer,
+  cropArea?: CropArea,
+  logoPath?: string,
+  logoSettings?: LogoSettings
+): Promise<Buffer> {
+  // Calculate photo and logo area
+  const ratio = logoPath ? 85 : 100 // 85% for photo if logo exists, 100% otherwise
   const photoHeight = Math.round(TARGET_HEIGHT * (ratio / 100))
   const logoHeight = TARGET_HEIGHT - photoHeight
 
-  console.log(`Image layout: Photo area ${ratio}% (${photoHeight}px), Logo area ${100-ratio}% (${logoHeight}px)`)
+  console.log(`Single image layout: Photo area ${ratio}% (${photoHeight}px), Logo area ${100-ratio}% (${logoHeight}px)`)
 
-  let image = sharp(singleBuffer)
+  let image = sharp(inputBuffer)
     .rotate() // Auto-rotate based on EXIF orientation
 
   // Get original image metadata
@@ -101,14 +101,14 @@ export async function processImage(
 
   // Apply crop if provided
   let hasCrop = false
-  if (singleCropArea && singleCropArea.width > 0 && singleCropArea.height > 0) {
-    console.log(`Requested crop: ${singleCropArea.width}x${singleCropArea.height} at (${singleCropArea.x}, ${singleCropArea.y})`)
+  if (cropArea && cropArea.width > 0 && cropArea.height > 0) {
+    console.log(`Requested crop: ${cropArea.width}x${cropArea.height} at (${cropArea.x}, ${cropArea.y})`)
 
     // Clamp crop area to image boundaries
-    const left = Math.max(0, Math.min(Math.round(singleCropArea.x), originalWidth - 1))
-    const top = Math.max(0, Math.min(Math.round(singleCropArea.y), originalHeight - 1))
-    const width = Math.min(Math.round(singleCropArea.width), originalWidth - left)
-    const height = Math.min(Math.round(singleCropArea.height), originalHeight - top)
+    const left = Math.max(0, Math.min(Math.round(cropArea.x), originalWidth - 1))
+    const top = Math.max(0, Math.min(Math.round(cropArea.y), originalHeight - 1))
+    const width = Math.min(Math.round(cropArea.width), originalWidth - left)
+    const height = Math.min(Math.round(cropArea.height), originalHeight - top)
 
     // Ensure we have valid dimensions
     if (width > 0 && height > 0) {
@@ -138,17 +138,13 @@ export async function processImage(
 
   console.log(`Target size: ${TARGET_WIDTH}x${TARGET_HEIGHT} (4x6 inch @ 300 DPI)`)
 
-  // Parse background color (default black)
-  const bgColor = backgroundColor || '#000000'
-  const rgb = hexToRgb(bgColor)
-
-  // Create a blank canvas for the final image with custom background
+  // Create a blank canvas for the final image with white background
   let finalImage = sharp({
     create: {
       width: TARGET_WIDTH,
       height: TARGET_HEIGHT,
       channels: 3,
-      background: { r: rgb.r, g: rgb.g, b: rgb.b }
+      background: { r: 255, g: 255, b: 255 }
     }
   })
 
@@ -183,11 +179,16 @@ export async function processImage(
         const sizePercent = logoSettings?.size || 80 // Default 80% of image width
 
         // Calculate logo size based on settings (percentage of TOTAL image width, not logo area)
-        const targetLogoWidth = Math.round(TARGET_WIDTH * (sizePercent / 100))
+        // But limit to prevent logo from being larger than canvas
+        const requestedLogoWidth = Math.round(TARGET_WIDTH * (sizePercent / 100))
+        const maxLogoWidth = TARGET_WIDTH - 40 // Leave 20px padding on each side
+        const maxLogoHeight = logoHeight - 40 // Leave 20px padding top/bottom in logo area
 
-        // Resize logo based on width only, height will scale proportionally
+        const targetLogoWidth = Math.min(requestedLogoWidth, maxLogoWidth)
+
+        // Resize logo based on width, but also limit height
         const logoBuffer = await sharp(logoFullPath)
-          .resize(targetLogoWidth, null, {
+          .resize(targetLogoWidth, maxLogoHeight, {
             fit: 'inside',
             withoutEnlargement: false, // Allow enlargement beyond original size
           })
@@ -231,6 +232,10 @@ export async function processImage(
             top = TARGET_HEIGHT - actualLogoHeight - 20 // Bottom with padding
           }
         }
+
+        // Clamp position to keep logo within canvas bounds
+        left = Math.max(0, Math.min(left, TARGET_WIDTH - logoWidth))
+        top = Math.max(photoHeight, Math.min(top, TARGET_HEIGHT - actualLogoHeight))
 
         composites.push({
           input: logoBuffer,
@@ -540,9 +545,7 @@ function calculateLogoPosition(
 async function processTwoByTwoImage(
   inputBuffers: Buffer[],
   cropAreas?: CropArea[],
-  backgroundColor?: string,
-  logoPath?: string,
-  logoSettings?: LogoSettings
+  backgroundColor?: string
 ): Promise<Buffer> {
   // Ensure we have exactly 4 images
   if (!Array.isArray(inputBuffers) || inputBuffers.length !== 4) {
@@ -559,12 +562,10 @@ async function processTwoByTwoImage(
 
   const { MARGIN_HORIZONTAL, MARGIN_VERTICAL, GAP } = LAYOUT_CONFIG
 
-  // Calculate photo area (same as single photo logic)
-  const ratio = logoPath ? Math.max(0, Math.min(100, DEFAULT_PHOTO_RATIO)) : 100
-  const photoAreaHeight = Math.round(TARGET_HEIGHT * (ratio / 100))
-  const logoAreaHeight = TARGET_HEIGHT - photoAreaHeight
+  // No logo for this layout - full canvas used for photos
+  const photoAreaHeight = TARGET_HEIGHT
 
-  console.log(`Two-by-Two layout: Photo area ${ratio}% (${photoAreaHeight}px), Logo area ${100-ratio}% (${logoAreaHeight}px)`)
+  console.log(`Two-by-Two layout: Photo area 100% (${photoAreaHeight}px)`)
 
   // Calculate available space within photo area
   const availableWidth = TARGET_WIDTH - (MARGIN_HORIZONTAL * 2)
@@ -654,25 +655,6 @@ async function processTwoByTwoImage(
     console.log(`Photo ${i + 1} positioned at (${left}, ${top})`)
   }
 
-  // Add logo in dedicated logo area (below photo area)
-  if (logoPath && logoSettings && logoAreaHeight > 0) {
-    const logoData = await addLogoOverlay(logoPath, logoSettings, TARGET_WIDTH, logoAreaHeight)
-
-    if (logoData) {
-      // Center logo in logo area
-      const logoLeft = Math.round((TARGET_WIDTH - logoData.width) / 2)
-      const logoTop = photoAreaHeight + Math.round((logoAreaHeight - logoData.height) / 2)
-
-      composites.push({
-        input: logoData.buffer,
-        top: logoTop,
-        left: logoLeft,
-      })
-
-      console.log(`Logo added in dedicated area: ${logoData.width}x${logoData.height}px at (${logoLeft}, ${logoTop})`)
-    }
-  }
-
   finalImage = finalImage.composite(composites)
 
   return finalImage.jpeg({
@@ -684,9 +666,7 @@ async function processTwoByTwoImage(
 async function processVerticalTwoImage(
   inputBuffers: Buffer[],
   cropAreas?: CropArea[],
-  backgroundColor?: string,
-  logoPath?: string,
-  logoSettings?: LogoSettings
+  backgroundColor?: string
 ): Promise<Buffer> {
   // Ensure we have exactly 2 images
   if (!Array.isArray(inputBuffers) || inputBuffers.length !== 2) {
@@ -703,12 +683,10 @@ async function processVerticalTwoImage(
 
   const { MARGIN_HORIZONTAL, MARGIN_VERTICAL, GAP } = LAYOUT_CONFIG
 
-  // Calculate photo area (same as single photo logic)
-  const ratio = logoPath ? Math.max(0, Math.min(100, DEFAULT_PHOTO_RATIO)) : 100
-  const photoAreaHeight = Math.round(TARGET_HEIGHT * (ratio / 100))
-  const logoAreaHeight = TARGET_HEIGHT - photoAreaHeight
+  // No logo for this layout - full canvas used for photos
+  const photoAreaHeight = TARGET_HEIGHT
 
-  console.log(`Vertical-Two layout: Photo area ${ratio}% (${photoAreaHeight}px), Logo area ${100-ratio}% (${logoAreaHeight}px)`)
+  console.log(`Vertical-Two layout: Photo area 100% (${photoAreaHeight}px)`)
 
   // Calculate available space within photo area
   const availableWidth = TARGET_WIDTH - (MARGIN_HORIZONTAL * 2)   // 920px
@@ -795,164 +773,6 @@ async function processVerticalTwoImage(
     console.log(`Photo ${i + 1} positioned at (${left}, ${top})`)
   }
 
-  // Add logo in dedicated logo area (below photo area)
-  if (logoPath && logoSettings && logoAreaHeight > 0) {
-    const logoData = await addLogoOverlay(logoPath, logoSettings, TARGET_WIDTH, logoAreaHeight)
-
-    if (logoData) {
-      // Center logo in logo area
-      const logoLeft = Math.round((TARGET_WIDTH - logoData.width) / 2)
-      const logoTop = photoAreaHeight + Math.round((logoAreaHeight - logoData.height) / 2)
-
-      composites.push({
-        input: logoData.buffer,
-        top: logoTop,
-        left: logoLeft,
-      })
-
-      console.log(`Logo added in dedicated area: ${logoData.width}x${logoData.height}px at (${logoLeft}, ${logoTop})`)
-    }
-  }
-
-  finalImage = finalImage.composite(composites)
-
-  return finalImage.jpeg({
-    quality: 95,
-    chromaSubsampling: '4:4:4'
-  }).toBuffer()
-}
-
-async function processHorizontalTwoImage(
-  inputBuffers: Buffer[],
-  cropAreas?: CropArea[],
-  backgroundColor?: string,
-  logoPath?: string,
-  logoSettings?: LogoSettings
-): Promise<Buffer> {
-  // Ensure we have exactly 2 images
-  if (!Array.isArray(inputBuffers) || inputBuffers.length !== 2) {
-    throw new Error('Horizontal-two frame requires exactly 2 images')
-  }
-
-  // Horizontal-two layout specifications (2×1 horizontal)
-  // - Total size: 1000×1500px (4x6 inch @ 300 DPI)
-  // - Photo count: 2 (side by side)
-  // - Gap between photos: configurable
-  // - Horizontal margin: configurable
-  // - Vertical margin: configurable
-  // - Background: Customizable (default black)
-
-  const { MARGIN_HORIZONTAL, MARGIN_VERTICAL, GAP } = LAYOUT_CONFIG
-
-  // Calculate photo area (same as single photo logic)
-  const ratio = logoPath ? Math.max(0, Math.min(100, DEFAULT_PHOTO_RATIO)) : 100
-  const photoAreaHeight = Math.round(TARGET_HEIGHT * (ratio / 100))
-  const logoAreaHeight = TARGET_HEIGHT - photoAreaHeight
-
-  console.log(`Horizontal-Two layout: Photo area ${ratio}% (${photoAreaHeight}px), Logo area ${100-ratio}% (${logoAreaHeight}px)`)
-
-  // Calculate available space within photo area
-  const availableWidth = TARGET_WIDTH - (MARGIN_HORIZONTAL * 2)   // 920px
-  const availableHeight = photoAreaHeight - (MARGIN_VERTICAL * 2)
-
-  // Calculate photo dimensions (2 photos side by side)
-  const photoWidth = Math.round((availableWidth - GAP) / 2)      // 450px each
-  const photoHeight = availableHeight
-
-  console.log(`Horizontal-Two: 2 photos @ ${photoWidth}x${photoHeight}px each (side by side)`)
-  console.log(`Canvas: ${TARGET_WIDTH}x${TARGET_HEIGHT}px`)
-  console.log(`Margins: H=${MARGIN_HORIZONTAL}px, V=${MARGIN_VERTICAL}px, Gap=${GAP}px`)
-
-  // Process each of the 2 photos
-  const photoBuffers: Buffer[] = []
-  for (let i = 0; i < 2; i++) {
-    let image = sharp(inputBuffers[i]).rotate() // Auto-rotate based on EXIF
-
-    // Apply crop if provided
-    if (cropAreas && cropAreas[i] && cropAreas[i].width > 0 && cropAreas[i].height > 0) {
-      const metadata = await image.metadata()
-      const originalWidth = metadata.width || 0
-      const originalHeight = metadata.height || 0
-
-      console.log(`Photo ${i + 1} original: ${originalWidth}x${originalHeight}`)
-      console.log(`Photo ${i + 1} crop requested: ${cropAreas[i].width}x${cropAreas[i].height} at (${cropAreas[i].x}, ${cropAreas[i].y})`)
-
-      // Clamp crop area to image boundaries
-      const left = Math.max(0, Math.min(Math.round(cropAreas[i].x), originalWidth - 1))
-      const top = Math.max(0, Math.min(Math.round(cropAreas[i].y), originalHeight - 1))
-      const width = Math.min(Math.round(cropAreas[i].width), originalWidth - left)
-      const height = Math.min(Math.round(cropAreas[i].height), originalHeight - top)
-
-      if (width > 0 && height > 0) {
-        console.log(`Photo ${i + 1} crop applied: ${width}x${height} at (${left}, ${top})`)
-        image = image.extract({ left, top, width, height })
-      }
-    }
-
-    // Resize to target dimensions
-    // If crop was applied, the aspect ratio should match, so use 'fill'
-    // If no crop, use 'cover' to maintain aspect ratio and fill the space
-    const hasCrop = cropAreas && cropAreas[i] && cropAreas[i].width > 0 && cropAreas[i].height > 0
-    const processedPhoto = await image
-      .resize(photoWidth, photoHeight, {
-        fit: hasCrop ? 'fill' : 'cover',
-        position: 'centre',
-      })
-      .toBuffer()
-
-    photoBuffers.push(processedPhoto)
-  }
-
-  // Parse background color (default black)
-  const bgColor = backgroundColor || '#000000'
-  const rgb = hexToRgb(bgColor)
-
-  // Create blank canvas with custom background
-  let finalImage = sharp({
-    create: {
-      width: TARGET_WIDTH,
-      height: TARGET_HEIGHT,
-      channels: 3,
-      background: { r: rgb.r, g: rgb.g, b: rgb.b }
-    }
-  })
-
-  const composites: any[] = []
-
-  // Add 2 photos horizontally
-  // Layout: [0] [1]
-  for (let i = 0; i < 2; i++) {
-    const left = MARGIN_HORIZONTAL + (i * (photoWidth + GAP))
-    const top = MARGIN_VERTICAL
-
-    composites.push({
-      input: photoBuffers[i],
-      top,
-      left,
-    })
-
-    console.log(`Photo ${i + 1} positioned at (${left}, ${top})`)
-  }
-
-  // Add logo in dedicated logo area (below photo area)
-  if (logoPath && logoSettings && logoAreaHeight > 0) {
-    const logoData = await addLogoOverlay(logoPath, logoSettings, TARGET_WIDTH, logoAreaHeight)
-
-    if (logoData) {
-      // Center logo in logo area
-      const logoLeft = Math.round((TARGET_WIDTH - logoData.width) / 2)
-      const logoTop = photoAreaHeight + Math.round((logoAreaHeight - logoData.height) / 2)
-
-      composites.push({
-        input: logoData.buffer,
-        top: logoTop,
-        left: logoLeft,
-      })
-
-      console.log(`Logo added in dedicated area: ${logoData.width}x${logoData.height}px at (${logoLeft}, ${logoTop})`)
-    }
-  }
-
   finalImage = finalImage.composite(composites)
 
   return finalImage.jpeg({
@@ -964,9 +784,7 @@ async function processHorizontalTwoImage(
 async function processOnePlusTwoImage(
   inputBuffers: Buffer[],
   cropAreas?: CropArea[],
-  backgroundColor?: string,
-  logoPath?: string,
-  logoSettings?: LogoSettings
+  backgroundColor?: string
 ): Promise<Buffer> {
   // Ensure we have exactly 3 images
   if (!Array.isArray(inputBuffers) || inputBuffers.length !== 3) {
@@ -983,12 +801,10 @@ async function processOnePlusTwoImage(
 
   const { MARGIN_HORIZONTAL, MARGIN_VERTICAL, GAP } = LAYOUT_CONFIG
 
-  // Calculate photo area (same as single photo logic)
-  const ratio = logoPath ? Math.max(0, Math.min(100, DEFAULT_PHOTO_RATIO)) : 100
-  const photoAreaHeight = Math.round(TARGET_HEIGHT * (ratio / 100))
-  const logoAreaHeight = TARGET_HEIGHT - photoAreaHeight
+  // No logo for this layout - full canvas used for photos
+  const photoAreaHeight = TARGET_HEIGHT
 
-  console.log(`One-Plus-Two layout: Photo area ${ratio}% (${photoAreaHeight}px), Logo area ${100-ratio}% (${logoAreaHeight}px)`)
+  console.log(`One-Plus-Two layout: Photo area 100% (${photoAreaHeight}px)`)
 
   // Calculate available space within photo area
   const availableWidth = TARGET_WIDTH - (MARGIN_HORIZONTAL * 2)   // 920px
@@ -1128,25 +944,6 @@ async function processOnePlusTwoImage(
     })
 
     console.log(`Bottom photo ${i} positioned at (${left}, ${top})`)
-  }
-
-  // Add logo in dedicated logo area (below photo area)
-  if (logoPath && logoSettings && logoAreaHeight > 0) {
-    const logoData = await addLogoOverlay(logoPath, logoSettings, TARGET_WIDTH, logoAreaHeight)
-
-    if (logoData) {
-      // Center logo in logo area
-      const logoLeft = Math.round((TARGET_WIDTH - logoData.width) / 2)
-      const logoTop = photoAreaHeight + Math.round((logoAreaHeight - logoData.height) / 2)
-
-      composites.push({
-        input: logoData.buffer,
-        top: logoTop,
-        left: logoLeft,
-      })
-
-      console.log(`Logo added in dedicated area: ${logoData.width}x${logoData.height}px at (${logoLeft}, ${logoTop})`)
-    }
   }
 
   finalImage = finalImage.composite(composites)

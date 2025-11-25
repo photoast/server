@@ -234,12 +234,6 @@ export default function AdminPage() {
       if (!updateRes.ok) throw new Error('Failed to update photo ratio')
 
       await fetchEvents()
-
-      // Auto-refresh preview
-      const updatedEvent = events.find(e => e._id === eventId)
-      if (updatedEvent) {
-        setTimeout(() => generatePreview({ ...updatedEvent, photoAreaRatio: ratio }), 300)
-      }
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to update photo ratio'
       setError(errorMessage)
@@ -306,6 +300,9 @@ export default function AdminPage() {
       clearTimeout(debounceTimers[eventId])
     }
 
+    // Find the event before state update
+    const currentEvent = events.find(e => e._id === eventId)
+
     // Optimistically update local state
     setEvents(prevEvents =>
       prevEvents.map(e =>
@@ -313,9 +310,14 @@ export default function AdminPage() {
       )
     )
 
-    // Set new timer
+    // Immediately update preview with optimistic state
+    if (autoRefreshPreview && currentEvent) {
+      generatePreview({ ...currentEvent, logoSettings })
+    }
+
+    // Set new timer to save to server
     const timer = setTimeout(() => {
-      handleUpdateLogoSettings(eventId, logoSettings, autoRefreshPreview)
+      handleUpdateLogoSettings(eventId, logoSettings, false) // Don't refresh preview again
     }, 500)
 
     setDebounceTimers(prev => ({ ...prev, [eventId]: timer }))
@@ -329,6 +331,9 @@ export default function AdminPage() {
       clearTimeout(debounceTimers[timerKey])
     }
 
+    // Find the event before state update
+    const currentEvent = events.find(e => e._id === eventId)
+
     // Optimistically update local state
     setEvents(prevEvents =>
       prevEvents.map(e =>
@@ -336,7 +341,12 @@ export default function AdminPage() {
       )
     )
 
-    // Set new timer
+    // Immediately update preview with optimistic state
+    if (currentEvent) {
+      generatePreview({ ...currentEvent, photoAreaRatio: ratio })
+    }
+
+    // Set new timer to save to server
     const timer = setTimeout(() => {
       handleUpdatePhotoRatio(eventId, ratio)
     }, 500)

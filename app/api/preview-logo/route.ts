@@ -12,14 +12,14 @@ export async function POST(request: NextRequest) {
     const sampleImagePath = path.join(process.cwd(), 'public', 'sample-photo.jpg')
     const sampleBuffer = await fs.readFile(sampleImagePath)
 
-    // Process image with logo settings (white background for single photo)
+    // Process image with logo settings (white background for single photo with logo)
     const processedBuffer = await processImage(
       sampleBuffer,
       logoUrl,
       undefined, // no crop
       photoAreaRatio ?? 85,
       logoSettings,
-      'single', // frame type
+      'single-with-logo', // frame type - use single-with-logo to show logo
       '#FFFFFF' // white background
     )
 
