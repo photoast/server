@@ -1,15 +1,9 @@
 import nodemailer from 'nodemailer'
 import path from 'path'
 import fs from 'fs'
-import sharp from 'sharp'
-import { applyPrinterCorrection } from './image-correction'
 
 // Epson Email Print address
 const EPSON_PRINT_EMAIL = 'eyx3988j7dyi07@print.epsonconnect.com'
-
-// Target canvas size for printer correction (same as pm.ts)
-const CANVAS_WIDTH = 1200
-const CANVAS_HEIGHT = 1800
 
 /**
  * Send image to Epson Email Print service
@@ -44,17 +38,12 @@ export async function printViaEmail(
     console.log(`SMTP Server: ${smtpHost}:${smtpPort}`)
     console.log(`From: ${smtpFrom}`)
 
-    // Step 1: Resize image to printer canvas size (1200×1800)
-    console.log(`\nStep 1: Resizing to ${CANVAS_WIDTH}×${CANVAS_HEIGHT}`)
-    const resizedBuffer = await sharp(imagePath)
-      .resize(CANVAS_WIDTH, CANVAS_HEIGHT, { fit: 'cover' })
-      // .jpeg({ quality })는 JPEG 압축 품질 설정임 (0~100)
-      // 값이 클수록 원본 화질에 가깝지만, 파일 크기도 커짐
-      // Epson Email Print에 100도 보낼 수 있지만, 불필요하게 용량만 커질 수 있음
-      .jpeg({ quality: 100 })
-      .toBuffer()
+    // Read the image file as-is (no resizing, no correction)
+    // The image is already processed correctly by process-image API
+    console.log(`\nUsing image as-is (already 1200×1800 from process-image API)`)
+    const imageBuffer = fs.readFileSync(imagePath)
 
-    // Save original (resized) version
+    // Save a copy for debugging
     const isVercel = process.env.VERCEL === '1'
     const outputDir = isVercel ? '/tmp/output' : path.join(process.cwd(), 'output')
 
@@ -63,21 +52,9 @@ export async function printViaEmail(
     }
 
     const timestamp = Date.now()
-    const originalPath = path.join(outputDir, `email-original-${timestamp}.jpg`)
-    fs.writeFileSync(originalPath, resizedBuffer)
-    console.log(`원본(리사이즈) 저장: ${originalPath}`)
-
-    // Step 2: Apply printer correction (shrink + vertical offset)
-    console.log('\nStep 2: Applying printer correction')
-    const correctedBuffer = await applyPrinterCorrection(resizedBuffer, {
-      canvasWidth: CANVAS_WIDTH,
-      canvasHeight: CANVAS_HEIGHT,
-    })
-
-    // Save corrected version
-    const correctedPath = path.join(outputDir, `email-corrected-${timestamp}.jpg`)
-    fs.writeFileSync(correctedPath, correctedBuffer)
-    console.log(`보정 버전 저장: ${correctedPath}`)
+    const copyPath = path.join(outputDir, `email-sent-${timestamp}.jpg`)
+    fs.writeFileSync(copyPath, imageBuffer)
+    console.log(`전송 이미지 사본 저장: ${copyPath}`)
 
     // Create nodemailer transporter
     const transporter = nodemailer.createTransport({
@@ -94,8 +71,8 @@ export async function printViaEmail(
     await transporter.verify()
     console.log('SMTP connection verified')
 
-    // Send email with corrected image attachment
-    const filename = `corrected-${path.basename(imagePath)}`
+    // Send email with image attachment (as-is, no modification)
+    const filename = path.basename(imagePath)
     const info = await transporter.sendMail({
       from: smtpFrom,
       to: EPSON_PRINT_EMAIL,
@@ -104,7 +81,7 @@ export async function printViaEmail(
       attachments: [
         {
           filename: filename,
-          content: correctedBuffer,
+          content: imageBuffer,
         },
       ],
     })
