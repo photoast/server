@@ -62,7 +62,7 @@ export function FourCutPreview({ photoSlots, onSlotClick, logoUrl }: LayoutPrevi
   return (
     <div className="relative w-full max-w-sm mx-auto" style={{ aspectRatio: '2/3' }}>
       <div
-        className="absolute inset-0 bg-black overflow-hidden shadow-2xl relative"
+        className="absolute inset-0 bg-black overflow-hidden shadow-2xl"
         style={{
           padding: `${marginVerticalPercent}% ${marginHorizontalPercent}%`,
           display: 'grid',
@@ -72,14 +72,14 @@ export function FourCutPreview({ photoSlots, onSlotClick, logoUrl }: LayoutPrevi
       >
         {/* Left strip */}
         <div
-          className="grid"
+          className="grid h-full"
           style={{
             gridTemplateRows: '1fr 1fr 1fr 1fr',
             gap: `${gapBetweenPhotosPercent}% 0`
           }}
         >
           {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="w-full overflow-hidden" style={{ aspectRatio: '475/358' }}>
+            <div key={i} className="w-full h-full overflow-hidden">
               <PhotoSlot
                 file={photoSlots[i]?.file}
                 croppedImageUrl={photoSlots[i]?.croppedImageUrl}
@@ -94,14 +94,14 @@ export function FourCutPreview({ photoSlots, onSlotClick, logoUrl }: LayoutPrevi
 
         {/* Right strip (duplicate preview) */}
         <div
-          className="grid opacity-50"
+          className="grid h-full opacity-50"
           style={{
             gridTemplateRows: '1fr 1fr 1fr 1fr',
             gap: `${gapBetweenPhotosPercent}% 0`
           }}
         >
           {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="w-full overflow-hidden" style={{ aspectRatio: '475/358' }}>
+            <div key={i} className="w-full h-full overflow-hidden">
               <div className="relative bg-gradient-to-br from-purple-100 to-pink-100 overflow-hidden w-full h-full">
                 {photoSlots[i]?.file && (
                   <img
