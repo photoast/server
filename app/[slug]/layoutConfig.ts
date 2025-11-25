@@ -1,4 +1,5 @@
 import { FrameType } from '@/lib/types'
+import { CANVAS_WIDTH, CANVAS_HEIGHT, LAYOUT_CONFIG, FOUR_CUT_CONFIG } from '@/lib/layoutConstants'
 
 export interface LayoutOption {
   type: FrameType
@@ -62,17 +63,60 @@ export function getPhotoCount(type: FrameType): number {
 }
 
 export function getCropAspectRatio(type: FrameType, hasLogo: boolean = false): number {
-  // Base ratios for layouts WITHOUT logo (100% photo area)
-  const baseRatios: Record<FrameType, number> = {
-    'single': 1000 / 1500,        // 2:3 ratio
-    'four-cut': 900 / 685,        // Four-cut strip ratio
-    'two-by-two': 450 / 680,      // Grid cell ratio
-    'vertical-two': 920 / 680,    // Vertical split ratio
-    'horizontal-two': 450 / 1380, // Horizontal split ratio
-    'one-plus-two': 920 / 680     // Default for first slot
-  }
+  // Calculate exact ratios dynamically from layout constants
+  // These must match the actual output dimensions in lib/image.ts
 
-  const baseRatio = baseRatios[type] || 1000 / 1500
+  let baseRatio: number
+
+  if (type === 'four-cut') {
+    // Match lib/image.ts processFourCutImage calculations
+    const { MARGIN_OUTER, GAP_CENTER, GAP_BETWEEN_PHOTOS } = FOUR_CUT_CONFIG
+    const stripWidth = Math.round((CANVAS_WIDTH - (MARGIN_OUTER * 2) - GAP_CENTER) / 2)
+    const stripHeight = CANVAS_HEIGHT - (MARGIN_OUTER * 2)
+    const photoWidth = stripWidth
+    const totalGapsHeight = GAP_BETWEEN_PHOTOS * 3
+    const photoHeight = Math.round((stripHeight - totalGapsHeight) / 4)
+    baseRatio = photoWidth / photoHeight
+  } else if (type === 'two-by-two') {
+    // Match lib/image.ts processTwoByTwoImage
+    const { MARGIN_HORIZONTAL, MARGIN_VERTICAL, GAP } = LAYOUT_CONFIG
+    const photoAreaHeight = CANVAS_HEIGHT // No logo in crop, assume 100%
+    const availableWidth = CANVAS_WIDTH - (MARGIN_HORIZONTAL * 2)
+    const availableHeight = photoAreaHeight - (MARGIN_VERTICAL * 2)
+    const photoWidth = Math.round((availableWidth - GAP) / 2)
+    const photoHeight = Math.round((availableHeight - GAP) / 2)
+    baseRatio = photoWidth / photoHeight
+  } else if (type === 'vertical-two') {
+    // Match lib/image.ts processVerticalTwoImage
+    const { MARGIN_HORIZONTAL, MARGIN_VERTICAL, GAP } = LAYOUT_CONFIG
+    const photoAreaHeight = CANVAS_HEIGHT
+    const availableWidth = CANVAS_WIDTH - (MARGIN_HORIZONTAL * 2)
+    const availableHeight = photoAreaHeight - (MARGIN_VERTICAL * 2)
+    const photoWidth = availableWidth
+    const photoHeight = Math.round((availableHeight - GAP) / 2)
+    baseRatio = photoWidth / photoHeight
+  } else if (type === 'horizontal-two') {
+    // Match lib/image.ts processHorizontalTwoImage
+    const { MARGIN_HORIZONTAL, MARGIN_VERTICAL, GAP } = LAYOUT_CONFIG
+    const photoAreaHeight = CANVAS_HEIGHT
+    const availableWidth = CANVAS_WIDTH - (MARGIN_HORIZONTAL * 2)
+    const availableHeight = photoAreaHeight - (MARGIN_VERTICAL * 2)
+    const photoWidth = Math.round((availableWidth - GAP) / 2)
+    const photoHeight = availableHeight
+    baseRatio = photoWidth / photoHeight
+  } else if (type === 'one-plus-two') {
+    // Match lib/image.ts processOnePlusTwoImage - top photo
+    const { MARGIN_HORIZONTAL, MARGIN_VERTICAL, GAP } = LAYOUT_CONFIG
+    const photoAreaHeight = CANVAS_HEIGHT
+    const availableWidth = CANVAS_WIDTH - (MARGIN_HORIZONTAL * 2)
+    const availableHeight = photoAreaHeight - (MARGIN_VERTICAL * 2)
+    const topPhotoWidth = availableWidth
+    const topPhotoHeight = Math.round((availableHeight - GAP) / 2)
+    baseRatio = topPhotoWidth / topPhotoHeight
+  } else {
+    // Single photo default
+    baseRatio = CANVAS_WIDTH / CANVAS_HEIGHT
+  }
 
   // If logo exists, adjust the crop ratio to account for logo space
   // Logo typically takes up ~15% of the height in single layout
@@ -88,8 +132,20 @@ export function getCropAspectRatio(type: FrameType, hasLogo: boolean = false): n
 
 export function getCropAspectRatioForSlot(type: FrameType, slotIndex: number, hasLogo: boolean = false): number {
   if (type === 'one-plus-two') {
-    const topRatio = 920 / 680
-    const bottomRatio = 450 / 680
+    // Match lib/image.ts processOnePlusTwoImage
+    const { MARGIN_HORIZONTAL, MARGIN_VERTICAL, GAP } = LAYOUT_CONFIG
+    const photoAreaHeight = CANVAS_HEIGHT
+    const availableWidth = CANVAS_WIDTH - (MARGIN_HORIZONTAL * 2)
+    const availableHeight = photoAreaHeight - (MARGIN_VERTICAL * 2)
+
+    const topPhotoWidth = availableWidth
+    const topPhotoHeight = Math.round((availableHeight - GAP) / 2)
+    const bottomPhotoWidth = Math.round((availableWidth - GAP) / 2)
+    const bottomPhotoHeight = topPhotoHeight
+
+    const topRatio = topPhotoWidth / topPhotoHeight
+    const bottomRatio = bottomPhotoWidth / bottomPhotoHeight
+
     return slotIndex === 0 ? topRatio : bottomRatio
   }
   return getCropAspectRatio(type, hasLogo)
