@@ -14,8 +14,9 @@ export async function POST(request: NextRequest) {
     const cropAreasStr = formData.get('cropAreas') as string | null
     const frameType = (formData.get('frameType') as string || 'single') as FrameType
     const backgroundColor = formData.get('backgroundColor') as string | null
+    const logoBase64FromClient = formData.get('logoBase64') as string | null
 
-    console.log('[API] Request params:', { slug, frameType, hasCropArea: !!cropDataStr, hasCropAreas: !!cropAreasStr, backgroundColor })
+    console.log('[API] Request params:', { slug, frameType, hasCropArea: !!cropDataStr, hasCropAreas: !!cropAreasStr, backgroundColor, hasLogoBase64FromClient: !!logoBase64FromClient })
 
     if (!slug) {
       console.error('[API] Error: Event slug is required')
@@ -134,11 +135,25 @@ export async function POST(request: NextRequest) {
     // single-with-logo: always shows logo if available
     const shouldHaveLogo = frameType === 'single-with-logo'
 
-    // In Vercel environment, prefer logoBase64 over logoUrl
+    // Priority: logoBase64 from client > logoBase64 from event > logoUrl
     const isVercel = process.env.VERCEL === '1'
-    const finalLogoUrl = shouldHaveLogo
-      ? (isVercel && event.logoBase64 ? event.logoBase64 : event.logoUrl || undefined)
-      : undefined
+    let finalLogoUrl: string | undefined = undefined
+
+    if (shouldHaveLogo) {
+      if (logoBase64FromClient) {
+        // Highest priority: logo base64 sent from client
+        finalLogoUrl = logoBase64FromClient
+        console.log('[API] Using logoBase64 from client')
+      } else if (isVercel && event.logoBase64) {
+        // Second priority: logo base64 stored in event (Vercel environment)
+        finalLogoUrl = event.logoBase64
+        console.log('[API] Using logoBase64 from event')
+      } else if (event.logoUrl) {
+        // Fallback: logo URL (works in local development)
+        finalLogoUrl = event.logoUrl
+        console.log('[API] Using logoUrl from event')
+      }
+    }
 
     console.log('[API] Processing image with settings:', {
       frameType,

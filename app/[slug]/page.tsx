@@ -176,6 +176,29 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         logClientInfo('[Mobile] FormData prepared', params.slug, { photoCount, backgroundColor })
       }
 
+      // If single-with-logo layout and logo exists, convert logoUrl to base64
+      if (frameType === 'single-with-logo' && event?.logoUrl) {
+        try {
+          console.log('[handleProcess] Fetching logo from:', event.logoUrl)
+          const logoResponse = await fetch(event.logoUrl)
+          if (logoResponse.ok) {
+            const logoBlob = await logoResponse.blob()
+            const logoBase64 = await new Promise<string>((resolve) => {
+              const reader = new FileReader()
+              reader.onloadend = () => resolve(reader.result as string)
+              reader.readAsDataURL(logoBlob)
+            })
+            formData.append('logoBase64', logoBase64)
+            console.log('[handleProcess] Logo converted to base64 and added to FormData')
+          } else {
+            console.warn('[handleProcess] Failed to fetch logo:', logoResponse.status)
+          }
+        } catch (logoErr) {
+          console.error('[handleProcess] Error fetching logo:', logoErr)
+          // Continue without logo if fetch fails
+        }
+      }
+
       console.log('[handleProcess] Sending request to /api/process-image')
       logClientInfo('[Mobile] Sending fetch request', params.slug, { frameType })
 
