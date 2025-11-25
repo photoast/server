@@ -8,6 +8,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { logoUrl, photoAreaRatio, logoSettings } = body
 
+    console.log('Preview-logo API received:', { logoUrl, photoAreaRatio, logoSettings })
+
     // Read sample image
     const sampleImagePath = path.join(process.cwd(), 'public', 'sample-photo.jpg')
     const sampleBuffer = await fs.readFile(sampleImagePath)

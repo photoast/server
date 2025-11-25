@@ -178,17 +178,15 @@ async function processSingleImage(
         const position = logoSettings?.position || 'bottom-center'
         const sizePercent = logoSettings?.size || 80 // Default 80% of image width
 
+        console.log('Processing logo with settings:', { position, sizePercent, x: logoSettings?.x, y: logoSettings?.y })
+
         // Calculate logo size based on settings (percentage of TOTAL image width, not logo area)
-        // But limit to prevent logo from being larger than canvas
+        // Allow logo to be any size - if it goes into photo area, it will be clipped by composite
         const requestedLogoWidth = Math.round(TARGET_WIDTH * (sizePercent / 100))
-        const maxLogoWidth = TARGET_WIDTH - 40 // Leave 20px padding on each side
-        const maxLogoHeight = logoHeight - 40 // Leave 20px padding top/bottom in logo area
 
-        const targetLogoWidth = Math.min(requestedLogoWidth, maxLogoWidth)
-
-        // Resize logo based on width, but also limit height
+        // Resize logo based on width - no height limit, allow it to extend into photo area
         const logoBuffer = await sharp(logoFullPath)
-          .resize(targetLogoWidth, maxLogoHeight, {
+          .resize(requestedLogoWidth, null, {
             fit: 'inside',
             withoutEnlargement: false, // Allow enlargement beyond original size
           })
@@ -234,8 +232,10 @@ async function processSingleImage(
         }
 
         // Clamp position to keep logo within canvas bounds
-        left = Math.max(0, Math.min(left, TARGET_WIDTH - logoWidth))
-        top = Math.max(photoHeight, Math.min(top, TARGET_HEIGHT - actualLogoHeight))
+        // Allow logo to extend into photo area (top can be < photoHeight)
+        // Photo layer will be composited on top, so photo area takes priority
+        left = Math.max(-logoWidth, Math.min(left, TARGET_WIDTH))
+        top = Math.max(0, Math.min(top, TARGET_HEIGHT))
 
         composites.push({
           input: logoBuffer,

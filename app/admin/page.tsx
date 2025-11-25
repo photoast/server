@@ -361,6 +361,7 @@ export default function AdminPage() {
     setLoadingPreviews(prev => ({ ...prev, [eventId]: true }))
 
     try {
+      // Add timestamp to prevent caching
       const res = await fetch('/api/preview-logo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -368,20 +369,23 @@ export default function AdminPage() {
           logoUrl: event.logoUrl,
           photoAreaRatio: event.photoAreaRatio ?? 85,
           logoSettings: event.logoSettings,
+          timestamp: Date.now(), // Force new request
         }),
       })
 
       if (!res.ok) throw new Error('Failed to generate preview')
 
       const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
 
       // Revoke old URL if exists
       if (previewUrls[eventId]) {
         URL.revokeObjectURL(previewUrls[eventId])
       }
 
+      const url = URL.createObjectURL(blob)
       setPreviewUrls(prev => ({ ...prev, [eventId]: url }))
+
+      console.log('Preview updated for event:', eventId, 'logoSettings:', event.logoSettings)
     } catch (err: any) {
       console.error('Preview error:', err)
       logClientError('Failed to generate logo preview', err, undefined, {
@@ -775,6 +779,7 @@ export default function AdminPage() {
                           <div className="relative w-48 aspect-[1000/1500] bg-gray-100 border-2 border-gray-300 rounded shadow-lg overflow-hidden">
                             {previewUrls[event._id] ? (
                               <Image
+                                key={previewUrls[event._id]} // Force re-render when URL changes
                                 src={previewUrls[event._id]}
                                 alt="Preview"
                                 fill

@@ -99,6 +99,13 @@ export async function POST(request: NextRequest) {
     const shouldHaveLogo = frameType === 'single-with-logo' || frameType === 'four-cut'
     const finalLogoUrl = shouldHaveLogo ? (event.logoUrl || undefined) : undefined
 
+    console.log('Processing image with logo settings:', {
+      frameType,
+      logoUrl: finalLogoUrl,
+      photoAreaRatio,
+      logoSettings: event.logoSettings
+    })
+
     const processedBuffer = await processImage(
       buffers,
       finalLogoUrl,
