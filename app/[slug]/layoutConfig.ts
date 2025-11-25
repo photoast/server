@@ -62,15 +62,15 @@ export function getPhotoCount(type: FrameType): number {
   return getLayoutOption(type)?.photoCount || 1
 }
 
-export function getCropAspectRatio(type: FrameType, hasLogo: boolean = false): number {
+export function getCropAspectRatio(type: FrameType, hasLogo: boolean = false, photoAreaRatio: number = 85): number {
   // Calculate exact ratios dynamically from layout constants
   // These must match the actual output dimensions in lib/image.ts
 
   let baseRatio: number
 
   if (type === 'single-with-logo') {
-    // Single with logo: photo area is 85% of height
-    const photoAreaHeight = Math.round(CANVAS_HEIGHT * 0.85)
+    // Single with logo: photo area uses photoAreaRatio
+    const photoAreaHeight = Math.round(CANVAS_HEIGHT * (photoAreaRatio / 100))
     baseRatio = CANVAS_WIDTH / photoAreaHeight
   } else if (type === 'four-cut') {
     // Match lib/image.ts processFourCutImage calculations
@@ -116,7 +116,7 @@ export function getCropAspectRatio(type: FrameType, hasLogo: boolean = false): n
   return baseRatio
 }
 
-export function getCropAspectRatioForSlot(type: FrameType, slotIndex: number, hasLogo: boolean = false): number {
+export function getCropAspectRatioForSlot(type: FrameType, slotIndex: number, hasLogo: boolean = false, photoAreaRatio: number = 85): number {
   if (type === 'one-plus-two') {
     // Match lib/image.ts processOnePlusTwoImage
     const { MARGIN_HORIZONTAL, MARGIN_VERTICAL, GAP } = LAYOUT_CONFIG
@@ -134,5 +134,5 @@ export function getCropAspectRatioForSlot(type: FrameType, slotIndex: number, ha
 
     return slotIndex === 0 ? topRatio : bottomRatio
   }
-  return getCropAspectRatio(type, hasLogo)
+  return getCropAspectRatio(type, hasLogo, photoAreaRatio)
 }

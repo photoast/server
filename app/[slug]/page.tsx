@@ -21,6 +21,8 @@ interface Event {
   printerUrl: string
   logoUrl?: string
   photoAreaRatio?: number
+  availableLayouts?: string[]
+  logoSettings?: any
 }
 
 interface CropArea {
@@ -402,7 +404,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       case 'single':
         return <SinglePhotoPreview {...baseProps} />
       case 'single-with-logo':
-        return <SingleWithLogoPreview {...baseProps} logoUrl={event?.logoUrl} />
+        return <SingleWithLogoPreview {...baseProps} logoUrl={event?.logoUrl} logoSettings={event?.logoSettings} photoAreaRatio={event?.photoAreaRatio} />
       case 'four-cut':
         return <FourCutPreview {...baseProps} />
       case 'two-by-two':
@@ -506,7 +508,16 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                {LAYOUT_OPTIONS.map((option) => (
+                {LAYOUT_OPTIONS
+                  .filter((option) => {
+                    // If availableLayouts is not set or empty, show all layouts
+                    if (!event?.availableLayouts || event.availableLayouts.length === 0) {
+                      return true
+                    }
+                    // Otherwise, only show layouts in the availableLayouts array
+                    return event.availableLayouts.includes(option.type)
+                  })
+                  .map((option) => (
                   <button
                     key={option.type}
                     onClick={() => setFrameType(option.type)}
@@ -820,7 +831,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         {showCropEditor && currentEditingSlot !== null && photoSlots[currentEditingSlot]?.file && (
           <FourCutCropEditor
             images={[photoSlots[currentEditingSlot].file!]}
-            aspectRatio={getCropAspectRatioForSlot(frameType, currentEditingSlot, !!event?.logoUrl)}
+            aspectRatio={getCropAspectRatioForSlot(frameType, currentEditingSlot, !!event?.logoUrl, event?.photoAreaRatio ?? 85)}
             onComplete={handleCropComplete}
             onCancel={handleCropCancel}
           />

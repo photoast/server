@@ -17,6 +17,7 @@ export interface Event {
   logoUrl?: string
   photoAreaRatio?: number // Percentage of photo area (default 85, range 0-100)
   logoSettings?: LogoSettings // Logo position and size settings
+  availableLayouts?: FrameType[] // Layouts available for this event (default: all)
   createdAt: Date
 }
 

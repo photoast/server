@@ -20,6 +20,7 @@ interface Event {
   logoUrl?: string
   photoAreaRatio?: number
   logoSettings?: LogoSettings
+  availableLayouts?: string[]
   createdAt: string
 }
 
@@ -244,7 +245,7 @@ export default function AdminPage() {
     }
   }
 
-  const handleUpdateEvent = async (eventId: string, updates: { name?: string; printerUrl?: string }) => {
+  const handleUpdateEvent = async (eventId: string, updates: { name?: string; printerUrl?: string; availableLayouts?: string[] }) => {
     try {
       const updateRes = await fetch(`/api/events/${eventId}`, {
         method: 'PATCH',
@@ -762,6 +763,77 @@ export default function AdminPage() {
                           </div>
                         </div>
                       )}
+
+                      {/* Available Layouts Selection */}
+                      <div className="border-t pt-4">
+                        <label className="block text-sm font-medium mb-2">
+                          노출할 레이아웃 선택:
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {(() => {
+                            const allLayoutTypes = [
+                              { type: 'single', name: '일반 1장' },
+                              { type: 'single-with-logo', name: '로고 포함 1장' },
+                              { type: 'vertical-two', name: '세로 2장' },
+                              { type: 'one-plus-two', name: '1+2 레이아웃' },
+                              { type: 'four-cut', name: '1*4 네컷' },
+                              { type: 'two-by-two', name: '2×2 그리드' },
+                            ]
+
+                            return allLayoutTypes.map((layout) => {
+                              const availableLayouts = event.availableLayouts || []
+                              const isChecked = availableLayouts.length === 0 || availableLayouts.includes(layout.type)
+
+                              return (
+                                <label
+                                  key={layout.type}
+                                  className="flex items-center gap-2 p-2 border rounded hover:bg-gray-50 cursor-pointer"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={(e) => {
+                                      const currentLayouts = event.availableLayouts || []
+                                      let newLayouts: string[]
+
+                                      if (e.target.checked) {
+                                        // Add layout
+                                        if (currentLayouts.length === 0) {
+                                          // If currently showing all (empty array), just add this one
+                                          newLayouts = [layout.type]
+                                        } else {
+                                          // Add to existing array
+                                          newLayouts = [...currentLayouts.filter(l => l !== layout.type), layout.type]
+                                        }
+                                      } else {
+                                        // Remove layout
+                                        if (currentLayouts.length === 0) {
+                                          // If currently showing all, create array with all except this one
+                                          newLayouts = allLayoutTypes
+                                            .map(l => l.type)
+                                            .filter(t => t !== layout.type)
+                                        } else {
+                                          // Remove from existing array
+                                          newLayouts = currentLayouts.filter(l => l !== layout.type)
+                                        }
+                                      }
+
+                                      handleUpdateEvent(event._id, { availableLayouts: newLayouts })
+                                    }}
+                                    className="rounded"
+                                  />
+                                  <span className="text-sm">{layout.name}</span>
+                                </label>
+                              )
+                            })
+                          })()}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2">
+                          {event.availableLayouts && event.availableLayouts.length > 0
+                            ? `${event.availableLayouts.length}개 레이아웃 선택됨`
+                            : '모든 레이아웃 활성화됨'}
+                        </p>
+                      </div>
 
                       {/* Preview with exact 102x152mm ratio */}
                       {event.logoUrl && (

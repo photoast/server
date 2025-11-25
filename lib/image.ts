@@ -67,23 +67,24 @@ export async function processImage(
   if (frameType === 'single-with-logo') {
     const singleBuffer = Array.isArray(inputBuffer) ? inputBuffer[0] : inputBuffer
     const singleCropArea = Array.isArray(cropArea) ? cropArea[0] : cropArea
-    return processSingleImage(singleBuffer, singleCropArea, logoPath, logoSettings)
+    return processSingleImage(singleBuffer, singleCropArea, logoPath, logoSettings, photoAreaRatio)
   }
 
   // Handle single frame (no logo)
   const singleBuffer = Array.isArray(inputBuffer) ? inputBuffer[0] : inputBuffer
   const singleCropArea = Array.isArray(cropArea) ? cropArea[0] : cropArea
-  return processSingleImage(singleBuffer, singleCropArea)
+  return processSingleImage(singleBuffer, singleCropArea, undefined, undefined, 100)
 }
 
 async function processSingleImage(
   inputBuffer: Buffer,
   cropArea?: CropArea,
   logoPath?: string,
-  logoSettings?: LogoSettings
+  logoSettings?: LogoSettings,
+  photoAreaRatio: number = DEFAULT_PHOTO_RATIO
 ): Promise<Buffer> {
   // Calculate photo and logo area
-  const ratio = logoPath ? 85 : 100 // 85% for photo if logo exists, 100% otherwise
+  const ratio = logoPath ? photoAreaRatio : 100 // Use provided ratio if logo exists, 100% otherwise
   const photoHeight = Math.round(TARGET_HEIGHT * (ratio / 100))
   const logoHeight = TARGET_HEIGHT - photoHeight
 
