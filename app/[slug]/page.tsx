@@ -13,6 +13,7 @@ import {
 } from '../components/LayoutPreviews'
 import { LAYOUT_OPTIONS, getPhotoCount, getCropAspectRatioForSlot } from './layoutConfig'
 import type { FrameType } from '@/lib/types'
+import { logClientError } from '@/lib/errorLogger'
 
 interface Event {
   name: string
@@ -92,7 +93,9 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         const data = await res.json()
         setEvent(data)
       } catch (err: any) {
-        setError(err.message)
+        const errorMessage = err.message || 'Failed to fetch event'
+        setError(errorMessage)
+        logClientError('Failed to fetch event data', err, params.slug)
       } finally {
         setLoading(false)
       }
@@ -158,8 +161,14 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       setPreviewUrl(data.url)
       console.log('Preview URL set successfully')
     } catch (err: any) {
+      const errorMessage = err.message || '미리보기 생성에 실패했습니다'
       console.error('handleProcess error:', err)
-      setError(err.message || '미리보기 생성에 실패했습니다')
+      setError(errorMessage)
+      logClientError('Failed to process image', err, params.slug, {
+        frameType,
+        photoSlotsCount: photoSlots.length,
+        backgroundColor,
+      })
     } finally {
       setProcessing(false)
     }
@@ -327,8 +336,13 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
     } catch (err: any) {
+      const errorMessage = err.message || '다운로드에 실패했습니다'
       console.error('Download error:', err)
-      setError(err.message || '다운로드에 실패했습니다')
+      setError(errorMessage)
+      logClientError('Failed to download image', err, params.slug, {
+        previewUrl,
+        frameType,
+      })
     }
   }
 
@@ -355,7 +369,12 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
       setStep('success')
     } catch (err: any) {
-      setError(err.message)
+      const errorMessage = err.message || 'Failed to print'
+      setError(errorMessage)
+      logClientError('Failed to print image', err, params.slug, {
+        previewUrl,
+        frameType,
+      })
     } finally {
       setPrinting(false)
     }

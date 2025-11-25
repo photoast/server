@@ -46,3 +46,17 @@ export interface Admin {
   username: string
   passwordHash: string
 }
+
+export type ErrorLevel = 'error' | 'warning' | 'info'
+
+export interface ErrorLog {
+  _id?: ObjectId
+  level: ErrorLevel
+  message: string
+  stack?: string
+  url?: string
+  userAgent?: string
+  timestamp: Date
+  eventSlug?: string
+  additionalData?: Record<string, any>
+}

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import QRCode from 'qrcode'
+import { logClientError } from '@/lib/errorLogger'
 
 interface LogoSettings {
   position: 'top-left' | 'top-center' | 'top-right' | 'center-left' | 'center' | 'center-right' | 'bottom-left' | 'bottom-center' | 'bottom-right' | 'custom'
@@ -120,7 +121,9 @@ export default function AdminPage() {
       setAuthenticated(true)
       fetchEvents()
     } catch (err: any) {
-      setError(err.message)
+      const errorMessage = err.message || 'Invalid credentials'
+      setError(errorMessage)
+      logClientError('Login failed', err, undefined, { username })
     } finally {
       setLoading(false)
     }
@@ -141,7 +144,9 @@ export default function AdminPage() {
       const data = await res.json()
       setEvents(data)
     } catch (err: any) {
-      setError(err.message)
+      const errorMessage = err.message || 'Failed to fetch events'
+      setError(errorMessage)
+      logClientError('Failed to fetch events', err)
     }
   }
 
@@ -167,7 +172,12 @@ export default function AdminPage() {
       setShowCreateForm(false)
       fetchEvents()
     } catch (err: any) {
-      setError(err.message)
+      const errorMessage = err.message || 'Failed to create event'
+      setError(errorMessage)
+      logClientError('Failed to create event', err, undefined, {
+        eventName: newEventName,
+        printerUrl: newEventPrinter,
+      })
     } finally {
       setLoading(false)
     }
@@ -204,7 +214,12 @@ export default function AdminPage() {
         await generatePreview({ ...updatedEvent, logoUrl: url })
       }
     } catch (err: any) {
-      setError(err.message)
+      const errorMessage = err.message || 'Failed to upload logo'
+      setError(errorMessage)
+      logClientError('Failed to upload logo', err, undefined, {
+        eventId,
+        fileName: file.name,
+      })
     }
   }
 
@@ -226,7 +241,12 @@ export default function AdminPage() {
         setTimeout(() => generatePreview({ ...updatedEvent, photoAreaRatio: ratio }), 300)
       }
     } catch (err: any) {
-      setError(err.message)
+      const errorMessage = err.message || 'Failed to update photo ratio'
+      setError(errorMessage)
+      logClientError('Failed to update photo ratio', err, undefined, {
+        eventId,
+        ratio,
+      })
     }
   }
 
@@ -242,7 +262,12 @@ export default function AdminPage() {
 
       fetchEvents()
     } catch (err: any) {
-      setError(err.message)
+      const errorMessage = err.message || 'Failed to update event'
+      setError(errorMessage)
+      logClientError('Failed to update event', err, undefined, {
+        eventId,
+        updates,
+      })
     }
   }
 
@@ -266,7 +291,12 @@ export default function AdminPage() {
         }
       }
     } catch (err: any) {
-      setError(err.message)
+      const errorMessage = err.message || 'Failed to update logo settings'
+      setError(errorMessage)
+      logClientError('Failed to update logo settings', err, undefined, {
+        eventId,
+        logoSettings,
+      })
     }
   }
 
@@ -344,6 +374,11 @@ export default function AdminPage() {
       setPreviewUrls(prev => ({ ...prev, [eventId]: url }))
     } catch (err: any) {
       console.error('Preview error:', err)
+      logClientError('Failed to generate logo preview', err, undefined, {
+        eventId,
+        logoUrl: event.logoUrl,
+        photoAreaRatio: event.photoAreaRatio,
+      })
     } finally {
       setLoadingPreviews(prev => ({ ...prev, [eventId]: false }))
     }
@@ -366,7 +401,12 @@ export default function AdminPage() {
       setSelectedEventForHistory(event)
       setShowPrintHistory(true)
     } catch (err: any) {
-      setError(err.message)
+      const errorMessage = err.message || 'Failed to fetch print history'
+      setError(errorMessage)
+      logClientError('Failed to fetch print history', err, undefined, {
+        eventId: event._id,
+        eventName: event.name,
+      })
     }
   }
 

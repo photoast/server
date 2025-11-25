@@ -1,4 +1,4 @@
-import { Event, PrintJob, Admin } from './types'
+import { Event, PrintJob, Admin, ErrorLog } from './types'
 import memoryDB from './memorydb'
 
 // Using in-memory database for development without MongoDB
@@ -38,4 +38,16 @@ export async function getPrintJobsByEventId(eventId: string): Promise<PrintJob[]
 
 export async function getAllPrintJobs(): Promise<PrintJob[]> {
   return memoryDB.getAllPrintJobs()
+}
+
+export async function createErrorLog(log: Omit<ErrorLog, '_id' | 'timestamp'>): Promise<ErrorLog> {
+  return memoryDB.createErrorLog(log)
+}
+
+export async function getAllErrorLogs(): Promise<ErrorLog[]> {
+  return memoryDB.getAllErrorLogs()
+}
+
+export async function getErrorLogsByEventSlug(eventSlug: string): Promise<ErrorLog[]> {
+  return memoryDB.getErrorLogsByEventSlug(eventSlug)
 }

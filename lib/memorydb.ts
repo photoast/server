@@ -1,4 +1,4 @@
-import { Event, PrintJob, Admin } from './types'
+import { Event, PrintJob, Admin, ErrorLog } from './types'
 import { ObjectId } from 'mongodb'
 
 // In-memory database for development without MongoDB
@@ -6,6 +6,7 @@ class MemoryDB {
   private events: Map<string, Event> = new Map()
   private printJobs: Map<string, PrintJob> = new Map()
   private admins: Map<string, Admin> = new Map()
+  private errorLogs: Map<string, ErrorLog> = new Map()
   private initialized: boolean = false
 
   constructor() {
@@ -111,11 +112,40 @@ class MemoryDB {
     return null
   }
 
+  // Error Logs
+  async createErrorLog(log: Omit<ErrorLog, '_id' | 'timestamp'>): Promise<ErrorLog> {
+    const id = new ObjectId()
+    const newLog: ErrorLog = {
+      _id: id,
+      ...log,
+      timestamp: new Date(),
+    }
+    this.errorLogs.set(id.toString(), newLog)
+    return newLog
+  }
+
+  async getAllErrorLogs(): Promise<ErrorLog[]> {
+    return Array.from(this.errorLogs.values()).sort(
+      (a, b) => b.timestamp.getTime() - a.timestamp.getTime()
+    )
+  }
+
+  async getErrorLogsByEventSlug(eventSlug: string): Promise<ErrorLog[]> {
+    const logs: ErrorLog[] = []
+    for (const log of Array.from(this.errorLogs.values())) {
+      if (log.eventSlug === eventSlug) {
+        logs.push(log)
+      }
+    }
+    return logs.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+  }
+
   // Debug
   clear() {
     this.events.clear()
     this.printJobs.clear()
     this.admins.clear()
+    this.errorLogs.clear()
   }
 }
 
