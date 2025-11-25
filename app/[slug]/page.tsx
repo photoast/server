@@ -477,19 +477,27 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     if (!previewUrl) return
 
     try {
-      // Convert relative URL to absolute URL for better mobile compatibility
-      const absoluteUrl = previewUrl.startsWith('http')
-        ? previewUrl
-        : `${window.location.origin}${previewUrl}`
+      let blob: Blob
 
-      // Fetch the image
-      const response = await fetch(absoluteUrl)
+      // Handle data URL (Vercel environment)
+      if (previewUrl.startsWith('data:')) {
+        // Convert data URL to blob
+        const response = await fetch(previewUrl)
+        blob = await response.blob()
+      } else {
+        // Handle regular URL (local development)
+        const absoluteUrl = previewUrl.startsWith('http')
+          ? previewUrl
+          : `${window.location.origin}${previewUrl}`
 
-      if (!response.ok) {
-        throw new Error(`이미지 다운로드 실패: ${response.status}`)
+        const response = await fetch(absoluteUrl)
+
+        if (!response.ok) {
+          throw new Error(`이미지 다운로드 실패: ${response.status}`)
+        }
+
+        blob = await response.blob()
       }
-
-      const blob = await response.blob()
 
       // Create download link
       const url = window.URL.createObjectURL(blob)
