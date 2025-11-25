@@ -177,25 +177,35 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       }
 
       // If single-with-logo layout and logo exists, convert logoUrl to base64
+      // Only do this in production/Vercel environment where logoUrl might not be accessible
       if (frameType === 'single-with-logo' && event?.logoUrl) {
-        try {
-          console.log('[handleProcess] Fetching logo from:', event.logoUrl)
-          const logoResponse = await fetch(event.logoUrl)
-          if (logoResponse.ok) {
-            const logoBlob = await logoResponse.blob()
-            const logoBase64 = await new Promise<string>((resolve) => {
-              const reader = new FileReader()
-              reader.onloadend = () => resolve(reader.result as string)
-              reader.readAsDataURL(logoBlob)
-            })
-            formData.append('logoBase64', logoBase64)
-            console.log('[handleProcess] Logo converted to base64 and added to FormData')
-          } else {
-            console.warn('[handleProcess] Failed to fetch logo:', logoResponse.status)
+        // Check if we're in production (Vercel) by checking if logoUrl starts with /api/serve-image/
+        const isVercelLogo = event.logoUrl.startsWith('/api/serve-image/')
+
+        if (isVercelLogo) {
+          // In Vercel, convert logo to base64 to send to API
+          try {
+            console.log('[handleProcess] Fetching logo from:', event.logoUrl)
+            const logoResponse = await fetch(event.logoUrl)
+            if (logoResponse.ok) {
+              const logoBlob = await logoResponse.blob()
+              const logoBase64 = await new Promise<string>((resolve) => {
+                const reader = new FileReader()
+                reader.onloadend = () => resolve(reader.result as string)
+                reader.readAsDataURL(logoBlob)
+              })
+              formData.append('logoBase64', logoBase64)
+              console.log('[handleProcess] Logo converted to base64 and added to FormData')
+            } else {
+              console.warn('[handleProcess] Failed to fetch logo:', logoResponse.status)
+            }
+          } catch (logoErr) {
+            console.error('[handleProcess] Error fetching logo:', logoErr)
+            // Continue without logo if fetch fails
           }
-        } catch (logoErr) {
-          console.error('[handleProcess] Error fetching logo:', logoErr)
-          // Continue without logo if fetch fails
+        } else {
+          // In local development, logo is accessible via /uploads/, no need to convert
+          console.log('[handleProcess] Using local logo URL (no conversion needed):', event.logoUrl)
         }
       }
 
