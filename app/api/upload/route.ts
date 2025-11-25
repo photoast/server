@@ -24,6 +24,17 @@ export async function POST(request: NextRequest) {
     // Save file
     const filepath = await saveUploadedFile(file, filename)
 
+    // In Vercel, also return base64 for logos
+    const isVercel = process.env.VERCEL === '1'
+    if (isVercel && type === 'logo') {
+      const buffer = Buffer.from(await file.arrayBuffer())
+      const base64 = buffer.toString('base64')
+      const mimeType = file.type
+      const dataUrl = `data:${mimeType};base64,${base64}`
+
+      return NextResponse.json({ url: filepath, base64: dataUrl })
+    }
+
     return NextResponse.json({ url: filepath })
   } catch (error) {
     console.error('Error uploading file:', error)

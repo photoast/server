@@ -152,29 +152,51 @@ async function processSingleImage(
   const composites: any[] = []
 
   // If logo exists, add it FIRST (lower z-index)
+  console.log(`[processSingleImage] Logo path provided: ${logoPath}, logoHeight: ${logoHeight}`)
   if (logoPath && logoHeight > 0) {
     try {
-      // Convert URL to file path
-      let logoFullPath: string
+      let logoBuffer: Buffer
 
-      if (logoPath.startsWith('/api/serve-image/')) {
-        // Vercel: /api/serve-image/filename → /tmp/uploads/filename
-        const filename = logoPath.replace('/api/serve-image/', '')
-        logoFullPath = path.join('/tmp/uploads', filename)
-      } else if (logoPath.startsWith('/uploads/')) {
-        // Local: /uploads/filename → public/uploads/filename
-        logoFullPath = path.join(process.cwd(), 'public', logoPath)
-      } else if (logoPath.startsWith('/tmp')) {
-        // Legacy absolute path (Vercel)
-        logoFullPath = logoPath
+      // Check if logoPath is a data URL (base64)
+      if (logoPath.startsWith('data:')) {
+        console.log(`[processSingleImage] Logo is data URL, converting from base64`)
+        // Extract base64 data from data URL
+        const base64Data = logoPath.split(',')[1]
+        logoBuffer = Buffer.from(base64Data, 'base64')
       } else {
-        // Relative path (local)
-        logoFullPath = path.join(process.cwd(), 'public', logoPath)
+        // Convert URL to file path
+        let logoFullPath: string
+
+        if (logoPath.startsWith('/api/serve-image/')) {
+          // Vercel: /api/serve-image/filename → /tmp/uploads/filename
+          const filename = logoPath.replace('/api/serve-image/', '')
+          logoFullPath = path.join('/tmp/uploads', filename)
+        } else if (logoPath.startsWith('/uploads/')) {
+          // Local: /uploads/filename → public/uploads/filename
+          logoFullPath = path.join(process.cwd(), 'public', logoPath)
+        } else if (logoPath.startsWith('/tmp')) {
+          // Legacy absolute path (Vercel)
+          logoFullPath = logoPath
+        } else {
+          // Relative path (local)
+          logoFullPath = path.join(process.cwd(), 'public', logoPath)
+        }
+
+        console.log(`[processSingleImage] Logo full path resolved: ${logoFullPath}`)
+        const logoExists = await fs.access(logoFullPath).then(() => true).catch((err) => {
+          console.error(`[processSingleImage] Logo file not accessible: ${err.message}`)
+          return false
+        })
+
+        if (!logoExists) {
+          console.error(`[processSingleImage] Logo file does not exist at path: ${logoFullPath}`)
+          throw new Error('Logo file not found')
+        }
+
+        logoBuffer = await fs.readFile(logoFullPath)
       }
 
-      const logoExists = await fs.access(logoFullPath).then(() => true).catch(() => false)
-
-      if (logoExists) {
+      if (logoBuffer) {
         // Get logo settings or use defaults
         const position = logoSettings?.position || 'bottom-center'
         const sizePercent = logoSettings?.size || 80 // Default 80% of image width
@@ -186,14 +208,14 @@ async function processSingleImage(
         const requestedLogoWidth = Math.round(TARGET_WIDTH * (sizePercent / 100))
 
         // Resize logo based on width - no height limit, allow it to extend into photo area
-        const logoBuffer = await sharp(logoFullPath)
+        const resizedLogoBuffer = await sharp(logoBuffer)
           .resize(requestedLogoWidth, null, {
             fit: 'inside',
             withoutEnlargement: false, // Allow enlargement beyond original size
           })
           .toBuffer()
 
-        const logoMetadata = await sharp(logoBuffer).metadata()
+        const logoMetadata = await sharp(resizedLogoBuffer).metadata()
         const logoWidth = logoMetadata.width || 0
         const actualLogoHeight = logoMetadata.height || 0
 
@@ -239,7 +261,7 @@ async function processSingleImage(
         top = Math.max(0, Math.min(top, TARGET_HEIGHT))
 
         composites.push({
-          input: logoBuffer,
+          input: resizedLogoBuffer,
           top,
           left,
         })
@@ -247,9 +269,11 @@ async function processSingleImage(
         console.log(`Logo positioned at (${left}, ${top}), size: ${logoWidth}x${actualLogoHeight}, position: ${position}, sizePercent: ${sizePercent}%`)
       }
     } catch (error) {
-      console.error('Error adding logo:', error)
+      console.error('[processSingleImage] Error adding logo:', error)
       // Continue without logo if there's an error
     }
+  } else {
+    console.log(`[processSingleImage] Logo NOT added. logoPath=${logoPath}, logoHeight=${logoHeight}`)
   }
 
   // Add photo LAST (higher z-index) so it covers any logo that extends into photo area

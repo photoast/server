@@ -18,6 +18,7 @@ interface Event {
   slug: string
   printerUrl: string
   logoUrl?: string
+  logoBase64?: string
   photoAreaRatio?: number
   logoSettings?: LogoSettings
   availableLayouts?: string[]
@@ -197,12 +198,18 @@ export default function AdminPage() {
 
       if (!uploadRes.ok) throw new Error('Failed to upload logo')
 
-      const { url } = await uploadRes.json()
+      const { url, base64 } = await uploadRes.json()
+
+      // Save both logoUrl and logoBase64 (for Vercel environment)
+      const updatePayload: any = { logoUrl: url }
+      if (base64) {
+        updatePayload.logoBase64 = base64
+      }
 
       const updateRes = await fetch(`/api/events/${eventId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ logoUrl: url }),
+        body: JSON.stringify(updatePayload),
       })
 
       if (!updateRes.ok) throw new Error('Failed to update event')

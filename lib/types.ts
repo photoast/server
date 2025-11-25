@@ -15,6 +15,7 @@ export interface Event {
   slug: string
   printerUrl: string
   logoUrl?: string
+  logoBase64?: string // Base64 encoded logo for Vercel (serverless) environment
   photoAreaRatio?: number // Percentage of photo area (default 85, range 0-100)
   logoSettings?: LogoSettings // Logo position and size settings
   availableLayouts?: FrameType[] // Layouts available for this event (default: all)

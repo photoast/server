@@ -134,12 +134,18 @@ export async function POST(request: NextRequest) {
     // single-with-logo: always shows logo if available
     // four-cut: shows logo overlay if available
     const shouldHaveLogo = frameType === 'single-with-logo' || frameType === 'four-cut'
-    const finalLogoUrl = shouldHaveLogo ? (event.logoUrl || undefined) : undefined
+
+    // In Vercel environment, prefer logoBase64 over logoUrl
+    const isVercel = process.env.VERCEL === '1'
+    const finalLogoUrl = shouldHaveLogo
+      ? (isVercel && event.logoBase64 ? event.logoBase64 : event.logoUrl || undefined)
+      : undefined
 
     console.log('[API] Processing image with settings:', {
       frameType,
       hasLogo: !!finalLogoUrl,
-      logoUrl: finalLogoUrl,
+      logoUrl: finalLogoUrl?.substring(0, 50) + (finalLogoUrl && finalLogoUrl.length > 50 ? '...' : ''),
+      isUsingBase64: finalLogoUrl?.startsWith('data:'),
       photoAreaRatio,
       logoSettings: event.logoSettings,
       backgroundColor
@@ -159,8 +165,6 @@ export async function POST(request: NextRequest) {
 
     // In Vercel (serverless), return image as base64 data URL
     // In local development, save to public/uploads
-    const isVercel = process.env.VERCEL === '1'
-
     console.log('[API] Preparing response:', { isVercel })
 
     if (isVercel) {
