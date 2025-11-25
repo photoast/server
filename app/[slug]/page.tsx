@@ -372,7 +372,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                   lastModified: Date.now()
                 })
 
-                logClientInfo('Image compressed', {
+                logClientInfo('Image compressed', undefined, {
                   originalSize: `${(file.size / (1024 * 1024)).toFixed(2)}MB`,
                   compressedSize: `${sizeMB.toFixed(2)}MB`,
                   quality: quality.toFixed(1),
@@ -422,8 +422,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       // Open crop editor
       setShowCropEditor(true)
     } catch (error) {
-      logClientError('Failed to compress image', {
-        error: error instanceof Error ? error.message : 'Unknown error',
+      logClientError('Failed to compress image', error, undefined, {
         slotNumber: currentEditingSlot + 1
       })
     }
