@@ -132,8 +132,7 @@ export async function POST(request: NextRequest) {
 
     // Only apply logo to specific layouts
     // single-with-logo: always shows logo if available
-    // four-cut: shows logo overlay if available
-    const shouldHaveLogo = frameType === 'single-with-logo' || frameType === 'four-cut'
+    const shouldHaveLogo = frameType === 'single-with-logo'
 
     // In Vercel environment, prefer logoBase64 over logoUrl
     const isVercel = process.env.VERCEL === '1'

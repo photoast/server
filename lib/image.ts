@@ -411,34 +411,7 @@ async function processFourCutImage(
 
   console.log(`Composed ${composites.length} photos (2 identical strips of 4 photos each)`)
 
-  // Add logo overlay to both strips
-  if (logoPath && logoSettings) {
-    const logoData = await addLogoOverlay(logoPath, logoSettings, stripWidth, TARGET_HEIGHT)
-
-    if (logoData) {
-      // Position logo at bottom center of left strip
-      const leftStripLogoLeft = MARGIN_OUTER + Math.round((stripWidth - logoData.width) / 2)
-      const leftStripLogoTop = TARGET_HEIGHT - MARGIN_OUTER - logoData.height - 10
-
-      // Position logo at bottom center of right strip
-      const rightStripLogoLeft = MARGIN_OUTER + stripWidth + GAP_CENTER + Math.round((stripWidth - logoData.width) / 2)
-      const rightStripLogoTop = leftStripLogoTop
-
-      composites.push({
-        input: logoData.buffer,
-        top: leftStripLogoTop,
-        left: leftStripLogoLeft,
-      })
-
-      composites.push({
-        input: logoData.buffer,
-        top: rightStripLogoTop,
-        left: rightStripLogoLeft,
-      })
-
-      console.log(`Logo added to both strips: ${logoData.width}x${logoData.height}px, size setting: ${logoSettings.size}%`)
-    }
-  }
+  // Note: Logo is not supported in four-cut layout (only in single-with-logo)
 
   finalImage = finalImage.composite(composites)
 

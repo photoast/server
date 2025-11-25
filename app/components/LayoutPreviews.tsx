@@ -211,33 +211,6 @@ export function FourCutPreview({ photoSlots, onSlotClick, logoUrl }: LayoutPrevi
           ))}
         </div>
 
-        {/* Logo overlay on both strips */}
-        {logoUrl && (
-          <>
-            <div className="absolute bottom-2 left-0 right-[53%] h-[8%] flex items-center justify-center pointer-events-none">
-              <div className="relative h-full w-[80%]">
-                <Image
-                  src={logoUrl}
-                  alt="Logo"
-                  fill
-                  className="object-contain"
-                  unoptimized
-                />
-              </div>
-            </div>
-            <div className="absolute bottom-2 left-[53%] right-0 h-[8%] flex items-center justify-center pointer-events-none opacity-50">
-              <div className="relative h-full w-[80%]">
-                <Image
-                  src={logoUrl}
-                  alt="Logo"
-                  fill
-                  className="object-contain"
-                  unoptimized
-                />
-              </div>
-            </div>
-          </>
-        )}
       </div>
       <div className="text-center mt-3 text-sm text-gray-500">
         ✂️ 중앙을 잘라서 2개의 스트립으로
@@ -250,7 +223,8 @@ export function TwoByTwoPreview({ photoSlots, onSlotClick, backgroundColor = '#0
   // Exact pixel coordinates from lib/image.ts processTwoByTwoImage
   const { MARGIN_HORIZONTAL: MARGIN_H, MARGIN_VERTICAL: MARGIN_V, GAP } = LAYOUT_CONFIG
 
-  const photoAreaHeight = logoUrl ? Math.round(CANVAS_HEIGHT * (DEFAULT_PHOTO_RATIO / 100)) : CANVAS_HEIGHT
+  // No logo support for this layout - use full canvas
+  const photoAreaHeight = CANVAS_HEIGHT
   const logoAreaHeight = CANVAS_HEIGHT - photoAreaHeight
 
   const availableWidth = CANVAS_WIDTH - (MARGIN_H * 2)  // 920px
@@ -305,27 +279,6 @@ export function TwoByTwoPreview({ photoSlots, onSlotClick, backgroundColor = '#0
           ))}
         </div>
 
-        {/* Logo area */}
-        {logoUrl && (
-          <div
-            className="flex items-center justify-center pointer-events-none"
-            style={{
-              height: `${(logoAreaHeight / CANVAS_HEIGHT) * 100}%`,
-              backgroundColor
-            }}
-          >
-            <div className="relative w-[80%] max-h-full">
-              <Image
-                src={logoUrl}
-                alt="Logo"
-                width={800}
-                height={200}
-                className="object-contain w-full h-auto"
-                unoptimized
-              />
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )
@@ -335,7 +288,8 @@ export function VerticalTwoPreview({ photoSlots, onSlotClick, backgroundColor = 
   // Exact pixel coordinates from lib/image.ts processVerticalTwoImage
   const { MARGIN_HORIZONTAL: MARGIN_H, MARGIN_VERTICAL: MARGIN_V, GAP } = LAYOUT_CONFIG
 
-  const photoAreaHeight = logoUrl ? Math.round(CANVAS_HEIGHT * (DEFAULT_PHOTO_RATIO / 100)) : CANVAS_HEIGHT
+  // No logo support for this layout - use full canvas
+  const photoAreaHeight = CANVAS_HEIGHT
   const logoAreaHeight = CANVAS_HEIGHT - photoAreaHeight
 
   const availableWidth = CANVAS_WIDTH - (MARGIN_H * 2)  // 920px
@@ -384,27 +338,6 @@ export function VerticalTwoPreview({ photoSlots, onSlotClick, backgroundColor = 
           ))}
         </div>
 
-        {/* Logo area */}
-        {logoUrl && (
-          <div
-            className="flex items-center justify-center pointer-events-none"
-            style={{
-              height: `${(logoAreaHeight / CANVAS_HEIGHT) * 100}%`,
-              backgroundColor
-            }}
-          >
-            <div className="relative w-[80%] max-h-full">
-              <Image
-                src={logoUrl}
-                alt="Logo"
-                width={800}
-                height={200}
-                className="object-contain w-full h-auto"
-                unoptimized
-              />
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )
@@ -415,7 +348,8 @@ export function OnePlusTwoPreview({ photoSlots, onSlotClick, backgroundColor = '
   // Exact pixel coordinates from lib/image.ts processOnePlusTwoImage
   const { MARGIN_HORIZONTAL: MARGIN_H, MARGIN_VERTICAL: MARGIN_V, GAP } = LAYOUT_CONFIG
 
-  const photoAreaHeight = logoUrl ? Math.round(CANVAS_HEIGHT * (DEFAULT_PHOTO_RATIO / 100)) : CANVAS_HEIGHT
+  // No logo support for this layout - use full canvas
+  const photoAreaHeight = CANVAS_HEIGHT
   const logoAreaHeight = CANVAS_HEIGHT - photoAreaHeight
 
   const availableWidth = CANVAS_WIDTH - (MARGIN_H * 2)  // 920px
@@ -494,27 +428,6 @@ export function OnePlusTwoPreview({ photoSlots, onSlotClick, backgroundColor = '
           ))}
         </div>
 
-        {/* Logo area */}
-        {logoUrl && (
-          <div
-            className="flex items-center justify-center pointer-events-none"
-            style={{
-              height: `${(logoAreaHeight / CANVAS_HEIGHT) * 100}%`,
-              backgroundColor
-            }}
-          >
-            <div className="relative w-[80%] max-h-full">
-              <Image
-                src={logoUrl}
-                alt="Logo"
-                width={800}
-                height={200}
-                className="object-contain w-full h-auto"
-                unoptimized
-              />
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )
