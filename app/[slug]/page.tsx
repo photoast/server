@@ -314,29 +314,119 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     setCurrentEditingSlot(null)
   }
 
+  // Compress image to reduce file size
+  const compressImage = async (file: File, maxSizeMB = 1): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      reader.onload = (e) => {
+        const img = new window.Image()
+        img.src = e.target?.result as string
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          let width = img.width
+          let height = img.height
+
+          // Calculate new dimensions to keep aspect ratio
+          const maxDimension = 2048
+          if (width > height && width > maxDimension) {
+            height = (height * maxDimension) / width
+            width = maxDimension
+          } else if (height > maxDimension) {
+            width = (width * maxDimension) / height
+            height = maxDimension
+          }
+
+          canvas.width = width
+          canvas.height = height
+
+          const ctx = canvas.getContext('2d')
+          if (!ctx) {
+            reject(new Error('Failed to get canvas context'))
+            return
+          }
+
+          ctx.drawImage(img, 0, 0, width, height)
+
+          // Try different quality levels to achieve target size
+          let quality = 0.9
+          const tryCompress = () => {
+            canvas.toBlob(
+              (blob) => {
+                if (!blob) {
+                  reject(new Error('Failed to compress image'))
+                  return
+                }
+
+                const sizeMB = blob.size / (1024 * 1024)
+
+                // If still too large and quality can be reduced, try again
+                if (sizeMB > maxSizeMB && quality > 0.5) {
+                  quality -= 0.1
+                  tryCompress()
+                  return
+                }
+
+                const compressedFile = new File([blob], file.name, {
+                  type: 'image/jpeg',
+                  lastModified: Date.now()
+                })
+
+                logClientInfo('Image compressed', {
+                  originalSize: `${(file.size / (1024 * 1024)).toFixed(2)}MB`,
+                  compressedSize: `${sizeMB.toFixed(2)}MB`,
+                  quality: quality.toFixed(1),
+                  dimensions: `${width}x${height}`
+                })
+
+                resolve(compressedFile)
+              },
+              'image/jpeg',
+              quality
+            )
+          }
+
+          tryCompress()
+        }
+        img.onerror = () => reject(new Error('Failed to load image'))
+      }
+      reader.onerror = () => reject(new Error('Failed to read file'))
+    })
+  }
+
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (currentEditingSlot === null) return
 
     const file = e.target.files?.[0]
     if (!file) return
 
-    // Update slot with new file
-    setPhotoSlots(prevSlots => {
-      const newSlots = [...prevSlots]
-      newSlots[currentEditingSlot] = {
-        ...newSlots[currentEditingSlot],
-        file,
-        cropArea: null,
-        croppedImageUrl: null
-      }
-      return newSlots
-    })
+    try {
+      // Compress image before processing
+      const compressedFile = await compressImage(file)
 
-    // Clear preview when adding new photo
-    setPreviewUrl(null)
+      // Update slot with compressed file
+      setPhotoSlots(prevSlots => {
+        const newSlots = [...prevSlots]
+        newSlots[currentEditingSlot] = {
+          ...newSlots[currentEditingSlot],
+          file: compressedFile,
+          cropArea: null,
+          croppedImageUrl: null
+        }
+        return newSlots
+      })
 
-    // Open crop editor
-    setShowCropEditor(true)
+      // Clear preview when adding new photo
+      setPreviewUrl(null)
+
+      // Open crop editor
+      setShowCropEditor(true)
+    } catch (error) {
+      logClientError('Failed to compress image', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        slotNumber: currentEditingSlot + 1
+      })
+    }
 
     // Reset file input
     if (fileInputRef.current) {

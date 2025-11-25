@@ -29,21 +29,23 @@ export async function POST(request: NextRequest) {
 
     // Log to server console with better formatting
     const logPrefix = level === 'error' ? '❌ [ERROR]' : level === 'warning' ? '⚠️  [WARN]' : '📱 [INFO]'
-    console.log('\n' + '='.repeat(80))
-    console.log(`${logPrefix} Client Log Received`)
-    console.log('='.repeat(80))
-    console.log('Message:', message)
-    if (eventSlug) console.log('Event:', eventSlug)
-    if (url) console.log('URL:', url)
+    const logFn = level === 'error' ? console.error : level === 'warning' ? console.warn : console.info
+
+    logFn('\n' + '='.repeat(80))
+    logFn(`${logPrefix} Client Log Received`)
+    logFn('='.repeat(80))
+    logFn('Message:', message)
+    if (eventSlug) logFn('Event:', eventSlug)
+    if (url) logFn('URL:', url)
     if (stack) {
-      console.log('Stack:')
-      console.log(stack)
+      logFn('Stack:')
+      logFn(stack)
     }
     if (additionalData) {
-      console.log('Additional Data:')
-      console.log(JSON.stringify(additionalData, null, 2))
+      logFn('Additional Data:')
+      logFn(JSON.stringify(additionalData, null, 2))
     }
-    console.log('='.repeat(80) + '\n')
+    logFn('='.repeat(80) + '\n')
 
     return NextResponse.json({ success: true, id: errorLog._id }, { status: 201 })
   } catch (error) {
