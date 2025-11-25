@@ -192,10 +192,11 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     }
   }, [params.slug, frameType, photoSlots, backgroundColor])
 
-  // Auto-process image when all slots are filled
+  // Auto-process image when all slots are filled AND cropped
   useEffect(() => {
-    const allSlotsFilled = photoSlots.every(slot => slot.file !== null)
+    const allSlotsFilled = photoSlots.every(slot => slot.file !== null && slot.cropArea !== null)
     if (allSlotsFilled && photoSlots.length > 0 && !processing && !previewUrl && step === 'fill-photos') {
+      console.log('Auto-processing with all slots filled and cropped')
       handleProcess()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -540,8 +541,8 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                     onClick={() => setFrameType(option.type)}
                     className={`p-4 rounded-3xl border-2 transition-all duration-300 ${
                       frameType === option.type
-                        ? 'border-pink-400 bg-gradient-to-br from-pink-50 to-purple-50 shadow-xl scale-105'
-                        : 'border-gray-200 hover:border-pink-300 hover:shadow-lg hover:scale-102 bg-white'
+                        ? 'border-pink-400 bg-gradient-to-br from-pink-50 to-purple-50 shadow-xl'
+                        : 'border-gray-200 hover:border-pink-300 hover:shadow-lg bg-white'
                     }`}
                   >
                     <div className="flex flex-col items-center gap-2">
@@ -559,7 +560,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
               <button
                 onClick={() => setStep((frameType === 'single' || frameType === 'single-with-logo') ? 'fill-photos' : 'select-color')}
-                className="w-full py-4 bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 text-white rounded-full font-bold text-lg hover:shadow-2xl hover:scale-105 transition-all shadow-lg active:scale-95"
+                className="w-full py-4 bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 text-white rounded-full font-bold text-lg hover:shadow-2xl transition-all shadow-lg"
               >
                 다음 단계로 💫
               </button>
@@ -581,8 +582,8 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                     onClick={() => setBackgroundColor(color.value)}
                     className={`p-3 rounded-3xl border-2 transition-all duration-300 ${
                       backgroundColor === color.value
-                        ? 'border-pink-400 shadow-2xl scale-110'
-                        : 'border-gray-200 hover:border-pink-300 hover:shadow-lg hover:scale-105'
+                        ? 'border-pink-400 shadow-2xl'
+                        : 'border-gray-200 hover:border-pink-300 hover:shadow-lg'
                     }`}
                   >
                     <div
@@ -599,13 +600,13 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
               <div className="flex gap-3">
                 <button
                   onClick={() => setStep('select-layout')}
-                  className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-full font-bold text-base hover:bg-gray-200 transition-all active:scale-95"
+                  className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-full font-bold text-base hover:bg-gray-200 transition-all"
                 >
                   ← 이전
                 </button>
                 <button
                   onClick={() => setStep('fill-photos')}
-                  className="flex-1 py-3 bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 text-white rounded-full font-bold text-base hover:shadow-2xl hover:scale-105 transition-all shadow-lg active:scale-95"
+                  className="flex-1 py-3 bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 text-white rounded-full font-bold text-base hover:shadow-2xl transition-all shadow-lg"
                 >
                   다음 단계로 💫
                 </button>
@@ -719,7 +720,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                   <button
                     onClick={handleDownload}
                     disabled={printing}
-                    className="w-full py-4 bg-gradient-to-r from-blue-400 to-purple-400 text-white rounded-full font-bold text-lg hover:shadow-2xl hover:scale-105 transition-all active:scale-95 shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="w-full py-4 bg-gradient-to-r from-blue-400 to-purple-400 text-white rounded-full font-bold text-lg hover:shadow-2xl transition-all shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -735,16 +736,16 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                       setPreviewUrl(null)
                     }}
                     disabled={printing}
-                    className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-full font-bold text-base hover:bg-gray-200 transition-all active:scale-95 disabled:opacity-50"
+                    className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-full font-bold text-base hover:bg-gray-200 transition-all disabled:opacity-50"
                   >
                     ← 이전
                   </button>
                   <button
                     onClick={handlePrint}
                     disabled={!allSlotsFilled || processing || !previewUrl || printing}
-                    className={`flex-1 py-3 rounded-full font-bold text-base transition-all active:scale-95 shadow-lg ${
+                    className={`flex-1 py-3 rounded-full font-bold text-base transition-all shadow-lg ${
                       allSlotsFilled && previewUrl && !processing && !printing
-                        ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white hover:shadow-2xl hover:scale-105'
+                        ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white hover:shadow-2xl'
                         : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     }`}
                   >
@@ -778,7 +779,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                 </p>
                 <button
                   onClick={handleReset}
-                  className="px-8 py-4 bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 text-white rounded-full font-bold text-lg hover:shadow-2xl hover:scale-105 transition-all shadow-lg active:scale-95"
+                  className="px-8 py-4 bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 text-white rounded-full font-bold text-lg hover:shadow-2xl transition-all shadow-lg"
                 >
                   새로운 사진 만들기 ✨
                 </button>
@@ -802,7 +803,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
               <div className="space-y-3">
                 <button
                   onClick={handleEditPhoto}
-                  className="w-full py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full font-bold hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center gap-2"
+                  className="w-full py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full font-bold hover:shadow-xl transition-all flex items-center justify-center gap-2"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -812,7 +813,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
                 <button
                   onClick={handleReplacePhoto}
-                  className="w-full py-4 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-full font-bold hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center gap-2"
+                  className="w-full py-4 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-full font-bold hover:shadow-xl transition-all flex items-center justify-center gap-2"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -822,7 +823,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
                 <button
                   onClick={handleDeletePhoto}
-                  className="w-full py-4 bg-gradient-to-r from-red-400 to-pink-400 text-white rounded-full font-bold hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center gap-2"
+                  className="w-full py-4 bg-gradient-to-r from-red-400 to-pink-400 text-white rounded-full font-bold hover:shadow-xl transition-all flex items-center justify-center gap-2"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
