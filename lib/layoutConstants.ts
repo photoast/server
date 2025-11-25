@@ -4,8 +4,8 @@
 // 이 파일의 값을 수정하면 미리보기와 실제 다운로드 이미지 모두에 적용됩니다.
 
 // Canvas dimensions (4x6 inch @ 300 DPI)
-export const CANVAS_WIDTH = 1000
-export const CANVAS_HEIGHT = 1500
+export const CANVAS_WIDTH = 1200
+export const CANVAS_HEIGHT = 1800
 export const DEFAULT_PHOTO_RATIO = 85
 
 // TwoByTwo, VerticalTwo, HorizontalTwo, OnePlusTwo 레이아웃 설정

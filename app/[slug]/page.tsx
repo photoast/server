@@ -315,7 +315,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   }
 
   // Compress image to reduce file size
-  const compressImage = async (file: File, maxSizeMB = 1): Promise<File> => {
+  const compressImage = async (file: File, maxSizeMB = 1.5): Promise<File> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
       reader.readAsDataURL(file)
