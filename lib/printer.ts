@@ -25,7 +25,29 @@ export async function printImage(
     // Convert URL to file path
     let imagePath: string
 
-    if (imageUrl.startsWith('/api/serve-image/')) {
+    console.log(`\n====================================`)
+    console.log(`Print Job Request`)
+    console.log(`====================================`)
+    console.log(`Image URL: ${imageUrl.substring(0, 100)}${imageUrl.length > 100 ? '...' : ''}`)
+    console.log(`Target Size: 4×6 inch (glossy, borderless)`)
+
+    // Handle data URL (base64) - Vercel environment
+    if (imageUrl.startsWith('data:')) {
+      console.log(`Image Type: Data URL (base64), converting to temporary file`)
+
+      // Extract base64 data
+      const base64Data = imageUrl.split(',')[1]
+      const buffer = Buffer.from(base64Data, 'base64')
+
+      // Save to temporary file
+      const timestamp = Date.now()
+      const tempDir = '/tmp/uploads'
+      await fs.mkdir(tempDir, { recursive: true })
+      imagePath = path.join(tempDir, `print-${timestamp}.jpg`)
+      await fs.writeFile(imagePath, buffer)
+
+      console.log(`Temporary file saved: ${imagePath}`)
+    } else if (imageUrl.startsWith('/api/serve-image/')) {
       // Vercel: /api/serve-image/filename → /tmp/uploads/filename
       const filename = imageUrl.replace('/api/serve-image/', '')
       imagePath = path.join('/tmp/uploads', filename)
@@ -40,12 +62,7 @@ export async function printImage(
       imagePath = path.join(process.cwd(), 'public', imageUrl)
     }
 
-    console.log(`\n====================================`)
-    console.log(`Print Job Request`)
-    console.log(`====================================`)
-    console.log(`Image URL: ${imageUrl}`)
     console.log(`Image Path: ${imagePath}`)
-    console.log(`Target Size: 4×6 inch (glossy, borderless)`)
 
     // Verify file exists
     await fs.access(imagePath)
