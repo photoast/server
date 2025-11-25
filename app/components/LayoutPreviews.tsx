@@ -79,7 +79,7 @@ export function FourCutPreview({ photoSlots, onSlotClick, logoUrl }: LayoutPrevi
           }}
         >
           {[0, 1, 2, 3].map((i) => (
-            <div key={i} style={{ aspectRatio: '475/358' }}>
+            <div key={i} className="w-full overflow-hidden" style={{ aspectRatio: '475/358' }}>
               <PhotoSlot
                 file={photoSlots[i]?.file}
                 croppedImageUrl={photoSlots[i]?.croppedImageUrl}
@@ -101,7 +101,7 @@ export function FourCutPreview({ photoSlots, onSlotClick, logoUrl }: LayoutPrevi
           }}
         >
           {[0, 1, 2, 3].map((i) => (
-            <div key={i} style={{ aspectRatio: '475/358' }}>
+            <div key={i} className="w-full overflow-hidden" style={{ aspectRatio: '475/358' }}>
               <div className="relative bg-gradient-to-br from-purple-100 to-pink-100 overflow-hidden w-full h-full">
                 {photoSlots[i]?.file && (
                   <img
