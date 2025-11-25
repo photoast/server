@@ -118,14 +118,22 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       formData.append('frameType', frameType)
 
       if (frameType === 'single' || frameType === 'single-with-logo') {
-        if (photoSlots[0].file) {
-          formData.append('photo', photoSlots[0].file)
+        if (!photoSlots[0]?.file) {
+          throw new Error('사진을 선택해주세요')
         }
+        formData.append('photo', photoSlots[0].file)
         if (photoSlots[0].cropArea) {
           formData.append('cropArea', JSON.stringify(photoSlots[0].cropArea))
         }
         formData.append('backgroundColor', '#FFFFFF')
       } else {
+        // Verify all photos exist
+        const validPhotos = photoSlots.filter(slot => slot.file !== null)
+        if (validPhotos.length !== photoSlots.length) {
+          throw new Error('모든 사진을 선택해주세요')
+        }
+
+        // Add all photos to formData
         photoSlots.forEach(slot => {
           if (slot.file) formData.append('photos', slot.file)
         })
@@ -134,7 +142,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         formData.append('backgroundColor', backgroundColor)
       }
 
-      console.log('Processing image with frameType:', frameType)
+      console.log('Processing image with frameType:', frameType, 'photoSlots:', photoSlots.length)
 
       const res = await fetch('/api/process-image', {
         method: 'POST',
@@ -142,8 +150,15 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       })
 
       if (!res.ok) {
-        const data = await res.json()
-        const errorMsg = data.error || `미리보기 생성 실패: ${res.status}`
+        let errorMsg = `미리보기 생성 실패: ${res.status}`
+        try {
+          const data = await res.json()
+          errorMsg = data.error || errorMsg
+        } catch (jsonErr) {
+          console.error('Failed to parse error response:', jsonErr)
+          const text = await res.text()
+          console.error('Error response text:', text)
+        }
         console.error('Process image error:', errorMsg)
         throw new Error(errorMsg)
       }
@@ -169,6 +184,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       logClientError('Failed to process image', err, params.slug, {
         frameType,
         photoSlotsCount: photoSlots.length,
+        filledSlotsCount: photoSlots.filter(s => s.file !== null).length,
         backgroundColor,
       })
     } finally {
