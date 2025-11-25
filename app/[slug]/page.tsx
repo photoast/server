@@ -13,7 +13,7 @@ import {
 } from '../components/LayoutPreviews'
 import { LAYOUT_OPTIONS, getPhotoCount, getCropAspectRatioForSlot } from './layoutConfig'
 import type { FrameType } from '@/lib/types'
-import { logClientError } from '@/lib/errorLogger'
+import { logClientError, logClientInfo } from '@/lib/errorLogger'
 
 interface Event {
   name: string
@@ -118,6 +118,16 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       formData.append('frameType', frameType)
 
       if (frameType === 'single' || frameType === 'single-with-logo') {
+        const logData = {
+          hasFile: !!photoSlots[0]?.file,
+          hasCropArea: !!photoSlots[0]?.cropArea,
+          fileName: photoSlots[0]?.file?.name,
+          fileSize: photoSlots[0]?.file?.size,
+          fileType: photoSlots[0]?.file?.type
+        }
+        console.log('[handleProcess] Single photo mode:', logData)
+        logClientInfo('[Mobile] Starting single photo processing', params.slug, logData)
+
         if (!photoSlots[0]?.file) {
           throw new Error('사진을 선택해주세요')
         }
@@ -129,42 +139,84 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       } else {
         // Verify all photos exist
         const validPhotos = photoSlots.filter(slot => slot.file !== null)
+        const logData = {
+          frameType,
+          totalSlots: photoSlots.length,
+          filledSlots: validPhotos.length,
+          croppedSlots: photoSlots.filter(slot => slot.cropArea !== null).length,
+          slotDetails: photoSlots.map((slot, i) => ({
+            index: i,
+            hasFile: !!slot.file,
+            hasCropArea: !!slot.cropArea,
+            fileName: slot.file?.name,
+            fileSize: slot.file?.size,
+            fileType: slot.file?.type
+          }))
+        }
+        console.log('[handleProcess] Multi-photo mode:', logData)
+        logClientInfo('[Mobile] Starting multi-photo processing', params.slug, logData)
+
         if (validPhotos.length !== photoSlots.length) {
           throw new Error('모든 사진을 선택해주세요')
         }
 
         // Add all photos to formData
-        photoSlots.forEach(slot => {
-          if (slot.file) formData.append('photos', slot.file)
+        let photoCount = 0
+        photoSlots.forEach((slot, index) => {
+          if (slot.file) {
+            formData.append('photos', slot.file)
+            photoCount++
+            console.log(`[handleProcess] Added photo ${index + 1}:`, slot.file.name)
+          }
         })
         const cropAreas = photoSlots.map(slot => slot.cropArea)
         formData.append('cropAreas', JSON.stringify(cropAreas))
         formData.append('backgroundColor', backgroundColor)
+        console.log(`[handleProcess] Added ${photoCount} photos to FormData`)
+        logClientInfo('[Mobile] FormData prepared', params.slug, { photoCount, backgroundColor })
       }
 
-      console.log('Processing image with frameType:', frameType, 'photoSlots:', photoSlots.length)
+      console.log('[handleProcess] Sending request to /api/process-image')
+      logClientInfo('[Mobile] Sending fetch request', params.slug, { frameType })
 
       const res = await fetch('/api/process-image', {
         method: 'POST',
         body: formData,
       })
 
+      logClientInfo('[Mobile] Fetch response received', params.slug, { status: res.status, ok: res.ok })
+
       if (!res.ok) {
         let errorMsg = `미리보기 생성 실패: ${res.status}`
+        let errorDetails = null
         try {
           const data = await res.json()
           errorMsg = data.error || errorMsg
+          errorDetails = data
+          console.error('[handleProcess] Server error response:', data)
+          logClientError('[Mobile] Server returned error', new Error(errorMsg), params.slug, {
+            status: res.status,
+            errorDetails,
+            frameType
+          })
         } catch (jsonErr) {
-          console.error('Failed to parse error response:', jsonErr)
-          const text = await res.text()
-          console.error('Error response text:', text)
+          console.error('[handleProcess] Failed to parse error response:', jsonErr)
+          logClientError('[Mobile] Failed to parse error response', jsonErr as Error, params.slug, { status: res.status })
+          try {
+            const text = await res.text()
+            console.error('[handleProcess] Error response text:', text)
+          } catch (textErr) {
+            console.error('[handleProcess] Failed to read error text:', textErr)
+          }
         }
-        console.error('Process image error:', errorMsg)
+        console.error('[handleProcess] Process image error:', { status: res.status, errorMsg, errorDetails })
         throw new Error(errorMsg)
       }
 
+      console.log('[handleProcess] Response OK, parsing JSON...')
       const data = await res.json()
-      console.log('Preview URL received:', data.url)
+      console.log('[handleProcess] Preview URL received:', data.url)
+      logClientInfo('[Mobile] Preview URL received', params.slug, { url: data.url })
 
       if (!data.url) {
         throw new Error('미리보기 URL을 받지 못했습니다')
@@ -177,18 +229,31 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
       setPreviewUrl(data.url)
       console.log('Preview URL set successfully')
+      logClientInfo('[Mobile] Preview URL set successfully', params.slug, { frameType })
     } catch (err: any) {
       const errorMessage = err.message || '미리보기 생성에 실패했습니다'
-      console.error('handleProcess error:', err)
+      console.error('[handleProcess] ERROR:', err)
+      console.error('[handleProcess] Error details:', {
+        message: err.message,
+        stack: err.stack,
+        frameType,
+        photoSlotsCount: photoSlots.length,
+        filledSlotsCount: photoSlots.filter(s => s.file !== null).length,
+        croppedSlotsCount: photoSlots.filter(s => s.cropArea !== null).length,
+        backgroundColor,
+      })
       setError(errorMessage)
       logClientError('Failed to process image', err, params.slug, {
         frameType,
         photoSlotsCount: photoSlots.length,
         filledSlotsCount: photoSlots.filter(s => s.file !== null).length,
+        croppedSlotsCount: photoSlots.filter(s => s.cropArea !== null).length,
         backgroundColor,
+        errorMessage: err.message,
       })
     } finally {
       setProcessing(false)
+      console.log('[handleProcess] Processing complete, processing=false')
     }
   }, [params.slug, frameType, photoSlots, backgroundColor])
 

@@ -28,7 +28,7 @@ export default function PhotoSlot({
   return (
     <button
       onClick={onClick}
-      className={`relative bg-gradient-to-br from-pink-100 via-purple-100 to-blue-100 hover:from-pink-200 hover:via-purple-200 hover:to-blue-200 transition-all duration-300 overflow-hidden group ${className} ${file ? 'hover:ring-4 hover:ring-pink-400 hover:shadow-2xl' : 'hover:scale-105'}`}
+      className={`relative bg-gradient-to-br from-pink-100 via-purple-100 to-blue-100 hover:from-pink-200 hover:via-purple-200 hover:to-blue-200 transition-all duration-300 overflow-hidden group ${className} ${file ? 'hover:ring-4 hover:ring-pink-400 hover:shadow-2xl' : ''}`}
     >
       {file ? (
         <div

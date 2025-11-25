@@ -27,13 +27,23 @@ export async function POST(request: NextRequest) {
       additionalData,
     })
 
-    console.error('Client error logged:', {
-      level,
-      message,
-      stack,
-      url,
-      eventSlug,
-    })
+    // Log to server console with better formatting
+    const logPrefix = level === 'error' ? '❌ [ERROR]' : level === 'warning' ? '⚠️  [WARN]' : '📱 [INFO]'
+    console.log('\n' + '='.repeat(80))
+    console.log(`${logPrefix} Client Log Received`)
+    console.log('='.repeat(80))
+    console.log('Message:', message)
+    if (eventSlug) console.log('Event:', eventSlug)
+    if (url) console.log('URL:', url)
+    if (stack) {
+      console.log('Stack:')
+      console.log(stack)
+    }
+    if (additionalData) {
+      console.log('Additional Data:')
+      console.log(JSON.stringify(additionalData, null, 2))
+    }
+    console.log('='.repeat(80) + '\n')
 
     return NextResponse.json({ success: true, id: errorLog._id }, { status: 201 })
   } catch (error) {
