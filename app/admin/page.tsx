@@ -934,6 +934,15 @@ export default function AdminPage() {
                         Show QR
                       </button>
                       <button
+                        onClick={() => {
+                          const url = `${window.location.origin}/${event.slug}`
+                          window.open(url, '_blank')
+                        }}
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm"
+                      >
+                        Link
+                      </button>
+                      <button
                         onClick={() => viewPrintHistory(event)}
                         className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
                       >
@@ -963,21 +972,102 @@ export default function AdminPage() {
         </div>
 
         {qrCodeUrl && selectedEvent && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4" onClick={() => setQrCodeUrl(null)}>
-            <div className="bg-white rounded-lg p-8 max-w-md" onClick={(e) => e.stopPropagation()}>
-              <h3 className="text-xl font-bold mb-4">{selectedEvent.name}</h3>
-              <div className="bg-white p-4 rounded-lg mb-4">
-                <Image src={qrCodeUrl} alt="QR Code" width={300} height={300} className="mx-auto" />
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 print:bg-white print:relative print:p-0 z-50 overflow-y-auto" onClick={() => setQrCodeUrl(null)}>
+            <div className="bg-white rounded-lg p-6 max-w-lg print:max-w-full print:shadow-none print:rounded-none my-8" onClick={(e) => e.stopPropagation()}>
+              {/* Print styles */}
+              <style jsx>{`
+                @media print {
+                  body * {
+                    visibility: hidden;
+                  }
+                  .print-content,
+                  .print-content * {
+                    visibility: visible;
+                  }
+                  .print-content {
+                    position: absolute;
+                    left: 0;
+                    top: 0;
+                    width: 100%;
+                  }
+                  .no-print {
+                    display: none !important;
+                  }
+                }
+              `}</style>
+
+              <div className="print-content">
+                {/* Header */}
+                <div className="text-center mb-6">
+                  <div className="inline-block bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-2 rounded-full mb-3">
+                    <h3 className="text-2xl font-bold">📸 {selectedEvent.name}</h3>
+                  </div>
+                  <p className="text-xl font-semibold text-gray-800 mt-3">
+                    포토부스에 오신 것을 환영합니다! 🎉
+                  </p>
+                </div>
+
+                {/* Instructions */}
+                <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-6 mb-6 border-2 border-purple-200">
+                  <h4 className="text-lg font-bold text-purple-900 mb-3 flex items-center gap-2">
+                    <span className="text-xl">📱</span>
+                    사용 방법
+                  </h4>
+                  <ol className="space-y-2 text-base text-gray-800">
+                    <li className="flex items-start gap-2">
+                      <span className="flex-shrink-0 w-7 h-7 bg-purple-600 text-white rounded-full flex items-center justify-center font-bold text-sm">1</span>
+                      <span>스마트폰 카메라로 아래 QR 코드를 스캔하세요</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="flex-shrink-0 w-7 h-7 bg-purple-600 text-white rounded-full flex items-center justify-center font-bold text-sm">2</span>
+                      <span>원하는 레이아웃을 선택하세요</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="flex-shrink-0 w-7 h-7 bg-purple-600 text-white rounded-full flex items-center justify-center font-bold text-sm">3</span>
+                      <span>사진을 찍고 다운로드하세요!</span>
+                    </li>
+                  </ol>
+                </div>
+
+                {/* QR Code */}
+                <div className="bg-white p-6 rounded-xl mb-6 shadow-lg border-2 border-purple-300">
+                  <div className="bg-gradient-to-br from-purple-100 to-pink-100 p-4 rounded-lg">
+                    <Image
+                      src={qrCodeUrl}
+                      alt="QR Code"
+                      width={300}
+                      height={300}
+                      className="mx-auto"
+                    />
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="text-center text-gray-400 text-sm border-t-2 border-gray-200 pt-4">
+                  <p className="flex items-center justify-center gap-2">
+                    <span>✨</span>
+                    <span>즐거운 추억을 만들어보세요!</span>
+                    <span>✨</span>
+                  </p>
+                </div>
               </div>
-              <p className="text-sm text-gray-600 mb-2 break-all">
-                {window.location.origin}/{selectedEvent.slug}
-              </p>
-              <button
-                onClick={() => setQrCodeUrl(null)}
-                className="w-full px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
-              >
-                Close
-              </button>
+
+              {/* Action buttons - hidden when printing */}
+              <div className="flex gap-3 mt-6 no-print">
+                <button
+                  onClick={() => window.print()}
+                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold flex items-center justify-center gap-2"
+                >
+                  <span>🖨️</span>
+                  인쇄하기
+                </button>
+                <button
+                  onClick={() => setQrCodeUrl(null)}
+                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 font-semibold"
+                >
+                  닫기
+                </button>
+              </div>
             </div>
           </div>
         )}
