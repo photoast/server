@@ -25,12 +25,12 @@ export const LAYOUT_CONFIG = {
 // FourCut 레이아웃 설정 (네컷은 간격이 더 좁음)
 export const FOUR_CUT_CONFIG = {
   // 외곽 여백 (기본: 20px)
-  MARGIN_OUTER: 15,
+  MARGIN_OUTER: 13,
 
   // 두 스트립 사이 간격 (기본: 10px)
-  GAP_CENTER:15,
+  GAP_CENTER: 26,
 
   // 사진들 사이 세로 간격 (기본: 10px)
   // 이 값을 줄이면 네컷 사진들이 더 붙어보입니다
-  GAP_BETWEEN_PHOTOS:15,
+  GAP_BETWEEN_PHOTOS:13,
 }
