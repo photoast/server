@@ -4,6 +4,32 @@ import { findEventBySlug } from '@/lib/models'
 import { FrameType } from '@/lib/types'
 import path from 'path'
 import fs from 'fs/promises'
+// @ts-ignore - heic-convert doesn't have TypeScript definitions
+import convert from 'heic-convert'
+
+// Convert HEIC to JPEG
+async function convertHeicToJpeg(buffer: Buffer, filename: string): Promise<Buffer> {
+  try {
+    console.log(`[HEIC] Converting ${filename} to JPEG...`)
+    const outputBuffer = await convert({
+      buffer,
+      format: 'JPEG',
+      quality: 1 // 0-1, 1 is best quality
+    }) as ArrayBuffer
+    console.log(`[HEIC] Conversion successful: ${buffer.length} bytes → ${outputBuffer.byteLength} bytes`)
+    return Buffer.from(outputBuffer)
+  } catch (error) {
+    console.error(`[HEIC] Conversion failed for ${filename}:`, error)
+    throw new Error(`Failed to convert HEIC image: ${filename}`)
+  }
+}
+
+// Check if file is HEIC/HEIF format
+function isHeicFormat(filename: string, mimeType: string): boolean {
+  const ext = filename.toLowerCase()
+  return ext.endsWith('.heic') || ext.endsWith('.heif') ||
+         mimeType === 'image/heic' || mimeType === 'image/heif'
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -78,8 +104,14 @@ export async function POST(request: NextRequest) {
       buffers = await Promise.all(
         photos.map(async (photo, index) => {
           const ab = await photo.arrayBuffer()
-          const buffer = Buffer.from(ab)
+          let buffer = Buffer.from(ab)
           console.log(`[API] Photo ${index + 1} buffer created:`, buffer.length, 'bytes')
+
+          // Convert HEIC to JPEG if needed
+          if (isHeicFormat(photo.name, photo.type)) {
+            buffer = await convertHeicToJpeg(buffer, photo.name) as any
+          }
+
           return buffer
         })
       )
@@ -106,6 +138,11 @@ export async function POST(request: NextRequest) {
       console.log('[API] Converting photo to buffer...')
       buffers = Buffer.from(await file.arrayBuffer())
       console.log('[API] Photo buffer created:', buffers.length, 'bytes')
+
+      // Convert HEIC to JPEG if needed
+      if (isHeicFormat(file.name, file.type)) {
+        buffers = await convertHeicToJpeg(buffers, file.name) as any
+      }
     }
 
     // Parse crop area(s) if provided
