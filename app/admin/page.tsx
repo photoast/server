@@ -614,22 +614,25 @@ export default function AdminPage() {
     try {
       setLoading(true)
 
-      // Convert blob URL to blob
+      // Convert blob URL to data URL (base64)
       const response = await fetch(promotionalImageUrl)
       const blob = await response.blob()
+      const dataUrl = await new Promise<string>((resolve) => {
+        const reader = new FileReader()
+        reader.onloadend = () => resolve(reader.result as string)
+        reader.readAsDataURL(blob)
+      })
 
-      // Convert to File
-      const file = new File([blob], 'promotional.jpg', { type: 'image/jpeg' })
-
-      // Upload and print
-      const formData = new FormData()
-      formData.append('image', file)
-      formData.append('printerUrl', selectedEvent.printerUrl)
-      formData.append('eventSlug', selectedEvent.slug)
-
+      // Send to print API
       const printRes = await fetch('/api/print', {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          slug: selectedEvent.slug,
+          imageUrl: dataUrl,
+        }),
       })
 
       if (!printRes.ok) {
