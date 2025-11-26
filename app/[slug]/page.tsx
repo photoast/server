@@ -349,6 +349,24 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
   // Compress image to reduce file size
   const compressImage = async (file: File, maxSizeMB = 1.5): Promise<File> => {
+    // Check if file is HEIC/HEIF format
+    const isHeic = file.name.toLowerCase().endsWith('.heic') ||
+                   file.name.toLowerCase().endsWith('.heif') ||
+                   file.type === 'image/heic' ||
+                   file.type === 'image/heif'
+
+    // Skip compression for HEIC files - browser can't process them
+    // Server will convert HEIC to JPEG
+    if (isHeic) {
+      console.log('[compressImage] HEIC file detected, skipping client-side compression')
+      logClientInfo('HEIC file detected, skipping compression', undefined, {
+        fileName: file.name,
+        fileSize: `${(file.size / (1024 * 1024)).toFixed(2)}MB`,
+        fileType: file.type
+      })
+      return Promise.resolve(file)
+    }
+
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
       reader.readAsDataURL(file)
