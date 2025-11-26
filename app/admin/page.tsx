@@ -60,6 +60,8 @@ export default function AdminPage() {
   const [newEventPrinter, setNewEventPrinter] = useState('')
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null)
+  const [promotionalImageUrl, setPromotionalImageUrl] = useState<string | null>(null)
+  const [generatingPromo, setGeneratingPromo] = useState(false)
 
   // Print history
   const [showPrintHistory, setShowPrintHistory] = useState(false)
@@ -408,9 +410,178 @@ export default function AdminPage() {
 
   const generateQR = async (event: Event) => {
     const url = `${window.location.origin}/${event.slug}`
-    const qr = await QRCode.toDataURL(url)
+    const qr = await QRCode.toDataURL(url, { width: 600, margin: 2 })
     setQrCodeUrl(qr)
     setSelectedEvent(event)
+
+    // Generate 4x6 promotional image (1200x1800px)
+    await generate4x6PromotionalImage(qr, event)
+  }
+
+  const generate4x6PromotionalImage = async (qrDataUrl: string, event: Event) => {
+    setGeneratingPromo(true)
+
+    try {
+      const canvas = document.createElement('canvas')
+      canvas.width = 1200
+      canvas.height = 1800
+      const ctx = canvas.getContext('2d')
+      if (!ctx) throw new Error('Failed to get canvas context')
+
+      // Fill white background
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, 1200, 1800)
+
+      // Load QR code image
+      const qrImage = new Image()
+      await new Promise((resolve, reject) => {
+        qrImage.onload = resolve
+        qrImage.onerror = reject
+        qrImage.src = qrDataUrl
+      })
+
+      // Draw gradient header
+      const gradient = ctx.createLinearGradient(0, 0, 1200, 200)
+      gradient.addColorStop(0, '#9333ea') // purple-600
+      gradient.addColorStop(1, '#db2777') // pink-600
+      ctx.fillStyle = gradient
+      ctx.fillRect(0, 0, 1200, 200)
+
+      // Draw event name
+      ctx.fillStyle = '#ffffff'
+      ctx.font = 'bold 72px sans-serif'
+      ctx.textAlign = 'center'
+      ctx.fillText(`📸 ${event.name}`, 600, 130)
+
+      // Draw subtitle
+      ctx.font = 'bold 56px sans-serif'
+      ctx.fillStyle = '#1f2937' // gray-800
+      ctx.fillText('포토카드 무료 즉석인화 이벤트 🎉', 600, 310)
+
+      // Draw instructions background
+      ctx.fillStyle = '#faf5ff' // purple-50
+      ctx.strokeStyle = '#c084fc' // purple-400
+      ctx.lineWidth = 4
+      const instructionBox = { x: 100, y: 380, width: 1000, height: 280 }
+      ctx.fillRect(instructionBox.x, instructionBox.y, instructionBox.width, instructionBox.height)
+      ctx.strokeRect(instructionBox.x, instructionBox.y, instructionBox.width, instructionBox.height)
+
+      // Draw instructions title
+      ctx.fillStyle = '#581c87' // purple-900
+      ctx.font = 'bold 48px sans-serif'
+      ctx.textAlign = 'left'
+      ctx.fillText('📱 사용 방법', 130, 450)
+
+      // Draw instructions
+      ctx.fillStyle = '#1f2937' // gray-800
+      ctx.font = '40px sans-serif'
+      const instructions = [
+        '1️⃣  스마트폰 카메라로 아래 QR 코드를 스캔하세요',
+        '2️⃣  원하는 레이아웃을 선택하세요',
+        '3️⃣  사진을 찍고 다운로드하세요!'
+      ]
+      instructions.forEach((text, i) => {
+        ctx.fillText(text, 150, 520 + i * 60)
+      })
+
+      // Draw QR code
+      const qrSize = 600
+      const qrX = (1200 - qrSize) / 2
+      const qrY = 720
+
+      // QR background with gradient
+      const qrGradient = ctx.createLinearGradient(qrX - 30, qrY - 30, qrX + qrSize + 30, qrY + qrSize + 30)
+      qrGradient.addColorStop(0, '#f3e8ff') // purple-100
+      qrGradient.addColorStop(1, '#fce7f3') // pink-100
+      ctx.fillStyle = qrGradient
+      ctx.fillRect(qrX - 30, qrY - 30, qrSize + 60, qrSize + 60)
+
+      // White background for QR
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(qrX, qrY, qrSize, qrSize)
+
+      // Draw QR code
+      ctx.drawImage(qrImage, qrX, qrY, qrSize, qrSize)
+
+      // Draw footer
+      ctx.fillStyle = '#e5e7eb' // gray-200
+      ctx.fillRect(0, 1700, 1200, 2)
+
+      ctx.fillStyle = '#9ca3af' // gray-400
+      ctx.font = '32px sans-serif'
+      ctx.textAlign = 'center'
+      ctx.fillText('✨ 즐거운 추억을 만들어보세요! ✨', 600, 1760)
+
+      // Convert canvas to blob
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((b) => {
+          if (b) resolve(b)
+          else reject(new Error('Failed to create blob'))
+        }, 'image/jpeg', 0.95)
+      })
+
+      const url = URL.createObjectURL(blob)
+      setPromotionalImageUrl(url)
+    } catch (err: any) {
+      console.error('Failed to generate promotional image:', err)
+      logClientError('Failed to generate promotional image', err, undefined, {
+        eventId: event._id,
+        eventName: event.name
+      })
+    } finally {
+      setGeneratingPromo(false)
+    }
+  }
+
+  const downloadPromotionalImage = () => {
+    if (!promotionalImageUrl || !selectedEvent) return
+
+    const link = document.createElement('a')
+    link.href = promotionalImageUrl
+    link.download = `${selectedEvent.slug}-promotional-4x6.jpg`
+    link.click()
+  }
+
+  const printPromotionalImage = async () => {
+    if (!promotionalImageUrl || !selectedEvent) return
+
+    try {
+      setLoading(true)
+
+      // Convert blob URL to blob
+      const response = await fetch(promotionalImageUrl)
+      const blob = await response.blob()
+
+      // Convert to File
+      const file = new File([blob], 'promotional.jpg', { type: 'image/jpeg' })
+
+      // Upload and print
+      const formData = new FormData()
+      formData.append('image', file)
+      formData.append('printerUrl', selectedEvent.printerUrl)
+      formData.append('eventSlug', selectedEvent.slug)
+
+      const printRes = await fetch('/api/print', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!printRes.ok) {
+        const errorData = await printRes.json()
+        throw new Error(errorData.error || 'Print failed')
+      }
+
+      alert('프린터로 전송되었습니다!')
+    } catch (err: any) {
+      const errorMessage = err.message || 'Failed to print'
+      alert(`인쇄 실패: ${errorMessage}`)
+      logClientError('Failed to print promotional image', err, selectedEvent.slug, {
+        eventId: selectedEvent._id,
+        printerUrl: selectedEvent.printerUrl
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
   const viewPrintHistory = async (event: Event) => {
@@ -481,7 +652,7 @@ export default function AdminPage() {
       <div className="max-w-6xl mx-auto">
         <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
           <div className="flex justify-between items-center">
-            <h1 className="text-3xl font-bold">photoast Admin</h1>
+            <h1 className="text-3xl font-bold">Phost Admin</h1>
             <button
               onClick={handleLogout}
               className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
@@ -979,101 +1150,83 @@ export default function AdminPage() {
         </div>
 
         {qrCodeUrl && selectedEvent && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 print:bg-white print:relative print:p-0 z-50 overflow-y-auto" onClick={() => setQrCodeUrl(null)}>
-            <div className="bg-white rounded-lg p-6 max-w-lg print:max-w-full print:shadow-none print:rounded-none my-8" onClick={(e) => e.stopPropagation()}>
-              {/* Print styles */}
-              <style jsx>{`
-                @media print {
-                  body * {
-                    visibility: hidden;
-                  }
-                  .print-content,
-                  .print-content * {
-                    visibility: visible;
-                  }
-                  .print-content {
-                    position: absolute;
-                    left: 0;
-                    top: 0;
-                    width: 100%;
-                  }
-                  .no-print {
-                    display: none !important;
-                  }
-                }
-              `}</style>
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto" onClick={() => {
+            setQrCodeUrl(null)
+            setPromotionalImageUrl(null)
+          }}>
+            <div className="bg-white rounded-lg p-6 max-w-2xl w-full my-8" onClick={(e) => e.stopPropagation()}>
+              <h3 className="text-2xl font-bold mb-4 text-center">📸 {selectedEvent.name} - QR 홍보 이미지</h3>
 
-              <div className="print-content">
-                {/* Header */}
-                <div className="text-center mb-6">
-                  <div className="inline-block bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-2 rounded-full mb-3">
-                    <h3 className="text-2xl font-bold">📸 {selectedEvent.name}</h3>
-                  </div>
-                  <p className="text-xl font-semibold text-gray-800 mt-3">
-                    포토부스에 오신 것을 환영합니다! 🎉
+              {/* 4x6 Promotional Image Preview */}
+              {generatingPromo ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+                  <span className="ml-4 text-gray-600">4×6 홍보 이미지 생성 중...</span>
+                </div>
+              ) : promotionalImageUrl ? (
+                <div className="mb-6">
+                  <p className="text-sm text-gray-600 mb-3 text-center">
+                    4×6 (1200×1800px) 홍보 이미지 - 다운로드 또는 프린터로 인쇄하세요
                   </p>
+                  <div className="bg-gray-100 p-4 rounded-lg">
+                    <div className="relative w-full max-w-md mx-auto aspect-[1000/1500] bg-white shadow-lg">
+                      <Image
+                        src={promotionalImageUrl}
+                        alt="Promotional Image"
+                        fill
+                        className="object-contain"
+                        unoptimized
+                      />
+                    </div>
+                  </div>
                 </div>
+              ) : null}
 
-                {/* Instructions */}
-                <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-6 mb-6 border-2 border-purple-200">
-                  <h4 className="text-lg font-bold text-purple-900 mb-3 flex items-center gap-2">
-                    <span className="text-xl">📱</span>
-                    사용 방법
-                  </h4>
-                  <ol className="space-y-2 text-base text-gray-800">
-                    <li className="flex items-start gap-2">
-                      <span className="flex-shrink-0 w-7 h-7 bg-purple-600 text-white rounded-full flex items-center justify-center font-bold text-sm">1</span>
-                      <span>스마트폰 카메라로 아래 QR 코드를 스캔하세요</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="flex-shrink-0 w-7 h-7 bg-purple-600 text-white rounded-full flex items-center justify-center font-bold text-sm">2</span>
-                      <span>원하는 레이아웃을 선택하세요</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="flex-shrink-0 w-7 h-7 bg-purple-600 text-white rounded-full flex items-center justify-center font-bold text-sm">3</span>
-                      <span>사진을 찍고 다운로드하세요!</span>
-                    </li>
-                  </ol>
-                </div>
+              {/* Action buttons */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <button
+                  onClick={downloadPromotionalImage}
+                  disabled={!promotionalImageUrl || generatingPromo}
+                  className="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold flex items-center justify-center gap-2"
+                >
+                  <span>💾</span>
+                  다운로드
+                </button>
+                <button
+                  onClick={printPromotionalImage}
+                  disabled={!promotionalImageUrl || generatingPromo || loading}
+                  className="px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold flex items-center justify-center gap-2"
+                >
+                  <span>🖨️</span>
+                  {loading ? '인쇄 중...' : '프린터로 인쇄'}
+                </button>
+                <button
+                  onClick={() => {
+                    setQrCodeUrl(null)
+                    setPromotionalImageUrl(null)
+                  }}
+                  className="px-4 py-3 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 font-semibold"
+                >
+                  닫기
+                </button>
+              </div>
 
-                {/* QR Code */}
-                <div className="bg-white p-6 rounded-xl mb-6 shadow-lg border-2 border-purple-300">
-                  <div className="bg-gradient-to-br from-purple-100 to-pink-100 p-4 rounded-lg">
+              {/* Original QR code for scanning */}
+              <div className="mt-6 pt-6 border-t">
+                <p className="text-sm text-gray-600 mb-3 text-center">
+                  또는 아래 QR 코드를 직접 스캔하세요
+                </p>
+                <div className="flex justify-center">
+                  <div className="bg-gradient-to-br from-purple-100 to-pink-100 p-4 rounded-lg inline-block">
                     <Image
                       src={qrCodeUrl}
                       alt="QR Code"
-                      width={300}
-                      height={300}
+                      width={200}
+                      height={200}
                       className="mx-auto"
                     />
                   </div>
                 </div>
-
-                {/* Footer */}
-                <div className="text-center text-gray-400 text-sm border-t-2 border-gray-200 pt-4">
-                  <p className="flex items-center justify-center gap-2">
-                    <span>✨</span>
-                    <span>즐거운 추억을 만들어보세요!</span>
-                    <span>✨</span>
-                  </p>
-                </div>
-              </div>
-
-              {/* Action buttons - hidden when printing */}
-              <div className="flex gap-3 mt-6 no-print">
-                <button
-                  onClick={() => window.print()}
-                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold flex items-center justify-center gap-2"
-                >
-                  <span>🖨️</span>
-                  인쇄하기
-                </button>
-                <button
-                  onClick={() => setQrCodeUrl(null)}
-                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 font-semibold"
-                >
-                  닫기
-                </button>
               </div>
             </div>
           </div>

@@ -99,8 +99,8 @@ export async function sendIPP(printUrl: string, jpegBuffer: Buffer): Promise<{ s
 
   const msg = {
     "operation-attributes-tag": {
-      "requesting-user-name": "photoast-ts",
-      "job-name": `Photoast-Calib (shrink=${SHRINK_PERCENT}%, offset=${VERTICAL_OFFSET_PX}px)`,
+      "requesting-user-name": "phost-ts",
+      "job-name": `Phost-Calib (shrink=${SHRINK_PERCENT}%, offset=${VERTICAL_OFFSET_PX}px)`,
       "document-format": "image/jpeg",
     },
     "job-attributes-tag": jobAttrs,
@@ -142,7 +142,7 @@ export async function sendIPP(printUrl: string, jpegBuffer: Buffer): Promise<{ s
 export async function printCalibration4x6(printUrl: string, imagePath: string): Promise<{ success: boolean; error?: string }> {
   try {
     console.log("\n==============")
-    console.log(" Photoast Print Module (TS)")
+    console.log(" Phost Print Module (TS)")
     console.log("==============")
 
     const jpeg = await buildCorrected4x6Image(imagePath)

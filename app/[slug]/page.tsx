@@ -581,7 +581,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       const now = new Date()
       const timestamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`
       const layoutName = (LAYOUT_OPTIONS.find(l => l.type === frameType)?.nameEn || frameType).replace(/\s+/g, '-').toLowerCase()
-      link.download = `photoast_${layoutName}_${timestamp}.jpg`
+      link.download = `phost_${layoutName}_${timestamp}.jpg`
 
       // Trigger download
       document.body.appendChild(link)

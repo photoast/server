@@ -2,7 +2,7 @@ import { DeviceInfo } from './types'
 
 // Generate or retrieve a persistent device ID
 function getDeviceId(): string {
-  const storageKey = 'photoast_device_id'
+  const storageKey = 'phost_device_id'
 
   if (typeof window === 'undefined') {
     return 'server-side'
