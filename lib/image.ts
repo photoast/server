@@ -199,13 +199,17 @@ async function processSingleImage(
       if (logoBuffer) {
         // Get logo settings or use defaults
         const position = logoSettings?.position || 'bottom-center'
-        const sizePercent = logoSettings?.size || 80 // Default 80% of image width
+        const sizePercent = logoSettings?.size || 80 // Default 80% of LOGO AREA width
 
         console.log('Processing logo with settings:', { position, sizePercent, x: logoSettings?.x, y: logoSettings?.y })
 
-        // Calculate logo size based on settings (percentage of TOTAL image width, not logo area)
-        // Allow logo to be any size - if it goes into photo area, it will be clipped by composite
-        const requestedLogoWidth = Math.round(TARGET_WIDTH * (sizePercent / 100))
+        // IMPORTANT: Logo size is percentage of LOGO AREA width, NOT total image width
+        // This matches the preview component behavior
+        // Logo area width = full width, so we use TARGET_WIDTH
+        // But we need to account for padding (8px on each side in preview = 16px total)
+        const PREVIEW_PADDING = 8 * 2 // p-2 in Tailwind = 8px, both sides = 16px
+        const logoAreaWidth = TARGET_WIDTH - PREVIEW_PADDING
+        const requestedLogoWidth = Math.round(logoAreaWidth * (sizePercent / 100))
 
         // Resize logo based on width - no height limit, allow it to extend into photo area
         const resizedLogoBuffer = await sharp(logoBuffer)
@@ -235,22 +239,25 @@ async function processSingleImage(
           // Parse position string
           const [vertical, horizontal] = position.split('-')
 
+          // IMPORTANT: Use same padding as preview (p-2 = 8px)
+          const PADDING = 8
+
           // Calculate horizontal position
           if (horizontal === 'left') {
-            left = 20 // Left padding
+            left = PADDING // Left padding
           } else if (horizontal === 'center') {
             left = Math.round((TARGET_WIDTH - logoWidth) / 2)
           } else if (horizontal === 'right') {
-            left = TARGET_WIDTH - logoWidth - 20 // Right padding
+            left = TARGET_WIDTH - logoWidth - PADDING // Right padding
           }
 
           // Calculate vertical position within logo area
           if (vertical === 'top') {
-            top = photoHeight + 20 // Top of logo area with padding
+            top = photoHeight + PADDING // Top of logo area with padding
           } else if (vertical === 'center') {
             top = photoHeight + Math.round((logoHeight - actualLogoHeight) / 2)
           } else if (vertical === 'bottom') {
-            top = TARGET_HEIGHT - actualLogoHeight - 20 // Bottom with padding
+            top = TARGET_HEIGHT - actualLogoHeight - PADDING // Bottom with padding
           }
         }
 
