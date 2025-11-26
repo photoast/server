@@ -14,6 +14,7 @@ import {
 import { LAYOUT_OPTIONS, getPhotoCount, getCropAspectRatioForSlot } from './layoutConfig'
 import type { FrameType } from '@/lib/types'
 import { logClientError, logClientInfo } from '@/lib/errorLogger'
+import heic2any from 'heic2any'
 
 interface Event {
   name: string
@@ -355,21 +356,42 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                    file.type === 'image/heic' ||
                    file.type === 'image/heif'
 
-    // Skip compression for HEIC files - browser can't process them
-    // Server will convert HEIC to JPEG
+    // Convert HEIC to JPEG first (browser can't process HEIC directly)
+    let fileToCompress = file
     if (isHeic) {
-      console.log('[compressImage] HEIC file detected, skipping client-side compression')
-      logClientInfo('HEIC file detected, skipping compression', undefined, {
-        fileName: file.name,
-        fileSize: `${(file.size / (1024 * 1024)).toFixed(2)}MB`,
-        fileType: file.type
-      })
-      return Promise.resolve(file)
+      try {
+        console.log('[compressImage] HEIC file detected, converting to JPEG...')
+        const jpegBlob = await heic2any({
+          blob: file,
+          toType: 'image/jpeg',
+          quality: 0.9
+        }) as Blob
+
+        // Convert Blob to File
+        fileToCompress = new File(
+          [jpegBlob],
+          file.name.replace(/\.(heic|heif)$/i, '.jpg'),
+          { type: 'image/jpeg', lastModified: Date.now() }
+        )
+
+        logClientInfo('HEIC converted to JPEG', undefined, {
+          originalFile: file.name,
+          originalSize: `${(file.size / (1024 * 1024)).toFixed(2)}MB`,
+          convertedSize: `${(fileToCompress.size / (1024 * 1024)).toFixed(2)}MB`
+        })
+        console.log('[compressImage] HEIC converted successfully')
+      } catch (error) {
+        console.error('[compressImage] HEIC conversion failed:', error)
+        logClientError('Failed to convert HEIC to JPEG', error as Error, undefined, {
+          fileName: file.name
+        })
+        throw new Error('HEIC 변환에 실패했습니다')
+      }
     }
 
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
-      reader.readAsDataURL(file)
+      reader.readAsDataURL(fileToCompress)
       reader.onload = (e) => {
         const img = new window.Image()
         img.src = e.target?.result as string
@@ -418,13 +440,13 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                   return
                 }
 
-                const compressedFile = new File([blob], file.name, {
+                const compressedFile = new File([blob], fileToCompress.name, {
                   type: 'image/jpeg',
                   lastModified: Date.now()
                 })
 
                 logClientInfo('Image compressed', undefined, {
-                  originalSize: `${(file.size / (1024 * 1024)).toFixed(2)}MB`,
+                  originalSize: `${(fileToCompress.size / (1024 * 1024)).toFixed(2)}MB`,
                   compressedSize: `${sizeMB.toFixed(2)}MB`,
                   quality: quality.toFixed(1),
                   dimensions: `${width}x${height}`
