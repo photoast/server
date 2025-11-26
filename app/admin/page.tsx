@@ -420,6 +420,7 @@ export default function AdminPage() {
 
   const generate4x6PromotionalImage = async (qrDataUrl: string, event: Event) => {
     setGeneratingPromo(true)
+    console.log('🎨 Starting promotional image generation...')
 
     try {
       const canvas = document.createElement('canvas')
@@ -428,102 +429,167 @@ export default function AdminPage() {
       const ctx = canvas.getContext('2d')
       if (!ctx) throw new Error('Failed to get canvas context')
 
-      // Fill white background
-      ctx.fillStyle = '#ffffff'
+      console.log('✅ Canvas created: 1200x1800')
+
+      // Fill gradient background (entire canvas)
+      const bgGradient = ctx.createLinearGradient(0, 0, 0, 1800)
+      bgGradient.addColorStop(0, '#faf5ff') // purple-50
+      bgGradient.addColorStop(1, '#fce7f3') // pink-50
+      ctx.fillStyle = bgGradient
       ctx.fillRect(0, 0, 1200, 1800)
 
-      // Load QR code image
-      const qrImage = new Image()
+      // Load QR code image (use native browser Image, not Next.js Image)
+      console.log('⏳ Loading QR image...')
+      const qrImage = document.createElement('img')
       await new Promise((resolve, reject) => {
-        qrImage.onload = resolve
-        qrImage.onerror = reject
+        qrImage.onload = () => {
+          console.log('✅ QR image loaded')
+          resolve(true)
+        }
+        qrImage.onerror = (e) => {
+          console.error('❌ QR image load failed:', e)
+          reject(e)
+        }
         qrImage.src = qrDataUrl
       })
 
-      // Draw gradient header
-      const gradient = ctx.createLinearGradient(0, 0, 1200, 200)
-      gradient.addColorStop(0, '#9333ea') // purple-600
-      gradient.addColorStop(1, '#db2777') // pink-600
-      ctx.fillStyle = gradient
-      ctx.fillRect(0, 0, 1200, 200)
+      // Helper function for rounded rectangle
+      const roundRect = (x: number, y: number, w: number, h: number, r: number) => {
+        ctx.beginPath()
+        ctx.moveTo(x + r, y)
+        ctx.lineTo(x + w - r, y)
+        ctx.quadraticCurveTo(x + w, y, x + w, y + r)
+        ctx.lineTo(x + w, y + h - r)
+        ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h)
+        ctx.lineTo(x + r, y + h)
+        ctx.quadraticCurveTo(x, y + h, x, y + h - r)
+        ctx.lineTo(x, y + r)
+        ctx.quadraticCurveTo(x, y, x + r, y)
+        ctx.closePath()
+      }
 
-      // Draw event name
+      // Draw header card with shadow
+      ctx.save()
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.1)'
+      ctx.shadowBlur = 20
+      ctx.shadowOffsetY = 10
+      roundRect(80, 60, 1040, 200, 30)
+      const headerGradient = ctx.createLinearGradient(0, 60, 0, 260)
+      headerGradient.addColorStop(0, '#a855f7') // purple-500
+      headerGradient.addColorStop(1, '#ec4899') // pink-500
+      ctx.fillStyle = headerGradient
+      ctx.fill()
+      ctx.restore()
+
+      // Draw event name with shadow
+      ctx.save()
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.3)'
+      ctx.shadowBlur = 8
       ctx.fillStyle = '#ffffff'
-      ctx.font = 'bold 72px sans-serif'
+      ctx.font = 'bold 80px Arial, sans-serif'
       ctx.textAlign = 'center'
-      ctx.fillText(`📸 ${event.name}`, 600, 130)
+      ctx.textBaseline = 'middle'
+      ctx.fillText(event.name, 600, 130)
+      ctx.restore()
 
       // Draw subtitle
-      ctx.font = 'bold 56px sans-serif'
-      ctx.fillStyle = '#1f2937' // gray-800
-      ctx.fillText('포토카드 무료 즉석인화 이벤트 🎉', 600, 310)
+      ctx.fillStyle = '#ffffff'
+      ctx.font = '48px Arial, sans-serif'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText('포토카드 무료 즉석인화 이벤트', 600, 210)
 
-      // Draw instructions background
-      ctx.fillStyle = '#faf5ff' // purple-50
-      ctx.strokeStyle = '#c084fc' // purple-400
-      ctx.lineWidth = 4
-      const instructionBox = { x: 100, y: 380, width: 1000, height: 280 }
-      ctx.fillRect(instructionBox.x, instructionBox.y, instructionBox.width, instructionBox.height)
-      ctx.strokeRect(instructionBox.x, instructionBox.y, instructionBox.width, instructionBox.height)
+      // Draw instructions card with shadow
+      ctx.save()
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.1)'
+      ctx.shadowBlur = 20
+      ctx.shadowOffsetY = 10
+      roundRect(80, 320, 1040, 330, 30)
+      ctx.fillStyle = '#ffffff'
+      ctx.fill()
+      ctx.restore()
 
       // Draw instructions title
-      ctx.fillStyle = '#581c87' // purple-900
-      ctx.font = 'bold 48px sans-serif'
-      ctx.textAlign = 'left'
-      ctx.fillText('📱 사용 방법', 130, 450)
+      ctx.fillStyle = '#7c3aed' // purple-600
+      ctx.font = 'bold 56px Arial, sans-serif'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText('사용 방법', 600, 370)
 
-      // Draw instructions
-      ctx.fillStyle = '#1f2937' // gray-800
-      ctx.font = '40px sans-serif'
+      // Draw step numbers and instructions
       const instructions = [
-        '1️⃣  스마트폰 카메라로 아래 QR 코드를 스캔하세요',
-        '2️⃣  원하는 레이아웃을 선택하세요',
-        '3️⃣  사진을 찍고 다운로드하세요!'
+        { num: '1', text: '스마트폰 카메라로 QR 코드 스캔' },
+        { num: '2', text: '원하는 레이아웃 선택' },
+        { num: '3', text: '사진 선택 후 다운로드!' }
       ]
-      instructions.forEach((text, i) => {
-        ctx.fillText(text, 150, 520 + i * 60)
+
+      instructions.forEach((item, i) => {
+        const y = 460 + i * 70
+
+        // Draw circle for number
+        ctx.beginPath()
+        ctx.arc(140, y, 24, 0, Math.PI * 2)
+        const circleGradient = ctx.createLinearGradient(116, y - 24, 164, y + 24)
+        circleGradient.addColorStop(0, '#a855f7') // purple-500
+        circleGradient.addColorStop(1, '#ec4899') // pink-500
+        ctx.fillStyle = circleGradient
+        ctx.fill()
+
+        // Draw number
+        ctx.fillStyle = '#ffffff'
+        ctx.font = 'bold 30px Arial, sans-serif'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText(item.num, 140, y)
+
+        // Draw instruction text
+        ctx.fillStyle = '#1f2937' // gray-800
+        ctx.font = '38px Arial, sans-serif'
+        ctx.textAlign = 'left'
+        ctx.textBaseline = 'middle'
+        ctx.fillText(item.text, 190, y)
       })
 
-      // Draw QR code
-      const qrSize = 600
+      console.log('✅ Text drawn')
+
+      // Draw QR code card with shadow
+      const qrSize = 700
       const qrX = (1200 - qrSize) / 2
-      const qrY = 720
+      const qrY = 860
 
-      // QR background with gradient
-      const qrGradient = ctx.createLinearGradient(qrX - 30, qrY - 30, qrX + qrSize + 30, qrY + qrSize + 30)
-      qrGradient.addColorStop(0, '#f3e8ff') // purple-100
-      qrGradient.addColorStop(1, '#fce7f3') // pink-100
-      ctx.fillStyle = qrGradient
-      ctx.fillRect(qrX - 30, qrY - 30, qrSize + 60, qrSize + 60)
-
-      // White background for QR
+      ctx.save()
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.15)'
+      ctx.shadowBlur = 30
+      ctx.shadowOffsetY = 15
+      roundRect(qrX - 40, qrY - 40, qrSize + 80, qrSize + 80, 30)
       ctx.fillStyle = '#ffffff'
-      ctx.fillRect(qrX, qrY, qrSize, qrSize)
+      ctx.fill()
+      ctx.restore()
 
       // Draw QR code
       ctx.drawImage(qrImage, qrX, qrY, qrSize, qrSize)
+      console.log('✅ QR code drawn')
 
-      // Draw footer
-      ctx.fillStyle = '#e5e7eb' // gray-200
-      ctx.fillRect(0, 1700, 1200, 2)
-
-      ctx.fillStyle = '#9ca3af' // gray-400
-      ctx.font = '32px sans-serif'
-      ctx.textAlign = 'center'
-      ctx.fillText('✨ 즐거운 추억을 만들어보세요! ✨', 600, 1760)
-
+      console.log('⏳ Converting canvas to blob...')
       // Convert canvas to blob
       const blob = await new Promise<Blob>((resolve, reject) => {
         canvas.toBlob((b) => {
-          if (b) resolve(b)
-          else reject(new Error('Failed to create blob'))
+          if (b) {
+            console.log('✅ Blob created, size:', b.size)
+            resolve(b)
+          } else {
+            console.error('❌ Failed to create blob')
+            reject(new Error('Failed to create blob'))
+          }
         }, 'image/jpeg', 0.95)
       })
 
       const url = URL.createObjectURL(blob)
+      console.log('✅ Promotional image URL created:', url.substring(0, 50))
       setPromotionalImageUrl(url)
     } catch (err: any) {
-      console.error('Failed to generate promotional image:', err)
+      console.error('❌ Failed to generate promotional image:', err)
+      alert(`홍보 이미지 생성 실패: ${err.message}`)
       logClientError('Failed to generate promotional image', err, undefined, {
         eventId: event._id,
         eventName: event.name
@@ -1209,24 +1275,6 @@ export default function AdminPage() {
                 >
                   닫기
                 </button>
-              </div>
-
-              {/* Original QR code for scanning */}
-              <div className="mt-6 pt-6 border-t">
-                <p className="text-sm text-gray-600 mb-3 text-center">
-                  또는 아래 QR 코드를 직접 스캔하세요
-                </p>
-                <div className="flex justify-center">
-                  <div className="bg-gradient-to-br from-purple-100 to-pink-100 p-4 rounded-lg inline-block">
-                    <Image
-                      src={qrCodeUrl}
-                      alt="QR Code"
-                      width={200}
-                      height={200}
-                      className="mx-auto"
-                    />
-                  </div>
-                </div>
               </div>
             </div>
           </div>
