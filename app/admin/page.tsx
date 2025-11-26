@@ -497,7 +497,7 @@ export default function AdminPage() {
       ctx.font = '48px Arial, sans-serif'
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
-      ctx.fillText('포토카드 무료 즉석인화 이벤트', 600, 210)
+      ctx.fillText('포토카드 무료 즉석인화 이벤트 🎉', 600, 210)
 
       // Draw instructions card with shadow
       ctx.save()
@@ -520,7 +520,7 @@ export default function AdminPage() {
       const instructions = [
         { num: '1', text: '스마트폰 카메라로 QR 코드 스캔' },
         { num: '2', text: '원하는 레이아웃 선택' },
-        { num: '3', text: '사진 선택 후 다운로드!' }
+        { num: '3', text: '사진 선택 후 "프린트 하기" 클릭!' }
       ]
 
       instructions.forEach((item, i) => {
