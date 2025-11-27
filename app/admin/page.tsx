@@ -40,6 +40,7 @@ interface PrintJob {
   _id: string
   eventId: string
   imageUrl: string
+  printedImageUrl?: string
   createdAt: string
   status: 'DONE' | 'FAILED'
   deviceInfo?: DeviceInfo
@@ -1297,17 +1298,38 @@ export default function AdminPage() {
                   {printJobs.map((job) => (
                     <div key={job._id} className="border rounded-lg p-4 bg-gray-50">
                       <div className="flex gap-4">
-                        <div
-                          className="relative w-24 aspect-[1000/1500] bg-gray-200 rounded flex-shrink-0 cursor-pointer hover:opacity-75 transition"
-                          onClick={() => setSelectedImageForPreview(job.imageUrl)}
-                        >
-                          <Image
-                            src={job.imageUrl}
-                            alt="Printed photo"
-                            fill
-                            className="object-cover rounded"
-                          />
+                        {/* Original Image */}
+                        <div className="flex-shrink-0">
+                          <p className="text-xs text-gray-500 mb-1 text-center">원본</p>
+                          <div
+                            className="relative w-20 aspect-[1000/1500] bg-gray-200 rounded cursor-pointer hover:opacity-75 transition"
+                            onClick={() => setSelectedImageForPreview(job.imageUrl)}
+                          >
+                            <Image
+                              src={job.imageUrl}
+                              alt="Original photo"
+                              fill
+                              className="object-cover rounded"
+                            />
+                          </div>
                         </div>
+                        {/* Printed Image (if available) */}
+                        {job.printedImageUrl && (
+                          <div className="flex-shrink-0">
+                            <p className="text-xs text-gray-500 mb-1 text-center">인쇄됨</p>
+                            <div
+                              className="relative w-20 aspect-[1000/1500] bg-gray-200 rounded cursor-pointer hover:opacity-75 transition ring-2 ring-green-500"
+                              onClick={() => setSelectedImageForPreview(job.printedImageUrl!)}
+                            >
+                              <Image
+                                src={job.printedImageUrl}
+                                alt="Printed photo"
+                                fill
+                                className="object-cover rounded"
+                              />
+                            </div>
+                          </div>
+                        )}
                         <div className="flex-1 space-y-2">
                           <div className="flex items-center gap-2">
                             <span className={`px-2 py-1 rounded text-xs font-medium ${

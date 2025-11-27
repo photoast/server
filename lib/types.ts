@@ -37,6 +37,7 @@ export interface PrintJob {
   _id?: ObjectId
   eventId: string
   imageUrl: string
+  printedImageUrl?: string // The actual image sent to printer (corrected/rotated)
   createdAt: Date
   status: 'DONE' | 'FAILED'
   deviceInfo?: DeviceInfo

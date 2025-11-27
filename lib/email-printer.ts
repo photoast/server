@@ -7,18 +7,14 @@ import { applyPrinterCorrection } from './image-correction'
 // Epson Email Print address
 const EPSON_PRINT_EMAIL = 'eyx3988j7dyi07@print.epsonconnect.com'
 
-// Target canvas size for printer correction
-const CANVAS_WIDTH = 1200
-const CANVAS_HEIGHT = 1800
-
 /**
  * Send image to Epson Email Print service
  * @param imagePath - Local file path to the image
- * @returns Success status and error message if any
+ * @returns Success status, error message if any, and the printed image as base64
  */
 export async function printViaEmail(
   imagePath: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; printedImageBase64?: string }> {
   try {
     // Validate image file exists
     if (!fs.existsSync(imagePath)) {
@@ -44,9 +40,17 @@ export async function printViaEmail(
     console.log(`SMTP Server: ${smtpHost}:${smtpPort}`)
     console.log(`From: ${smtpFrom}`)
 
-    // Step 1: Read the original image (already 1200×1800 from process-image API)
-    console.log(`\nStep 1: Reading original image (1200×1800 from process-image API)`)
-    const originalBuffer = fs.readFileSync(imagePath)
+    // Step 1: Read the original image and detect dimensions
+    console.log(`\nStep 1: Reading original image and detecting dimensions`)
+    let imageBuffer = fs.readFileSync(imagePath)
+
+    // Detect image dimensions to handle both portrait (1200×1800) and landscape (1800×1200)
+    const metadata = await sharp(imageBuffer).metadata()
+    const imageWidth = metadata.width || 1200
+    const imageHeight = metadata.height || 1800
+    const isLandscape = imageWidth > imageHeight
+
+    console.log(`Image dimensions: ${imageWidth}×${imageHeight} (${isLandscape ? 'landscape 6×4' : 'portrait 4×6'})`)
 
     // Save original for debugging
     const isVercel = process.env.VERCEL === '1'
@@ -58,15 +62,31 @@ export async function printViaEmail(
 
     const timestamp = Date.now()
     const originalPath = path.join(outputDir, `email-original-${timestamp}.jpg`)
-    fs.writeFileSync(originalPath, originalBuffer)
+    fs.writeFileSync(originalPath, imageBuffer)
     console.log(`원본 이미지 저장: ${originalPath}`)
+
+    // Step 1.5: Rotate landscape images to portrait for printing
+    // Printer only supports 4×6 paper, so 6×4 images must be rotated 90° clockwise
+    if (isLandscape) {
+      console.log('\nStep 1.5: Rotating landscape image 90° clockwise for 4×6 printing')
+      const rotatedBuffer = await sharp(imageBuffer)
+        .rotate(90)
+        .jpeg({ quality: 100 })
+        .toBuffer()
+      imageBuffer = Buffer.from(rotatedBuffer)
+
+      const rotatedPath = path.join(outputDir, `email-rotated-${timestamp}.jpg`)
+      fs.writeFileSync(rotatedPath, imageBuffer)
+      console.log(`회전된 이미지 저장: ${rotatedPath} (1800×1200 → 1200×1800)`)
+    }
 
     // Step 2: Apply printer correction (shrink + vertical offset)
     // This compensates for physical printer characteristics
+    // After rotation, all images are 1200×1800 (portrait)
     console.log('\nStep 2: Applying printer correction (for physical print only)')
-    const correctedBuffer = await applyPrinterCorrection(originalBuffer, {
-      canvasWidth: CANVAS_WIDTH,
-      canvasHeight: CANVAS_HEIGHT,
+    const correctedBuffer = await applyPrinterCorrection(imageBuffer, {
+      canvasWidth: 1200,
+      canvasHeight: 1800,
     })
 
     // Save corrected version for debugging
@@ -110,7 +130,10 @@ export async function printViaEmail(
     console.log(`Message ID: ${info.messageId}`)
     console.log('====================================\n')
 
-    return { success: true }
+    // Return the corrected image as base64 for print history
+    const printedImageBase64 = `data:image/jpeg;base64,${correctedBuffer.toString('base64')}`
+
+    return { success: true, printedImageBase64 }
   } catch (error: any) {
     console.error('Email print error:', error)
     return {

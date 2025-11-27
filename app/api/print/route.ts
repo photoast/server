@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
     const printJob = await createPrintJob({
       eventId: event._id!.toString(),
       imageUrl,
+      printedImageUrl: result.printedImageUrl,
       status: result.success ? 'DONE' : 'FAILED',
       deviceInfo,
       errorMessage: result.error,

@@ -20,7 +20,7 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0' // ⚠️ 내부망 테스트 전
 export async function printImage(
   imageUrl: string,
   printerUrl: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; printedImageUrl?: string }> {
   try {
     // Convert URL to file path
     let imagePath: string
@@ -29,7 +29,7 @@ export async function printImage(
     console.log(`Print Job Request`)
     console.log(`====================================`)
     console.log(`Image URL: ${imageUrl.substring(0, 100)}${imageUrl.length > 100 ? '...' : ''}`)
-    console.log(`Target Size: 4×6 inch (glossy, borderless)`)
+    console.log(`Target Size: Auto-detected (4×6 or 6×4 inch, glossy, borderless)`)
 
     // Handle data URL (base64) - Vercel environment
     if (imageUrl.startsWith('data:')) {
@@ -74,7 +74,11 @@ export async function printImage(
     // Legacy IPP method (currently disabled)
     // const result = await printCalibration4x6(printerUrl, imagePath)
 
-    return result
+    return {
+      success: result.success,
+      error: result.error,
+      printedImageUrl: result.printedImageBase64,
+    }
   } catch (e: any) {
     console.error('Print error:', e)
     return { success: false, error: e.message }
