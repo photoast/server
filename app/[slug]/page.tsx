@@ -9,6 +9,7 @@ import {
   FourCutPreview,
   TwoByTwoPreview,
   VerticalTwoPreview,
+  LandscapePreview,
   OnePlusTwoPreview
 } from '../components/LayoutPreviews'
 import { LAYOUT_OPTIONS, getPhotoCount, getCropAspectRatioForSlot } from './layoutConfig'
@@ -664,6 +665,8 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         return <TwoByTwoPreview {...baseProps} />
       case 'vertical-two':
         return <VerticalTwoPreview {...baseProps} />
+      case 'landscape':
+        return <LandscapePreview {...baseProps} />
       case 'one-plus-two':
         return <OnePlusTwoPreview {...baseProps} />
       default:
@@ -676,6 +679,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       'single': 'grid-cols-1 grid-rows-1',
       'single-with-logo': 'grid-cols-1 grid-rows-1',
       'vertical-two': 'grid-cols-1 grid-rows-2',
+      'landscape': 'grid-cols-1 grid-rows-1',
       'one-plus-two': 'grid-cols-2 grid-rows-2',
       'four-cut': 'grid-cols-2 grid-rows-4',
       'two-by-two': 'grid-cols-2 grid-rows-2'
@@ -686,11 +690,21 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         case 'single': return [{ colspan: 1, rowspan: 1 }]
         case 'single-with-logo': return [{ colspan: 1, rowspan: 1 }]
         case 'vertical-two': return [{}, {}]
+        case 'landscape': return [{ colspan: 1, rowspan: 1 }]
         case 'one-plus-two': return [{ colspan: 2 }, {}, {}]
         case 'four-cut': return [{}, {}, {}, {}, {}, {}, {}, {}]
         case 'two-by-two': return [{}, {}, {}, {}]
         default: return []
       }
+    }
+
+    // Landscape uses horizontal aspect ratio
+    if (type === 'landscape') {
+      return (
+        <div className="grid gap-0.5 h-10 w-16 bg-gray-300 rounded overflow-hidden grid-cols-1 grid-rows-1">
+          <div className="bg-purple-400" />
+        </div>
+      )
     }
 
     return (
@@ -794,7 +808,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
               </div>
 
               <button
-                onClick={() => setStep((frameType === 'single' || frameType === 'single-with-logo') ? 'fill-photos' : 'select-color')}
+                onClick={() => setStep((frameType === 'single' || frameType === 'single-with-logo' || frameType === 'landscape') ? 'fill-photos' : 'select-color')}
                 className="w-full py-4 bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 text-white rounded-full font-bold text-lg hover:shadow-2xl transition-all shadow-lg"
               >
                 다음 단계로 💫
@@ -967,7 +981,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                 <div className="flex gap-3">
                   <button
                     onClick={() => {
-                      setStep(frameType === 'single' ? 'select-layout' : 'select-color')
+                      setStep((frameType === 'single' || frameType === 'landscape') ? 'select-layout' : 'select-color')
                       setPreviewUrl(null)
                     }}
                     disabled={printing}

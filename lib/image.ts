@@ -2,7 +2,7 @@ import sharp from 'sharp'
 import path from 'path'
 import fs from 'fs/promises'
 import { LogoSettings, FrameType } from './types'
-import { CANVAS_WIDTH, CANVAS_HEIGHT, DEFAULT_PHOTO_RATIO, LAYOUT_CONFIG, FOUR_CUT_CONFIG } from './layoutConstants'
+import { CANVAS_WIDTH, CANVAS_HEIGHT, LANDSCAPE_WIDTH, LANDSCAPE_HEIGHT, DEFAULT_PHOTO_RATIO, LAYOUT_CONFIG, FOUR_CUT_CONFIG } from './layoutConstants'
 
 // Standard print sizes at 300 DPI (4x6 inch)
 const TARGET_WIDTH = CANVAS_WIDTH    // 4 inch * 300 DPI
@@ -53,6 +53,12 @@ export async function processImage(
       cropArea as CropArea[],
       backgroundColor
     )
+  }
+
+  if (frameType === 'landscape') {
+    const singleBuffer = Array.isArray(inputBuffer) ? inputBuffer[0] : inputBuffer
+    const singleCropArea = Array.isArray(cropArea) ? cropArea[0] : cropArea
+    return processLandscapeImage(singleBuffer, singleCropArea)
   }
 
   if (frameType === 'one-plus-two') {
@@ -783,6 +789,84 @@ async function processVerticalTwoImage(
   return finalImage.jpeg({
     quality: 95,
     chromaSubsampling: '4:4:4'
+  }).toBuffer()
+}
+
+async function processLandscapeImage(
+  inputBuffer: Buffer,
+  cropArea?: CropArea
+): Promise<Buffer> {
+  // Landscape layout: 6x4 inch (1800x1200) - horizontal orientation
+  // Single photo filling the entire canvas
+
+  console.log(`Landscape layout: ${LANDSCAPE_WIDTH}x${LANDSCAPE_HEIGHT}px (6x4 inch)`)
+
+  let image = sharp(inputBuffer)
+    .rotate() // Auto-rotate based on EXIF orientation
+
+  // Get original image metadata
+  const metadata = await image.metadata()
+  const originalWidth = metadata.width || 0
+  const originalHeight = metadata.height || 0
+
+  console.log(`Original image: ${originalWidth}x${originalHeight}`)
+
+  // Apply crop if provided
+  let hasCrop = false
+  if (cropArea && cropArea.width > 0 && cropArea.height > 0) {
+    console.log(`Requested crop: ${cropArea.width}x${cropArea.height} at (${cropArea.x}, ${cropArea.y})`)
+
+    // Clamp crop area to image boundaries
+    const left = Math.max(0, Math.min(Math.round(cropArea.x), originalWidth - 1))
+    const top = Math.max(0, Math.min(Math.round(cropArea.y), originalHeight - 1))
+    const width = Math.min(Math.round(cropArea.width), originalWidth - left)
+    const height = Math.min(Math.round(cropArea.height), originalHeight - top)
+
+    // Ensure we have valid dimensions
+    if (width > 0 && height > 0) {
+      console.log(`Actual crop: ${width}x${height} at (${left}, ${top})`)
+
+      image = image.extract({
+        left,
+        top,
+        width,
+        height,
+      })
+      hasCrop = true
+    } else {
+      console.warn('Invalid crop area, skipping crop')
+    }
+  }
+
+  // Resize photo to fill the landscape canvas
+  const photoBuffer = await image
+    .resize(LANDSCAPE_WIDTH, LANDSCAPE_HEIGHT, {
+      fit: hasCrop ? 'fill' : 'cover',
+      position: 'centre',
+    })
+    .toBuffer()
+
+  console.log(`Target size: ${LANDSCAPE_WIDTH}x${LANDSCAPE_HEIGHT} (6x4 inch @ 300 DPI)`)
+
+  // Create final image with white background
+  let finalImage = sharp({
+    create: {
+      width: LANDSCAPE_WIDTH,
+      height: LANDSCAPE_HEIGHT,
+      channels: 3,
+      background: { r: 255, g: 255, b: 255 }
+    }
+  })
+
+  finalImage = finalImage.composite([{
+    input: photoBuffer,
+    top: 0,
+    left: 0,
+  }])
+
+  return finalImage.jpeg({
+    quality: 95,
+    chromaSubsampling: '4:4:4' // Best quality
   }).toBuffer()
 }
 

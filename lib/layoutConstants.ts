@@ -8,6 +8,10 @@ export const CANVAS_WIDTH = 1200
 export const CANVAS_HEIGHT = 1800
 export const DEFAULT_PHOTO_RATIO = 85
 
+// Landscape canvas dimensions (6x4 inch @ 300 DPI)
+export const LANDSCAPE_WIDTH = 1800
+export const LANDSCAPE_HEIGHT = 1200
+
 // TwoByTwo, VerticalTwo, HorizontalTwo, OnePlusTwo 레이아웃 설정
 export const LAYOUT_CONFIG = {
   // 좌우 여백 (기본: 40px)

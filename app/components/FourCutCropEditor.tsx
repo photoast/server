@@ -8,6 +8,7 @@ interface CropData {
   crop: Point
   zoom: number
   croppedAreaPixels: Area | null
+  rotation: number // 0, 90, 180, 270
 }
 
 interface FourCutCropEditorProps {
@@ -28,6 +29,7 @@ export default function FourCutCropEditor({ images, onComplete, onCancel, aspect
       crop: { x: 0, y: 0 },
       zoom: 1,
       croppedAreaPixels: null,
+      rotation: 0,
     }))
   )
   const [imageUrls, setImageUrls] = useState<string[]>([])
@@ -72,6 +74,27 @@ export default function FourCutCropEditor({ images, onComplete, onCancel, aspect
     setCropData(newCropData)
   }
 
+  const onRotate = (direction: 'cw' | 'ccw') => {
+    const newCropData = [...cropData]
+    const currentRotation = newCropData[currentIndex].rotation
+    let newRotation: number
+
+    if (direction === 'cw') {
+      newRotation = (currentRotation + 90) % 360
+    } else {
+      newRotation = (currentRotation - 90 + 360) % 360
+    }
+
+    // Reset crop position when rotating
+    newCropData[currentIndex] = {
+      ...newCropData[currentIndex],
+      rotation: newRotation,
+      crop: { x: 0, y: 0 },
+      croppedAreaPixels: null
+    }
+    setCropData(newCropData)
+  }
+
   const onCropComplete = useCallback(
     (_croppedArea: Area, croppedAreaPixels: Area) => {
       setCropData(prevData => {
@@ -95,9 +118,37 @@ export default function FourCutCropEditor({ images, onComplete, onCancel, aspect
     }
   }
 
-  const createCroppedImage = async (imageFile: File, pixelCrop: Area): Promise<string> => {
+  const createCroppedImage = async (imageFile: File, pixelCrop: Area, rotation: number): Promise<string> => {
     // Load image from file
     const imageBitmap = await createImageBitmap(imageFile)
+
+    // First, create a rotated version of the image if needed
+    let sourceImage: ImageBitmap | HTMLCanvasElement = imageBitmap
+
+    if (rotation !== 0) {
+      const rotatedCanvas = document.createElement('canvas')
+      const rotatedCtx = rotatedCanvas.getContext('2d')
+
+      if (!rotatedCtx) {
+        throw new Error('No 2d context for rotation')
+      }
+
+      // For 90 or 270 degree rotation, swap width and height
+      if (rotation === 90 || rotation === 270) {
+        rotatedCanvas.width = imageBitmap.height
+        rotatedCanvas.height = imageBitmap.width
+      } else {
+        rotatedCanvas.width = imageBitmap.width
+        rotatedCanvas.height = imageBitmap.height
+      }
+
+      // Move to center, rotate, then draw
+      rotatedCtx.translate(rotatedCanvas.width / 2, rotatedCanvas.height / 2)
+      rotatedCtx.rotate((rotation * Math.PI) / 180)
+      rotatedCtx.drawImage(imageBitmap, -imageBitmap.width / 2, -imageBitmap.height / 2)
+
+      sourceImage = rotatedCanvas
+    }
 
     const canvas = document.createElement('canvas')
     const ctx = canvas.getContext('2d')
@@ -110,9 +161,9 @@ export default function FourCutCropEditor({ images, onComplete, onCancel, aspect
     canvas.width = pixelCrop.width
     canvas.height = pixelCrop.height
 
-    // Draw the cropped portion
+    // Draw the cropped portion from the (possibly rotated) source
     ctx.drawImage(
-      imageBitmap,
+      sourceImage,
       pixelCrop.x,
       pixelCrop.y,
       pixelCrop.width,
@@ -162,9 +213,9 @@ export default function FourCutCropEditor({ images, onComplete, onCancel, aspect
       const croppedImageUrls = await Promise.all(
         cropData.map(async (data, index) => {
           if (data.croppedAreaPixels && data.croppedAreaPixels.width > 0 && data.croppedAreaPixels.height > 0) {
-            console.log(`Creating cropped image for photo ${index + 1}...`)
+            console.log(`Creating cropped image for photo ${index + 1} with rotation ${data.rotation}...`)
             try {
-              const croppedUrl = await createCroppedImage(images[index], data.croppedAreaPixels)
+              const croppedUrl = await createCroppedImage(images[index], data.croppedAreaPixels, data.rotation)
               console.log(`✓ Photo ${index + 1} cropped successfully:`, croppedUrl)
               return croppedUrl
             } catch (error) {
@@ -236,6 +287,7 @@ export default function FourCutCropEditor({ images, onComplete, onCancel, aspect
               image={imageUrls[currentIndex]}
               crop={currentCrop.crop}
               zoom={currentCrop.zoom}
+              rotation={currentCrop.rotation}
               aspect={aspectRatio}
               onCropChange={onCropChange}
               onZoomChange={onZoomChange}
@@ -250,20 +302,48 @@ export default function FourCutCropEditor({ images, onComplete, onCancel, aspect
           )}
         </div>
 
-        {/* Zoom slider */}
-        <div className="mt-4 px-4">
-          <label className="text-white text-sm mb-2 block font-bold flex items-center gap-2">
-            <span>🔍</span> 확대/축소
-          </label>
-          <input
-            type="range"
-            min={1}
-            max={3}
-            step={0.1}
-            value={currentCrop.zoom}
-            onChange={(e) => onZoomChange(parseFloat(e.target.value))}
-            className="w-full h-3 bg-white/20 rounded-full appearance-none cursor-pointer accent-pink-500"
-          />
+        {/* Rotation and Zoom controls */}
+        <div className="mt-4 px-4 space-y-3">
+          {/* Rotation buttons */}
+          <div className="flex items-center justify-center gap-4">
+            <button
+              onClick={() => onRotate('ccw')}
+              className="flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur-sm text-white rounded-full hover:bg-white/30 transition-all font-bold"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+              </svg>
+              90° 왼쪽
+            </button>
+            <div className="text-white/70 text-sm font-medium">
+              {currentCrop.rotation}°
+            </div>
+            <button
+              onClick={() => onRotate('cw')}
+              className="flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur-sm text-white rounded-full hover:bg-white/30 transition-all font-bold"
+            >
+              90° 오른쪽
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Zoom slider */}
+          <div>
+            <label className="text-white text-sm mb-2 block font-bold flex items-center gap-2">
+              <span>🔍</span> 확대/축소
+            </label>
+            <input
+              type="range"
+              min={1}
+              max={3}
+              step={0.1}
+              value={currentCrop.zoom}
+              onChange={(e) => onZoomChange(parseFloat(e.target.value))}
+              className="w-full h-3 bg-white/20 rounded-full appearance-none cursor-pointer accent-pink-500"
+            />
+          </div>
         </div>
 
         {/* Controls */}
@@ -296,7 +376,7 @@ export default function FourCutCropEditor({ images, onComplete, onCancel, aspect
         <div className="mt-4 text-center text-white/80 text-sm font-medium">
           <p className="flex items-center justify-center gap-2">
             <span>💡</span>
-            드래그로 위치 조정, 슬라이더로 확대/축소
+            드래그로 위치 조정 · 버튼으로 회전 · 슬라이더로 확대/축소
           </p>
         </div>
       </div>

@@ -65,6 +65,7 @@ export async function POST(request: NextRequest) {
     const photoCountMap: Record<FrameType, number> = {
       'single': 1,
       'single-with-logo': 1,
+      'landscape': 1,
       'vertical-two': 2,
       'one-plus-two': 3,
       'four-cut': 4,

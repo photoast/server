@@ -2,7 +2,7 @@
 
 import PhotoSlot from './PhotoSlot'
 import Image from 'next/image'
-import { CANVAS_WIDTH, CANVAS_HEIGHT, DEFAULT_PHOTO_RATIO, LAYOUT_CONFIG, FOUR_CUT_CONFIG } from '@/lib/layoutConstants'
+import { CANVAS_WIDTH, CANVAS_HEIGHT, LANDSCAPE_WIDTH, LANDSCAPE_HEIGHT, DEFAULT_PHOTO_RATIO, LAYOUT_CONFIG, FOUR_CUT_CONFIG } from '@/lib/layoutConstants'
 
 interface PhotoSlotData {
   index: number
@@ -338,6 +338,24 @@ export function VerticalTwoPreview({ photoSlots, onSlotClick, backgroundColor = 
           ))}
         </div>
 
+      </div>
+    </div>
+  )
+}
+
+export function LandscapePreview({ photoSlots, onSlotClick, backgroundColor = '#FFFFFF' }: LayoutPreviewProps) {
+  // Landscape mode: 6x4 inch (1800x1200) - horizontal orientation
+  return (
+    <div className="relative w-full max-w-md mx-auto" style={{ aspectRatio: '3/2' }}>
+      <div className="absolute inset-0 bg-white overflow-hidden shadow-2xl">
+        <PhotoSlot
+          file={photoSlots[0]?.file}
+          croppedImageUrl={photoSlots[0]?.croppedImageUrl}
+          slotNumber={1}
+          onClick={() => onSlotClick(0)}
+          className="w-full h-full"
+          size="large"
+        />
       </div>
     </div>
   )

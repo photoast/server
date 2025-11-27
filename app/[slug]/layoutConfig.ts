@@ -1,5 +1,5 @@
 import { FrameType } from '@/lib/types'
-import { CANVAS_WIDTH, CANVAS_HEIGHT, LAYOUT_CONFIG, FOUR_CUT_CONFIG } from '@/lib/layoutConstants'
+import { CANVAS_WIDTH, CANVAS_HEIGHT, LANDSCAPE_WIDTH, LANDSCAPE_HEIGHT, LAYOUT_CONFIG, FOUR_CUT_CONFIG } from '@/lib/layoutConstants'
 
 export interface LayoutOption {
   type: FrameType
@@ -30,6 +30,13 @@ export const LAYOUT_OPTIONS: LayoutOption[] = [
     nameEn: 'Vertical 2',
     description: '세로로 2장',
     photoCount: 2
+  },
+  {
+    type: 'landscape',
+    name: '가로모드',
+    nameEn: 'Landscape',
+    description: '6×4 가로 출력',
+    photoCount: 1
   },
   {
     type: 'one-plus-two',
@@ -99,6 +106,9 @@ export function getCropAspectRatio(type: FrameType, hasLogo: boolean = false, ph
     const photoWidth = availableWidth
     const photoHeight = Math.round((availableHeight - GAP) / 2)
     baseRatio = photoWidth / photoHeight
+  } else if (type === 'landscape') {
+    // Landscape mode: 6x4 inch (1800x1200)
+    baseRatio = LANDSCAPE_WIDTH / LANDSCAPE_HEIGHT
   } else if (type === 'one-plus-two') {
     // Match lib/image.ts processOnePlusTwoImage - top photo
     const { MARGIN_HORIZONTAL, MARGIN_VERTICAL, GAP } = LAYOUT_CONFIG
