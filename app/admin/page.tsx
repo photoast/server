@@ -1019,12 +1019,14 @@ export default function AdminPage() {
                         <div className="grid grid-cols-2 gap-2">
                           {(() => {
                             const allLayoutTypes = [
-                              { type: 'single', name: '일반 1장' },
-                              { type: 'single-with-logo', name: '로고 포함 1장' },
-                              { type: 'vertical-two', name: '세로 2장' },
-                              { type: 'one-plus-two', name: '1+2 레이아웃' },
-                              { type: 'four-cut', name: '1*4 네컷' },
-                              { type: 'two-by-two', name: '2×2 그리드' },
+                              { type: 'single', name: '일반 1장 (4×6)' },
+                              { type: 'single-with-logo', name: '로고 포함 1장 (4×6)' },
+                              { type: 'landscape-single', name: '가로 1장 (6×4)' },
+                              { type: 'landscape-two', name: '가로 2장 (6×4)' },
+                              { type: 'vertical-two', name: '세로 2장 (4×6)' },
+                              { type: 'one-plus-two', name: '1+2 레이아웃 (4×6)' },
+                              { type: 'four-cut', name: '1*4 네컷 (4×6)' },
+                              { type: 'two-by-two', name: '2×2 그리드 (4×6)' },
                             ]
 
                             return allLayoutTypes.map((layout) => {
