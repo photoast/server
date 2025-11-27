@@ -11,25 +11,33 @@ interface CropData {
   rotation: number // 0, 90, 180, 270
 }
 
+interface InitialCropSettings {
+  cropPosition: { x: number; y: number }
+  zoom: number
+  rotation: number
+}
+
 interface FourCutCropEditorProps {
   images: File[]
   onComplete: (result: {
     cropAreas: Array<{ x: number; y: number; width: number; height: number } | null>,
-    croppedImageUrls: string[]
+    croppedImageUrls: string[],
+    cropSettings: Array<{ cropPosition: { x: number; y: number }; zoom: number; rotation: number }>
   }) => void
   onCancel: () => void
   aspectRatio?: number // Optional aspect ratio, defaults to life-four-cut ratio
+  initialSettings?: InitialCropSettings[] // 기존 편집 상태 복원용
 }
 
-export default function FourCutCropEditor({ images, onComplete, onCancel, aspectRatio: propAspectRatio }: FourCutCropEditorProps) {
+export default function FourCutCropEditor({ images, onComplete, onCancel, aspectRatio: propAspectRatio, initialSettings }: FourCutCropEditorProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isProcessing, setIsProcessing] = useState(false)
   const [cropData, setCropData] = useState<CropData[]>(
-    images.map(() => ({
-      crop: { x: 0, y: 0 },
-      zoom: 1,
+    images.map((_, index) => ({
+      crop: initialSettings?.[index]?.cropPosition || { x: 0, y: 0 },
+      zoom: initialSettings?.[index]?.zoom || 1,
       croppedAreaPixels: null,
-      rotation: 0,
+      rotation: initialSettings?.[index]?.rotation || 0,
     }))
   )
   const [imageUrls, setImageUrls] = useState<string[]>([])
@@ -229,10 +237,18 @@ export default function FourCutCropEditor({ images, onComplete, onCancel, aspect
         })
       )
 
+      // 편집 상태 저장용 settings
+      const cropSettings = cropData.map(data => ({
+        cropPosition: data.crop,
+        zoom: data.zoom,
+        rotation: data.rotation
+      }))
+
       console.log('✅ Crop completion successful!')
       console.log('Crop areas:', cropAreas)
       console.log('Cropped image URLs:', croppedImageUrls)
-      onComplete({ cropAreas, croppedImageUrls })
+      console.log('Crop settings:', cropSettings)
+      onComplete({ cropAreas, croppedImageUrls, cropSettings })
     } catch (error) {
       console.error('❌ Error during crop completion:', error)
     } finally {

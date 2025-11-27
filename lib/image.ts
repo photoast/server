@@ -2,7 +2,7 @@ import sharp from 'sharp'
 import path from 'path'
 import fs from 'fs/promises'
 import { LogoSettings, FrameType } from './types'
-import { CANVAS_WIDTH, CANVAS_HEIGHT, LANDSCAPE_WIDTH, LANDSCAPE_HEIGHT, DEFAULT_PHOTO_RATIO, LAYOUT_CONFIG, FOUR_CUT_CONFIG } from './layoutConstants'
+import { CANVAS_WIDTH, CANVAS_HEIGHT, DEFAULT_PHOTO_RATIO, LAYOUT_CONFIG, FOUR_CUT_CONFIG } from './layoutConstants'
 
 // Standard print sizes at 300 DPI (4x6 inch)
 const TARGET_WIDTH = CANVAS_WIDTH    // 4 inch * 300 DPI
@@ -18,6 +18,11 @@ export interface CropArea {
   height: number // pixels
 }
 
+// Check if frame type is landscape (6x4 instead of 4x6)
+function isLandscapeLayout(frameType: FrameType): boolean {
+  return frameType === 'landscape-single' || frameType === 'landscape-two'
+}
+
 export async function processImage(
   inputBuffer: Buffer | Buffer[],
   logoPath?: string,
@@ -25,8 +30,16 @@ export async function processImage(
   photoAreaRatio: number = DEFAULT_PHOTO_RATIO,
   logoSettings?: LogoSettings,
   frameType: FrameType = 'single',
-  backgroundColor?: string
+  backgroundColor?: string,
+  rotation?: number | number[]
 ): Promise<Buffer> {
+  // Determine canvas dimensions based on frame type
+  const isLandscape = isLandscapeLayout(frameType)
+  const canvasWidth = isLandscape ? CANVAS_HEIGHT : CANVAS_WIDTH   // landscape: 1800, portrait: 1200
+  const canvasHeight = isLandscape ? CANVAS_WIDTH : CANVAS_HEIGHT  // landscape: 1200, portrait: 1800
+
+  console.log(`Frame type: ${frameType}, isLandscape: ${isLandscape}, dimensions: ${canvasWidth}x${canvasHeight}`)
+
   // Handle multi-photo layouts
   if (frameType === 'four-cut') {
     return processFourCutImage(
@@ -35,7 +48,8 @@ export async function processImage(
       photoAreaRatio,
       logoSettings,
       cropArea as CropArea[],
-      backgroundColor
+      backgroundColor,
+      rotation as number[]
     )
   }
 
@@ -43,7 +57,8 @@ export async function processImage(
     return processTwoByTwoImage(
       inputBuffer as Buffer[],
       cropArea as CropArea[],
-      backgroundColor
+      backgroundColor,
+      rotation as number[]
     )
   }
 
@@ -51,21 +66,27 @@ export async function processImage(
     return processVerticalTwoImage(
       inputBuffer as Buffer[],
       cropArea as CropArea[],
-      backgroundColor
+      backgroundColor,
+      rotation as number[]
     )
-  }
-
-  if (frameType === 'landscape') {
-    const singleBuffer = Array.isArray(inputBuffer) ? inputBuffer[0] : inputBuffer
-    const singleCropArea = Array.isArray(cropArea) ? cropArea[0] : cropArea
-    return processLandscapeImage(singleBuffer, singleCropArea)
   }
 
   if (frameType === 'one-plus-two') {
     return processOnePlusTwoImage(
       inputBuffer as Buffer[],
       cropArea as CropArea[],
-      backgroundColor
+      backgroundColor,
+      rotation as number[]
+    )
+  }
+
+  // Handle landscape-two (6x4 with 2 photos side by side)
+  if (frameType === 'landscape-two') {
+    return processLandscapeTwoImage(
+      inputBuffer as Buffer[],
+      cropArea as CropArea[],
+      backgroundColor,
+      rotation as number[]
     )
   }
 
@@ -73,13 +94,23 @@ export async function processImage(
   if (frameType === 'single-with-logo') {
     const singleBuffer = Array.isArray(inputBuffer) ? inputBuffer[0] : inputBuffer
     const singleCropArea = Array.isArray(cropArea) ? cropArea[0] : cropArea
-    return processSingleImage(singleBuffer, singleCropArea, logoPath, logoSettings, photoAreaRatio)
+    const singleRotation = Array.isArray(rotation) ? rotation[0] : (rotation || 0)
+    return processSingleImage(singleBuffer, singleCropArea, logoPath, logoSettings, photoAreaRatio, singleRotation, false)
   }
 
-  // Handle single frame (no logo)
+  // Handle landscape-single (6x4 single photo)
+  if (frameType === 'landscape-single') {
+    const singleBuffer = Array.isArray(inputBuffer) ? inputBuffer[0] : inputBuffer
+    const singleCropArea = Array.isArray(cropArea) ? cropArea[0] : cropArea
+    const singleRotation = Array.isArray(rotation) ? rotation[0] : (rotation || 0)
+    return processSingleImage(singleBuffer, singleCropArea, undefined, undefined, 100, singleRotation, true)
+  }
+
+  // Handle single frame (no logo, 4x6 portrait)
   const singleBuffer = Array.isArray(inputBuffer) ? inputBuffer[0] : inputBuffer
   const singleCropArea = Array.isArray(cropArea) ? cropArea[0] : cropArea
-  return processSingleImage(singleBuffer, singleCropArea, undefined, undefined, 100)
+  const singleRotation = Array.isArray(rotation) ? rotation[0] : (rotation || 0)
+  return processSingleImage(singleBuffer, singleCropArea, undefined, undefined, 100, singleRotation, false)
 }
 
 async function processSingleImage(
@@ -87,24 +118,46 @@ async function processSingleImage(
   cropArea?: CropArea,
   logoPath?: string,
   logoSettings?: LogoSettings,
-  photoAreaRatio: number = DEFAULT_PHOTO_RATIO
+  photoAreaRatio: number = DEFAULT_PHOTO_RATIO,
+  rotation: number = 0,
+  isLandscape: boolean = false
 ): Promise<Buffer> {
+  // Determine canvas dimensions based on layout type
+  const outputWidth = isLandscape ? CANVAS_HEIGHT : CANVAS_WIDTH   // landscape: 1800, portrait: 1200
+  const outputHeight = isLandscape ? CANVAS_WIDTH : CANVAS_HEIGHT  // landscape: 1200, portrait: 1800
+
   // Calculate photo and logo area
   const ratio = logoPath ? photoAreaRatio : 100 // Use provided ratio if logo exists, 100% otherwise
-  const photoHeight = Math.round(TARGET_HEIGHT * (ratio / 100))
-  const logoHeight = TARGET_HEIGHT - photoHeight
+  const photoHeight = Math.round(outputHeight * (ratio / 100))
+  const logoHeight = outputHeight - photoHeight
 
-  console.log(`Single image layout: Photo area ${ratio}% (${photoHeight}px), Logo area ${100-ratio}% (${logoHeight}px)`)
+  console.log(`Single image layout: ${isLandscape ? 'landscape' : 'portrait'} mode, canvas ${outputWidth}x${outputHeight}, Photo area ${ratio}% (${photoHeight}px), Logo area ${100-ratio}% (${logoHeight}px), Rotation: ${rotation}°`)
 
-  let image = sharp(inputBuffer)
-    .rotate() // Auto-rotate based on EXIF orientation
+  // Get original image metadata BEFORE any rotation
+  const originalMetadata = await sharp(inputBuffer).metadata()
+  console.log(`Original image (raw): ${originalMetadata.width}x${originalMetadata.height}, EXIF orientation: ${originalMetadata.orientation}`)
 
-  // Get original image metadata
+  // Step 1: Apply EXIF auto-rotation only first
+  const exifRotatedBuffer = await sharp(inputBuffer).rotate().toBuffer()
+  const afterExifMetadata = await sharp(exifRotatedBuffer).metadata()
+  console.log(`After EXIF auto-rotation: ${afterExifMetadata.width}x${afterExifMetadata.height}`)
+
+  // Step 2: Apply user rotation if provided (90, 180, 270)
+  let rotatedBuffer = exifRotatedBuffer
+  if (rotation !== 0) {
+    console.log(`Applying user rotation: ${rotation}°`)
+    rotatedBuffer = await sharp(exifRotatedBuffer).rotate(rotation).toBuffer()
+  }
+
+  // Now create a new sharp instance from the rotated buffer
+  let image = sharp(rotatedBuffer)
+
+  // Get dimensions of the rotated image
   const metadata = await image.metadata()
-  const originalWidth = metadata.width || 0
-  const originalHeight = metadata.height || 0
+  let originalWidth = metadata.width || 0
+  let originalHeight = metadata.height || 0
 
-  console.log(`Original image: ${originalWidth}x${originalHeight}`)
+  console.log(`Image after user rotation: ${originalWidth}x${originalHeight}`)
 
   // Apply crop if provided
   let hasCrop = false
@@ -137,19 +190,19 @@ async function processSingleImage(
   // If crop was applied, the aspect ratio should match, so use 'fill'
   // If no crop, use 'cover' to maintain aspect ratio and fill the space
   const photoBuffer = await image
-    .resize(TARGET_WIDTH, photoHeight, {
+    .resize(outputWidth, photoHeight, {
       fit: hasCrop ? 'fill' : 'cover',
       position: 'centre',
     })
     .toBuffer()
 
-  console.log(`Target size: ${TARGET_WIDTH}x${TARGET_HEIGHT} (4x6 inch @ 300 DPI)`)
+  console.log(`Target size: ${outputWidth}x${outputHeight} (${isLandscape ? '6x4' : '4x6'} inch @ 300 DPI)`)
 
   // Create a blank canvas for the final image with white background
   let finalImage = sharp({
     create: {
-      width: TARGET_WIDTH,
-      height: TARGET_HEIGHT,
+      width: outputWidth,
+      height: outputHeight,
       channels: 3,
       background: { r: 255, g: 255, b: 255 }
     }
@@ -211,10 +264,10 @@ async function processSingleImage(
 
         // IMPORTANT: Logo size is percentage of LOGO AREA width, NOT total image width
         // This matches the preview component behavior
-        // Logo area width = full width, so we use TARGET_WIDTH
+        // Logo area width = full width, so we use outputWidth
         // But we need to account for padding (8px on each side in preview = 16px total)
         const PREVIEW_PADDING = 8 * 2 // p-2 in Tailwind = 8px, both sides = 16px
-        const logoAreaWidth = TARGET_WIDTH - PREVIEW_PADDING
+        const logoAreaWidth = outputWidth - PREVIEW_PADDING
         const requestedLogoWidth = Math.round(logoAreaWidth * (sizePercent / 100))
 
         // Resize logo based on width - no height limit, allow it to extend into photo area
@@ -236,7 +289,7 @@ async function processSingleImage(
         if (position === 'custom' && logoSettings?.x !== undefined && logoSettings?.y !== undefined) {
           // Use custom position (percentage of logo area)
           // Position is center-based, so we need to offset by half the logo size
-          const centerX = Math.round((logoSettings.x / 100) * TARGET_WIDTH)
+          const centerX = Math.round((logoSettings.x / 100) * outputWidth)
           const centerY = photoHeight + Math.round((logoSettings.y / 100) * logoHeight)
 
           left = centerX - Math.round(logoWidth / 2)
@@ -252,9 +305,9 @@ async function processSingleImage(
           if (horizontal === 'left') {
             left = PADDING // Left padding
           } else if (horizontal === 'center') {
-            left = Math.round((TARGET_WIDTH - logoWidth) / 2)
+            left = Math.round((outputWidth - logoWidth) / 2)
           } else if (horizontal === 'right') {
-            left = TARGET_WIDTH - logoWidth - PADDING // Right padding
+            left = outputWidth - logoWidth - PADDING // Right padding
           }
 
           // Calculate vertical position within logo area
@@ -263,15 +316,15 @@ async function processSingleImage(
           } else if (vertical === 'center') {
             top = photoHeight + Math.round((logoHeight - actualLogoHeight) / 2)
           } else if (vertical === 'bottom') {
-            top = TARGET_HEIGHT - actualLogoHeight - PADDING // Bottom with padding
+            top = outputHeight - actualLogoHeight - PADDING // Bottom with padding
           }
         }
 
         // Clamp position to keep logo within canvas bounds
         // Allow logo to extend into photo area (top can be < photoHeight)
         // Photo layer will be composited on top, so photo area takes priority
-        left = Math.max(-logoWidth, Math.min(left, TARGET_WIDTH))
-        top = Math.max(0, Math.min(top, TARGET_HEIGHT))
+        left = Math.max(-logoWidth, Math.min(left, outputWidth))
+        top = Math.max(0, Math.min(top, outputHeight))
 
         composites.push({
           input: resizedLogoBuffer,
@@ -310,7 +363,8 @@ async function processFourCutImage(
   photoAreaRatio: number = DEFAULT_PHOTO_RATIO,
   logoSettings?: LogoSettings | undefined,
   cropAreas?: CropArea[],
-  backgroundColor?: string
+  backgroundColor?: string,
+  rotations?: number[]
 ): Promise<Buffer> {
   // Ensure we have exactly 4 images
   if (!Array.isArray(inputBuffers) || inputBuffers.length !== 4) {
@@ -341,18 +395,31 @@ async function processFourCutImage(
   console.log(`Strip size: ${stripWidth}x${stripHeight}px, Photo size: ${photoWidth}x${photoHeight}px`)
   console.log(`Canvas: ${TARGET_WIDTH}x${TARGET_HEIGHT}px (4x6 inch)`)
   console.log(`Background color: ${backgroundColor || 'black'}`)
+  console.log(`Rotations: ${rotations || 'none'}`)
 
   // Process each of the 4 photos
   const photoBuffers: Buffer[] = []
   for (let i = 0; i < 4; i++) {
-    let image = sharp(inputBuffers[i]).rotate() // Auto-rotate based on EXIF
+    // Apply EXIF auto-rotation and user rotation first, then commit to buffer
+    const rotation = rotations?.[i] || 0
+    let tempImage = sharp(inputBuffers[i]).rotate() // Auto-rotate based on EXIF
+
+    if (rotation !== 0) {
+      console.log(`Photo ${i + 1} applying rotation: ${rotation}°`)
+      tempImage = tempImage.rotate(rotation)
+    }
+
+    // Commit rotations to buffer
+    const rotatedBuffer = await tempImage.toBuffer()
+    let image = sharp(rotatedBuffer)
+
+    // Get metadata after rotation
+    const metadata = await image.metadata()
+    let originalWidth = metadata.width || 0
+    let originalHeight = metadata.height || 0
 
     // Apply crop if provided
     if (cropAreas && cropAreas[i] && cropAreas[i].width > 0 && cropAreas[i].height > 0) {
-      const metadata = await image.metadata()
-      const originalWidth = metadata.width || 0
-      const originalHeight = metadata.height || 0
-
       console.log(`Photo ${i + 1} original: ${originalWidth}x${originalHeight}`)
       console.log(`Photo ${i + 1} crop requested: ${cropAreas[i].width}x${cropAreas[i].height} at (${cropAreas[i].x}, ${cropAreas[i].y})`)
 
@@ -556,7 +623,8 @@ function calculateLogoPosition(
 async function processTwoByTwoImage(
   inputBuffers: Buffer[],
   cropAreas?: CropArea[],
-  backgroundColor?: string
+  backgroundColor?: string,
+  rotations?: number[]
 ): Promise<Buffer> {
   // Ensure we have exactly 4 images
   if (!Array.isArray(inputBuffers) || inputBuffers.length !== 4) {
@@ -577,6 +645,7 @@ async function processTwoByTwoImage(
   const photoAreaHeight = TARGET_HEIGHT
 
   console.log(`Two-by-Two layout: Photo area 100% (${photoAreaHeight}px)`)
+  console.log(`Rotations: ${rotations || 'none'}`)
 
   // Calculate available space within photo area
   const availableWidth = TARGET_WIDTH - (MARGIN_HORIZONTAL * 2)
@@ -593,14 +662,26 @@ async function processTwoByTwoImage(
   // Process each of the 4 photos
   const photoBuffers: Buffer[] = []
   for (let i = 0; i < 4; i++) {
-    let image = sharp(inputBuffers[i]).rotate() // Auto-rotate based on EXIF
+    // Apply EXIF auto-rotation and user rotation first, then commit to buffer
+    const rotation = rotations?.[i] || 0
+    let tempImage = sharp(inputBuffers[i]).rotate() // Auto-rotate based on EXIF
+
+    if (rotation !== 0) {
+      console.log(`Photo ${i + 1} applying rotation: ${rotation}°`)
+      tempImage = tempImage.rotate(rotation)
+    }
+
+    // Commit rotations to buffer
+    const rotatedBuffer = await tempImage.toBuffer()
+    let image = sharp(rotatedBuffer)
+
+    // Get metadata after rotation
+    const metadata = await image.metadata()
+    let originalWidth = metadata.width || 0
+    let originalHeight = metadata.height || 0
 
     // Apply crop if provided
     if (cropAreas && cropAreas[i] && cropAreas[i].width > 0 && cropAreas[i].height > 0) {
-      const metadata = await image.metadata()
-      const originalWidth = metadata.width || 0
-      const originalHeight = metadata.height || 0
-
       console.log(`Photo ${i + 1} original: ${originalWidth}x${originalHeight}`)
       console.log(`Photo ${i + 1} crop requested: ${cropAreas[i].width}x${cropAreas[i].height} at (${cropAreas[i].x}, ${cropAreas[i].y})`)
 
@@ -677,7 +758,8 @@ async function processTwoByTwoImage(
 async function processVerticalTwoImage(
   inputBuffers: Buffer[],
   cropAreas?: CropArea[],
-  backgroundColor?: string
+  backgroundColor?: string,
+  rotations?: number[]
 ): Promise<Buffer> {
   // Ensure we have exactly 2 images
   if (!Array.isArray(inputBuffers) || inputBuffers.length !== 2) {
@@ -698,6 +780,7 @@ async function processVerticalTwoImage(
   const photoAreaHeight = TARGET_HEIGHT
 
   console.log(`Vertical-Two layout: Photo area 100% (${photoAreaHeight}px)`)
+  console.log(`Rotations: ${rotations || 'none'}`)
 
   // Calculate available space within photo area
   const availableWidth = TARGET_WIDTH - (MARGIN_HORIZONTAL * 2)   // 920px
@@ -714,14 +797,26 @@ async function processVerticalTwoImage(
   // Process each of the 2 photos
   const photoBuffers: Buffer[] = []
   for (let i = 0; i < 2; i++) {
-    let image = sharp(inputBuffers[i]).rotate() // Auto-rotate based on EXIF
+    // Apply EXIF auto-rotation and user rotation first, then commit to buffer
+    const rotation = rotations?.[i] || 0
+    let tempImage = sharp(inputBuffers[i]).rotate() // Auto-rotate based on EXIF
+
+    if (rotation !== 0) {
+      console.log(`Photo ${i + 1} applying rotation: ${rotation}°`)
+      tempImage = tempImage.rotate(rotation)
+    }
+
+    // Commit rotations to buffer
+    const rotatedBuffer = await tempImage.toBuffer()
+    let image = sharp(rotatedBuffer)
+
+    // Get metadata after rotation
+    const metadata = await image.metadata()
+    let originalWidth = metadata.width || 0
+    let originalHeight = metadata.height || 0
 
     // Apply crop if provided
     if (cropAreas && cropAreas[i] && cropAreas[i].width > 0 && cropAreas[i].height > 0) {
-      const metadata = await image.metadata()
-      const originalWidth = metadata.width || 0
-      const originalHeight = metadata.height || 0
-
       console.log(`Photo ${i + 1} original: ${originalWidth}x${originalHeight}`)
       console.log(`Photo ${i + 1} crop requested: ${cropAreas[i].width}x${cropAreas[i].height} at (${cropAreas[i].x}, ${cropAreas[i].y})`)
 
@@ -792,88 +887,11 @@ async function processVerticalTwoImage(
   }).toBuffer()
 }
 
-async function processLandscapeImage(
-  inputBuffer: Buffer,
-  cropArea?: CropArea
-): Promise<Buffer> {
-  // Landscape layout: 6x4 inch (1800x1200) - horizontal orientation
-  // Single photo filling the entire canvas
-
-  console.log(`Landscape layout: ${LANDSCAPE_WIDTH}x${LANDSCAPE_HEIGHT}px (6x4 inch)`)
-
-  let image = sharp(inputBuffer)
-    .rotate() // Auto-rotate based on EXIF orientation
-
-  // Get original image metadata
-  const metadata = await image.metadata()
-  const originalWidth = metadata.width || 0
-  const originalHeight = metadata.height || 0
-
-  console.log(`Original image: ${originalWidth}x${originalHeight}`)
-
-  // Apply crop if provided
-  let hasCrop = false
-  if (cropArea && cropArea.width > 0 && cropArea.height > 0) {
-    console.log(`Requested crop: ${cropArea.width}x${cropArea.height} at (${cropArea.x}, ${cropArea.y})`)
-
-    // Clamp crop area to image boundaries
-    const left = Math.max(0, Math.min(Math.round(cropArea.x), originalWidth - 1))
-    const top = Math.max(0, Math.min(Math.round(cropArea.y), originalHeight - 1))
-    const width = Math.min(Math.round(cropArea.width), originalWidth - left)
-    const height = Math.min(Math.round(cropArea.height), originalHeight - top)
-
-    // Ensure we have valid dimensions
-    if (width > 0 && height > 0) {
-      console.log(`Actual crop: ${width}x${height} at (${left}, ${top})`)
-
-      image = image.extract({
-        left,
-        top,
-        width,
-        height,
-      })
-      hasCrop = true
-    } else {
-      console.warn('Invalid crop area, skipping crop')
-    }
-  }
-
-  // Resize photo to fill the landscape canvas
-  const photoBuffer = await image
-    .resize(LANDSCAPE_WIDTH, LANDSCAPE_HEIGHT, {
-      fit: hasCrop ? 'fill' : 'cover',
-      position: 'centre',
-    })
-    .toBuffer()
-
-  console.log(`Target size: ${LANDSCAPE_WIDTH}x${LANDSCAPE_HEIGHT} (6x4 inch @ 300 DPI)`)
-
-  // Create final image with white background
-  let finalImage = sharp({
-    create: {
-      width: LANDSCAPE_WIDTH,
-      height: LANDSCAPE_HEIGHT,
-      channels: 3,
-      background: { r: 255, g: 255, b: 255 }
-    }
-  })
-
-  finalImage = finalImage.composite([{
-    input: photoBuffer,
-    top: 0,
-    left: 0,
-  }])
-
-  return finalImage.jpeg({
-    quality: 95,
-    chromaSubsampling: '4:4:4' // Best quality
-  }).toBuffer()
-}
-
 async function processOnePlusTwoImage(
   inputBuffers: Buffer[],
   cropAreas?: CropArea[],
-  backgroundColor?: string
+  backgroundColor?: string,
+  rotations?: number[]
 ): Promise<Buffer> {
   // Ensure we have exactly 3 images
   if (!Array.isArray(inputBuffers) || inputBuffers.length !== 3) {
@@ -894,6 +912,7 @@ async function processOnePlusTwoImage(
   const photoAreaHeight = TARGET_HEIGHT
 
   console.log(`One-Plus-Two layout: Photo area 100% (${photoAreaHeight}px)`)
+  console.log(`Rotations: ${rotations || 'none'}`)
 
   // Calculate available space within photo area
   const availableWidth = TARGET_WIDTH - (MARGIN_HORIZONTAL * 2)   // 920px
@@ -917,13 +936,24 @@ async function processOnePlusTwoImage(
 
   // Process top photo (index 0)
   {
-    let image = sharp(inputBuffers[0]).rotate() // Auto-rotate based on EXIF
+    // Apply EXIF auto-rotation and user rotation first, then commit to buffer
+    const rotation0 = rotations?.[0] || 0
+    let tempImage = sharp(inputBuffers[0]).rotate() // Auto-rotate based on EXIF
+
+    if (rotation0 !== 0) {
+      console.log(`Top photo applying rotation: ${rotation0}°`)
+      tempImage = tempImage.rotate(rotation0)
+    }
+
+    // Commit rotations to buffer
+    const rotatedBuffer = await tempImage.toBuffer()
+    let image = sharp(rotatedBuffer)
 
     // Apply crop if provided
     if (cropAreas && cropAreas[0] && cropAreas[0].width > 0 && cropAreas[0].height > 0) {
       const metadata = await image.metadata()
-      const originalWidth = metadata.width || 0
-      const originalHeight = metadata.height || 0
+      let originalWidth = metadata.width || 0
+      let originalHeight = metadata.height || 0
 
       console.log(`Top photo original: ${originalWidth}x${originalHeight}`)
       console.log(`Top photo crop requested: ${cropAreas[0].width}x${cropAreas[0].height} at (${cropAreas[0].x}, ${cropAreas[0].y})`)
@@ -956,13 +986,24 @@ async function processOnePlusTwoImage(
 
   // Process bottom 2 photos (index 1, 2)
   for (let i = 1; i < 3; i++) {
-    let image = sharp(inputBuffers[i]).rotate() // Auto-rotate based on EXIF
+    // Apply EXIF auto-rotation and user rotation first, then commit to buffer
+    const rotation = rotations?.[i] || 0
+    let tempImage = sharp(inputBuffers[i]).rotate() // Auto-rotate based on EXIF
+
+    if (rotation !== 0) {
+      console.log(`Bottom photo ${i} applying rotation: ${rotation}°`)
+      tempImage = tempImage.rotate(rotation)
+    }
+
+    // Commit rotations to buffer
+    const rotatedBuffer = await tempImage.toBuffer()
+    let image = sharp(rotatedBuffer)
 
     // Apply crop if provided
     if (cropAreas && cropAreas[i] && cropAreas[i].width > 0 && cropAreas[i].height > 0) {
       const metadata = await image.metadata()
-      const originalWidth = metadata.width || 0
-      const originalHeight = metadata.height || 0
+      let originalWidth = metadata.width || 0
+      let originalHeight = metadata.height || 0
 
       console.log(`Bottom photo ${i} original: ${originalWidth}x${originalHeight}`)
       console.log(`Bottom photo ${i} crop requested: ${cropAreas[i].width}x${cropAreas[i].height} at (${cropAreas[i].x}, ${cropAreas[i].y})`)
@@ -1033,6 +1074,113 @@ async function processOnePlusTwoImage(
     })
 
     console.log(`Bottom photo ${i} positioned at (${left}, ${top})`)
+  }
+
+  finalImage = finalImage.composite(composites)
+
+  return finalImage.jpeg({
+    quality: 95,
+    chromaSubsampling: '4:4:4'
+  }).toBuffer()
+}
+
+// Process 6x4 landscape with 2 photos side by side (2x1 grid)
+async function processLandscapeTwoImage(
+  inputBuffers: Buffer[],
+  cropAreas?: CropArea[],
+  backgroundColor?: string,
+  rotations?: number[]
+): Promise<Buffer> {
+  // 6x4 landscape canvas dimensions (swapped from 4x6)
+  const LANDSCAPE_WIDTH = CANVAS_HEIGHT  // 1800
+  const LANDSCAPE_HEIGHT = CANVAS_WIDTH  // 1200
+
+  const { MARGIN_HORIZONTAL, MARGIN_VERTICAL, GAP } = LAYOUT_CONFIG
+
+  // Available space for photos
+  const availableWidth = LANDSCAPE_WIDTH - (MARGIN_HORIZONTAL * 2)
+  const availableHeight = LANDSCAPE_HEIGHT - (MARGIN_VERTICAL * 2)
+
+  // 2 photos side by side with gap
+  const photoWidth = Math.round((availableWidth - GAP) / 2)
+  const photoHeight = availableHeight
+
+  console.log(`Landscape Two layout: canvas ${LANDSCAPE_WIDTH}x${LANDSCAPE_HEIGHT}, photo ${photoWidth}x${photoHeight}`)
+
+  // Create canvas with background color
+  const bgColor = backgroundColor || '#000000'
+  let finalImage = sharp({
+    create: {
+      width: LANDSCAPE_WIDTH,
+      height: LANDSCAPE_HEIGHT,
+      channels: 3,
+      background: bgColor
+    }
+  })
+
+  // Process each photo
+  const photoBuffers: Buffer[] = []
+  for (let i = 0; i < 2; i++) {
+    // Apply EXIF auto-rotation and user rotation first, then commit to buffer
+    const rotation = rotations?.[i] || 0
+    let tempImage = sharp(inputBuffers[i]).rotate() // Auto-rotate based on EXIF
+
+    if (rotation !== 0) {
+      console.log(`Landscape two photo ${i} applying rotation: ${rotation}°`)
+      tempImage = tempImage.rotate(rotation)
+    }
+
+    // Commit rotations to buffer
+    const rotatedBuffer = await tempImage.toBuffer()
+    let image = sharp(rotatedBuffer)
+
+    // Apply crop if provided
+    if (cropAreas && cropAreas[i] && cropAreas[i].width > 0 && cropAreas[i].height > 0) {
+      const metadata = await image.metadata()
+      let originalWidth = metadata.width || 0
+      let originalHeight = metadata.height || 0
+
+      console.log(`Landscape two photo ${i} original: ${originalWidth}x${originalHeight}`)
+      console.log(`Landscape two photo ${i} crop requested: ${cropAreas[i].width}x${cropAreas[i].height} at (${cropAreas[i].x}, ${cropAreas[i].y})`)
+
+      // Clamp crop area to image boundaries
+      const left = Math.max(0, Math.min(Math.round(cropAreas[i].x), originalWidth - 1))
+      const top = Math.max(0, Math.min(Math.round(cropAreas[i].y), originalHeight - 1))
+      const width = Math.min(Math.round(cropAreas[i].width), originalWidth - left)
+      const height = Math.min(Math.round(cropAreas[i].height), originalHeight - top)
+
+      if (width > 0 && height > 0) {
+        console.log(`Landscape two photo ${i} crop applied: ${width}x${height} at (${left}, ${top})`)
+        image = image.extract({ left, top, width, height })
+      }
+    }
+
+    // Resize to target dimensions
+    const hasCrop = cropAreas && cropAreas[i] && cropAreas[i].width > 0 && cropAreas[i].height > 0
+    const processedPhoto = await image
+      .resize(photoWidth, photoHeight, {
+        fit: hasCrop ? 'fill' : 'cover',
+        position: 'centre',
+      })
+      .toBuffer()
+
+    photoBuffers.push(processedPhoto)
+  }
+
+  // Composite photos onto canvas
+  const composites: any[] = []
+
+  for (let i = 0; i < 2; i++) {
+    const left = MARGIN_HORIZONTAL + (i * (photoWidth + GAP))
+    const top = MARGIN_VERTICAL
+
+    composites.push({
+      input: photoBuffers[i],
+      top,
+      left,
+    })
+
+    console.log(`Landscape two photo ${i} positioned at (${left}, ${top})`)
   }
 
   finalImage = finalImage.composite(composites)

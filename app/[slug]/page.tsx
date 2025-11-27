@@ -9,13 +9,13 @@ import {
   FourCutPreview,
   TwoByTwoPreview,
   VerticalTwoPreview,
-  LandscapePreview,
-  OnePlusTwoPreview
+  OnePlusTwoPreview,
+  LandscapeSinglePreview,
+  LandscapeTwoPreview
 } from '../components/LayoutPreviews'
 import { LAYOUT_OPTIONS, getPhotoCount, getCropAspectRatioForSlot } from './layoutConfig'
 import type { FrameType } from '@/lib/types'
 import { logClientError, logClientInfo } from '@/lib/errorLogger'
-import heic2any from 'heic2any'
 
 interface Event {
   name: string
@@ -34,11 +34,18 @@ interface CropArea {
   height: number
 }
 
+interface CropSettings {
+  cropPosition: { x: number; y: number }
+  zoom: number
+  rotation: number
+}
+
 interface PhotoSlot {
   index: number
   file: File | null
   cropArea: CropArea | null
   croppedImageUrl: string | null
+  cropSettings?: CropSettings // 편집 상태 유지용
 }
 
 type Step = 'select-layout' | 'select-color' | 'fill-photos' | 'success'
@@ -119,15 +126,21 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       formData.append('slug', params.slug)
       formData.append('frameType', frameType)
 
-      if (frameType === 'single' || frameType === 'single-with-logo') {
+      if (frameType === 'single' || frameType === 'single-with-logo' || frameType === 'landscape-single') {
+        // 회전 정보 전송
+        const rotation = photoSlots[0]?.cropSettings?.rotation || 0
         const logData = {
           hasFile: !!photoSlots[0]?.file,
           hasCropArea: !!photoSlots[0]?.cropArea,
+          hasRotation: !!photoSlots[0]?.cropSettings?.rotation,
+          rotation: rotation,
+          cropSettings: photoSlots[0]?.cropSettings,
           fileName: photoSlots[0]?.file?.name,
           fileSize: photoSlots[0]?.file?.size,
           fileType: photoSlots[0]?.file?.type
         }
         console.log('[handleProcess] Single photo mode:', logData)
+        console.log('[handleProcess] Rotation value being sent:', rotation)
         logClientInfo('[Mobile] Starting single photo processing', params.slug, logData)
 
         if (!photoSlots[0]?.file) {
@@ -137,6 +150,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         if (photoSlots[0].cropArea) {
           formData.append('cropArea', JSON.stringify(photoSlots[0].cropArea))
         }
+        formData.append('rotation', rotation.toString())
         formData.append('backgroundColor', '#FFFFFF')
       } else {
         // Verify all photos exist
@@ -150,6 +164,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
             index: i,
             hasFile: !!slot.file,
             hasCropArea: !!slot.cropArea,
+            hasRotation: !!slot.cropSettings?.rotation,
             fileName: slot.file?.name,
             fileSize: slot.file?.size,
             fileType: slot.file?.type
@@ -173,9 +188,14 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         })
         const cropAreas = photoSlots.map(slot => slot.cropArea)
         formData.append('cropAreas', JSON.stringify(cropAreas))
+        // 회전 정보 배열 전송
+        const rotations = photoSlots.map(slot => slot.cropSettings?.rotation || 0)
+        formData.append('rotations', JSON.stringify(rotations))
         formData.append('backgroundColor', backgroundColor)
         console.log(`[handleProcess] Added ${photoCount} photos to FormData`)
-        logClientInfo('[Mobile] FormData prepared', params.slug, { photoCount, backgroundColor })
+        console.log('[handleProcess] Rotations being sent:', rotations)
+        console.log('[handleProcess] CropSettings per slot:', photoSlots.map(s => s.cropSettings))
+        logClientInfo('[Mobile] FormData prepared', params.slug, { photoCount, backgroundColor, rotations })
       }
 
       // If single-with-logo layout and logo exists, convert logoUrl to base64
@@ -362,6 +382,8 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     if (isHeic) {
       try {
         console.log('[compressImage] HEIC file detected, converting to JPEG...')
+        // Dynamic import to avoid SSR issues (heic2any uses window)
+        const heic2any = (await import('heic2any')).default
         const jpegBlob = await heic2any({
           blob: file,
           toType: 'image/jpeg',
@@ -507,7 +529,11 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     }
   }
 
-  const handleCropComplete = (result: { cropAreas: (CropArea | null)[], croppedImageUrls: string[] }) => {
+  const handleCropComplete = (result: {
+    cropAreas: (CropArea | null)[],
+    croppedImageUrls: string[],
+    cropSettings: Array<{ cropPosition: { x: number; y: number }; zoom: number; rotation: number }>
+  }) => {
     if (currentEditingSlot === null) return
 
     setPhotoSlots(prevSlots => {
@@ -515,7 +541,8 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       newSlots[currentEditingSlot] = {
         ...newSlots[currentEditingSlot],
         cropArea: result.cropAreas[0],
-        croppedImageUrl: result.croppedImageUrls[0]
+        croppedImageUrl: result.croppedImageUrls[0],
+        cropSettings: result.cropSettings[0] // 편집 상태 저장
       }
       return newSlots
     })
@@ -529,19 +556,27 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   const handleCropCancel = () => {
     if (currentEditingSlot === null) return
 
-    setPhotoSlots(prevSlots => {
-      const newSlots = [...prevSlots]
-      if (newSlots[currentEditingSlot].croppedImageUrl) {
-        URL.revokeObjectURL(newSlots[currentEditingSlot].croppedImageUrl!)
-      }
-      newSlots[currentEditingSlot] = {
-        ...newSlots[currentEditingSlot],
-        file: null,
-        cropArea: null,
-        croppedImageUrl: null
-      }
-      return newSlots
-    })
+    // 기존에 편집된 사진이 있었는지 확인 (cropSettings가 있으면 기존 편집이었음)
+    const hadExistingEdit = photoSlots[currentEditingSlot]?.cropSettings !== undefined
+
+    if (!hadExistingEdit) {
+      // 새 사진을 선택하다가 취소한 경우에만 삭제
+      setPhotoSlots(prevSlots => {
+        const newSlots = [...prevSlots]
+        if (newSlots[currentEditingSlot].croppedImageUrl) {
+          URL.revokeObjectURL(newSlots[currentEditingSlot].croppedImageUrl!)
+        }
+        newSlots[currentEditingSlot] = {
+          ...newSlots[currentEditingSlot],
+          file: null,
+          cropArea: null,
+          croppedImageUrl: null,
+          cropSettings: undefined
+        }
+        return newSlots
+      })
+    }
+    // 기존 사진 편집 중 취소면 아무것도 변경하지 않음 (기존 상태 유지)
 
     setShowCropEditor(false)
     setCurrentEditingSlot(null)
@@ -659,14 +694,16 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         return <SinglePhotoPreview {...baseProps} />
       case 'single-with-logo':
         return <SingleWithLogoPreview {...baseProps} logoUrl={event?.logoUrl} logoSettings={event?.logoSettings} photoAreaRatio={event?.photoAreaRatio} />
+      case 'landscape-single':
+        return <LandscapeSinglePreview {...baseProps} />
+      case 'landscape-two':
+        return <LandscapeTwoPreview {...baseProps} />
       case 'four-cut':
         return <FourCutPreview {...baseProps} />
       case 'two-by-two':
         return <TwoByTwoPreview {...baseProps} />
       case 'vertical-two':
         return <VerticalTwoPreview {...baseProps} />
-      case 'landscape':
-        return <LandscapePreview {...baseProps} />
       case 'one-plus-two':
         return <OnePlusTwoPreview {...baseProps} />
       default:
@@ -675,11 +712,15 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   }
 
   const renderLayoutOptionPreview = (type: FrameType) => {
+    // Landscape layouts have different aspect ratio
+    const isLandscape = type === 'landscape-single' || type === 'landscape-two'
+
     const gridStyles: Record<FrameType, string> = {
       'single': 'grid-cols-1 grid-rows-1',
       'single-with-logo': 'grid-cols-1 grid-rows-1',
+      'landscape-single': 'grid-cols-1 grid-rows-1',
+      'landscape-two': 'grid-cols-2 grid-rows-1',
       'vertical-two': 'grid-cols-1 grid-rows-2',
-      'landscape': 'grid-cols-1 grid-rows-1',
       'one-plus-two': 'grid-cols-2 grid-rows-2',
       'four-cut': 'grid-cols-2 grid-rows-4',
       'two-by-two': 'grid-cols-2 grid-rows-2'
@@ -689,8 +730,9 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       switch (type) {
         case 'single': return [{ colspan: 1, rowspan: 1 }]
         case 'single-with-logo': return [{ colspan: 1, rowspan: 1 }]
+        case 'landscape-single': return [{ colspan: 1, rowspan: 1 }]
+        case 'landscape-two': return [{}, {}]
         case 'vertical-two': return [{}, {}]
-        case 'landscape': return [{ colspan: 1, rowspan: 1 }]
         case 'one-plus-two': return [{ colspan: 2 }, {}, {}]
         case 'four-cut': return [{}, {}, {}, {}, {}, {}, {}, {}]
         case 'two-by-two': return [{}, {}, {}, {}]
@@ -698,17 +740,8 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       }
     }
 
-    // Landscape uses horizontal aspect ratio
-    if (type === 'landscape') {
-      return (
-        <div className="grid gap-0.5 h-10 w-16 bg-gray-300 rounded overflow-hidden grid-cols-1 grid-rows-1">
-          <div className="bg-purple-400" />
-        </div>
-      )
-    }
-
     return (
-      <div className={`grid gap-0.5 h-16 w-10 bg-gray-300 rounded overflow-hidden ${gridStyles[type]}`}>
+      <div className={`grid gap-0.5 bg-gray-300 rounded overflow-hidden ${gridStyles[type]} ${isLandscape ? 'h-10 w-16' : 'h-16 w-10'}`}>
         {getCells().map((cell, i) => (
           <div
             key={i}
@@ -808,7 +841,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
               </div>
 
               <button
-                onClick={() => setStep((frameType === 'single' || frameType === 'single-with-logo' || frameType === 'landscape') ? 'fill-photos' : 'select-color')}
+                onClick={() => setStep((frameType === 'single' || frameType === 'single-with-logo') ? 'fill-photos' : 'select-color')}
                 className="w-full py-4 bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 text-white rounded-full font-bold text-lg hover:shadow-2xl transition-all shadow-lg"
               >
                 다음 단계로 💫
@@ -914,13 +947,12 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                     </span>
                   )}
                 </div>
-                {renderLayoutPreview()}
+                <div className="transition-all duration-300">
+                  {renderLayoutPreview()}
+                </div>
                 <div className="bg-white rounded-xl p-4 shadow-md">
                   <p className="text-center text-sm text-gray-600 font-medium mb-2">
                     사진을 탭하여 추가/변경/삭제
-                  </p>
-                  <p className="text-center text-xs text-gray-500">
-                    출력 크기: <span className="font-semibold">4×6 inch</span> (102×152mm)
                   </p>
                   {frameType === 'four-cut' && (
                     <p className="text-center text-xs text-purple-600 mt-2">
@@ -981,7 +1013,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                 <div className="flex gap-3">
                   <button
                     onClick={() => {
-                      setStep((frameType === 'single' || frameType === 'landscape') ? 'select-layout' : 'select-color')
+                      setStep(frameType === 'single' ? 'select-layout' : 'select-color')
                       setPreviewUrl(null)
                     }}
                     disabled={printing}
@@ -1101,6 +1133,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
             aspectRatio={getCropAspectRatioForSlot(frameType, currentEditingSlot, !!event?.logoUrl, event?.photoAreaRatio ?? 85)}
             onComplete={handleCropComplete}
             onCancel={handleCropCancel}
+            initialSettings={photoSlots[currentEditingSlot]?.cropSettings ? [photoSlots[currentEditingSlot].cropSettings!] : undefined}
           />
         )}
       </div>

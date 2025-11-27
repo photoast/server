@@ -41,8 +41,10 @@ export async function POST(request: NextRequest) {
     const frameType = (formData.get('frameType') as string || 'single') as FrameType
     const backgroundColor = formData.get('backgroundColor') as string | null
     const logoBase64FromClient = formData.get('logoBase64') as string | null
-
-    console.log('[API] Request params:', { slug, frameType, hasCropArea: !!cropDataStr, hasCropAreas: !!cropAreasStr, backgroundColor, hasLogoBase64FromClient: !!logoBase64FromClient })
+    // 회전 정보
+    const rotationStr = formData.get('rotation') as string | null
+    const rotationsStr = formData.get('rotations') as string | null
+    console.log('[API] Request params:', { slug, frameType, hasCropArea: !!cropDataStr, hasCropAreas: !!cropAreasStr, backgroundColor, hasLogoBase64FromClient: !!logoBase64FromClient, rotation: rotationStr, rotations: rotationsStr })
 
     if (!slug) {
       console.error('[API] Error: Event slug is required')
@@ -65,7 +67,8 @@ export async function POST(request: NextRequest) {
     const photoCountMap: Record<FrameType, number> = {
       'single': 1,
       'single-with-logo': 1,
-      'landscape': 1,
+      'landscape-single': 1,
+      'landscape-two': 2,
       'vertical-two': 2,
       'one-plus-two': 3,
       'four-cut': 4,
@@ -166,6 +169,23 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Parse rotation(s) if provided
+    let rotation: number | number[] = 0
+    console.log('[API] Raw rotation values - rotationStr:', rotationStr, 'rotationsStr:', rotationsStr)
+    if (isMultiPhoto && rotationsStr) {
+      try {
+        rotation = JSON.parse(rotationsStr)
+        console.log('[API] Rotations parsed (multi):', rotation)
+      } catch (e) {
+        console.error('[API] Failed to parse rotations:', e)
+        rotation = Array(expectedCount).fill(0)
+      }
+    } else if (rotationStr) {
+      rotation = parseInt(rotationStr, 10) || 0
+      console.log('[API] Rotation parsed (single):', rotation)
+    }
+    console.log('[API] Final rotation value to processImage:', rotation)
+
     // Get photo area ratio from event (default 85%)
     let photoAreaRatio = event.photoAreaRatio ?? 85
 
@@ -200,7 +220,8 @@ export async function POST(request: NextRequest) {
       isUsingBase64: finalLogoUrl?.startsWith('data:'),
       photoAreaRatio,
       logoSettings: event.logoSettings,
-      backgroundColor
+      backgroundColor,
+      rotation
     })
 
     console.log('[API] Calling processImage...')
@@ -211,7 +232,8 @@ export async function POST(request: NextRequest) {
       photoAreaRatio,
       event.logoSettings,
       frameType,
-      backgroundColor || undefined
+      backgroundColor || undefined,
+      rotation
     )
     console.log('[API] Image processed successfully, buffer size:', processedBuffer.length, 'bytes')
 
