@@ -722,7 +722,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       'landscape-two': 'grid-cols-2 grid-rows-1',
       'vertical-two': 'grid-cols-1 grid-rows-2',
       'one-plus-two': 'grid-cols-2 grid-rows-2',
-      'four-cut': 'grid-cols-2 grid-rows-4',
+      'four-cut': 'grid-cols-1 grid-rows-4',
       'two-by-two': 'grid-cols-2 grid-rows-2'
     }
 
@@ -734,7 +734,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         case 'landscape-two': return [{}, {}]
         case 'vertical-two': return [{}, {}]
         case 'one-plus-two': return [{ colspan: 2 }, {}, {}]
-        case 'four-cut': return [{}, {}, {}, {}, {}, {}, {}, {}]
+        case 'four-cut': return [{}, {}, {}, {}]
         case 'two-by-two': return [{}, {}, {}, {}]
         default: return []
       }
@@ -972,22 +972,6 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                 </div>
               )}
 
-              {/* Progress bar */}
-              <div className="bg-white rounded-2xl p-4 shadow-md">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700">진행률</span>
-                  <span className="text-sm text-gray-600">
-                    {Math.round((photoSlots.filter(s => s.file).length / photoSlots.length) * 100)}%
-                  </span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-3">
-                  <div
-                    className="bg-gradient-to-r from-purple-600 to-pink-600 h-3 rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${(photoSlots.filter(s => s.file).length / photoSlots.length) * 100}%` }}
-                  />
-                </div>
-              </div>
-
               {error && (
                 <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-4">
                   <p className="text-red-600 text-center font-medium">{error}</p>
@@ -996,43 +980,42 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
               {/* Action Buttons */}
               <div className="space-y-3">
-                {/* Download Button - Only show when preview is ready */}
+                {/* Download & Print Buttons - Side by side */}
                 {allSlotsFilled && previewUrl && !processing && (
-                  <button
-                    onClick={handleDownload}
-                    disabled={printing}
-                    className="w-full py-4 bg-gradient-to-r from-blue-400 to-purple-400 text-white rounded-full font-bold text-lg hover:shadow-2xl transition-all shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                    </svg>
-                    내 갤러리에 저장하기 💾
-                  </button>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={handleDownload}
+                      disabled={printing}
+                      className="flex-1 py-4 bg-gradient-to-r from-blue-400 to-purple-400 text-white rounded-full font-bold text-lg hover:shadow-2xl transition-all shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                      저장
+                    </button>
+                    <button
+                      onClick={handlePrint}
+                      disabled={printing}
+                      className="flex-1 py-4 bg-gradient-to-r from-pink-500 via-purple-500 to-pink-500 text-white rounded-full font-bold text-lg hover:shadow-2xl transition-all shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                      </svg>
+                      {printing ? '출력 중...' : '프린트'}
+                    </button>
+                  </div>
                 )}
 
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => {
-                      setStep(frameType === 'single' ? 'select-layout' : 'select-color')
-                      setPreviewUrl(null)
-                    }}
-                    disabled={printing}
-                    className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-full font-bold text-base hover:bg-gray-200 transition-all disabled:opacity-50"
-                  >
-                    ← 이전
-                  </button>
-                  <button
-                    onClick={handlePrint}
-                    disabled={!allSlotsFilled || processing || !previewUrl || printing}
-                    className={`flex-1 py-3 rounded-full font-bold text-base transition-all shadow-lg ${
-                      allSlotsFilled && previewUrl && !processing && !printing
-                        ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white hover:shadow-2xl'
-                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    }`}
-                  >
-                    {printing ? '출력 중... ⏳' : '프린트 하기 🖨️'}
-                  </button>
-                </div>
+                <button
+                  onClick={() => {
+                    setStep(frameType === 'single' ? 'select-layout' : 'select-color')
+                    setPreviewUrl(null)
+                  }}
+                  disabled={printing}
+                  className="w-full py-3 bg-gray-100 text-gray-700 rounded-full font-bold text-base hover:bg-gray-200 transition-all disabled:opacity-50"
+                >
+                  ← 이전 단계로
+                </button>
               </div>
 
               {/* Hidden file input */}
