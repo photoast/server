@@ -740,8 +740,11 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       }
     }
 
+    // Four-cut is half width (represents strip that gets cut in half)
+    const isFourCut = type === 'four-cut'
+
     return (
-      <div className={`grid gap-0.5 bg-gray-300 rounded overflow-hidden ${gridStyles[type]} ${isLandscape ? 'h-10 w-16' : 'h-16 w-10'}`}>
+      <div className={`grid gap-0.5 bg-gray-300 rounded overflow-hidden ${gridStyles[type]} ${isLandscape ? 'h-10 w-16' : isFourCut ? 'h-16 w-5' : 'h-16 w-10'}`}>
         {getCells().map((cell, i) => (
           <div
             key={i}
