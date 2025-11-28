@@ -1582,6 +1582,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@tosspayments/tosspayments-sdk@npm:^2.4.1":
+  version: 2.4.1
+  resolution: "@tosspayments/tosspayments-sdk@npm:2.4.1"
+  checksum: 10c0/73533699848022559eeafe64e32cb70d9ba3039c88c588bb937229c8ef88b0b89ce210b7aef9ef3bc213d2cc0a26b41f587af501ff1f96597d8b41d50e671862
+  languageName: node
+  linkType: hard
+
 "@tybys/wasm-util@npm:^0.10.0":
   version: 0.10.1
   resolution: "@tybys/wasm-util@npm:0.10.1"
@@ -4858,6 +4865,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "photoast@workspace:."
   dependencies:
+    "@tosspayments/tosspayments-sdk": "npm:^2.4.1"
     "@types/bcryptjs": "npm:^2.4.6"
     "@types/node": "npm:^20.0.0"
     "@types/nodemailer": "npm:^7.0.4"

@@ -3,6 +3,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Image from 'next/image'
 import FourCutCropEditor from '../components/FourCutCropEditor'
+import { loadTossPayments } from '@tosspayments/tosspayments-sdk'
+import type { TossPaymentsWidgets } from '@tosspayments/tosspayments-sdk'
+
+// 비회원 결제용 상수
+const ANONYMOUS_CUSTOMER_KEY = 'ANONYMOUS'
 import {
   SinglePhotoPreview,
   SingleWithLogoPreview,
@@ -48,7 +53,10 @@ interface PhotoSlot {
   cropSettings?: CropSettings // 편집 상태 유지용
 }
 
-type Step = 'select-layout' | 'select-color' | 'fill-photos' | 'success'
+type Step = 'select-layout' | 'select-color' | 'fill-photos' | 'payment' | 'success'
+
+// 토스페이먼츠 클라이언트 키 (테스트용)
+const TOSS_CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY || 'test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm'
 
 const BACKGROUND_COLORS = [
   { name: '블랙', value: '#000000' },
@@ -80,6 +88,12 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   const [processing, setProcessing] = useState(false)
   const [printing, setPrinting] = useState(false)
   const [error, setError] = useState('')
+
+  // Payment state
+  const [paymentWidgets, setPaymentWidgets] = useState<TossPaymentsWidgets | null>(null)
+  const [paymentReady, setPaymentReady] = useState(false)
+  const [paymentProcessing, setPaymentProcessing] = useState(false)
+  const [paymentConfirming, setPaymentConfirming] = useState(false) // 결제 승인 처리 중
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -671,6 +685,167 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     }
   }
 
+  // 결제 페이지로 이동
+  const handleGoToPayment = async () => {
+    if (!previewUrl) return
+    setStep('payment')
+    setError('')
+    setPaymentReady(false)
+
+    try {
+      // 토스페이먼츠 SDK 로드
+      const tossPayments = await loadTossPayments(TOSS_CLIENT_KEY)
+
+      // 위젯 초기화 (비회원 결제)
+      const widgets = tossPayments.widgets({ customerKey: ANONYMOUS_CUSTOMER_KEY })
+
+      // 결제 금액 설정 (10원)
+      await widgets.setAmount({
+        currency: 'KRW',
+        value: 10,
+      })
+
+      // 결제 위젯 렌더링
+      await Promise.all([
+        widgets.renderPaymentMethods({
+          selector: '#payment-method',
+          variantKey: 'DEFAULT',
+        }),
+        widgets.renderAgreement({
+          selector: '#agreement',
+          variantKey: 'AGREEMENT',
+        }),
+      ])
+
+      setPaymentWidgets(widgets)
+      setPaymentReady(true)
+    } catch (err: any) {
+      console.error('Payment widget error:', err)
+      setError('결제 위젯을 불러오는데 실패했습니다')
+      logClientError('Failed to load payment widget', err, params.slug)
+    }
+  }
+
+  // 결제 실행
+  const handlePayment = async () => {
+    if (!paymentWidgets || !paymentReady) return
+
+    setPaymentProcessing(true)
+    setError('')
+
+    try {
+      // 주문 ID 생성 (고유값)
+      const orderId = `PRINT_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+
+      // 결제 요청
+      await paymentWidgets.requestPayment({
+        orderId,
+        orderName: '포토 프린트 1장',
+        successUrl: `${window.location.origin}${window.location.pathname}?payment=success&orderId=${orderId}`,
+        failUrl: `${window.location.origin}${window.location.pathname}?payment=fail`,
+      })
+    } catch (err: any) {
+      // 사용자가 취소한 경우
+      if (err.code === 'USER_CANCEL') {
+        setError('결제가 취소되었습니다')
+      } else {
+        console.error('Payment request error:', err)
+        setError(err.message || '결제 요청 중 오류가 발생했습니다')
+        logClientError('Payment request failed', err, params.slug)
+      }
+    } finally {
+      setPaymentProcessing(false)
+    }
+  }
+
+  // URL 파라미터로 결제 결과 처리 (페이지 로드 시 즉시 확인)
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const paymentStatus = urlParams.get('payment')
+    const paymentKey = urlParams.get('paymentKey')
+    const orderId = urlParams.get('orderId')
+    const amount = urlParams.get('amount')
+
+    if (paymentStatus === 'success' && paymentKey && orderId && amount) {
+      // 즉시 로딩 상태로 전환 (메인 화면 깜빡임 방지)
+      setPaymentConfirming(true)
+
+      // 결제 승인 처리
+      const confirmPayment = async () => {
+        setError('')
+
+        try {
+          // 결제 승인 API 호출
+          const paymentRes = await fetch('/api/payment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              paymentKey,
+              orderId,
+              amount: Number(amount),
+            }),
+          })
+
+          if (!paymentRes.ok) {
+            const data = await paymentRes.json()
+            throw new Error(data.error || '결제 승인에 실패했습니다')
+          }
+
+          // 결제 성공 시 프린트 실행
+          // previewUrl이 localStorage에 저장되어 있어야 함
+          const savedPreviewUrl = localStorage.getItem('pendingPrintUrl')
+          if (!savedPreviewUrl) {
+            throw new Error('프린트할 이미지를 찾을 수 없습니다')
+          }
+
+          const printRes = await fetch('/api/print', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              slug: params.slug,
+              imageUrl: savedPreviewUrl,
+            }),
+          })
+
+          if (!printRes.ok) {
+            const data = await printRes.json()
+            throw new Error(data.error || '프린트에 실패했습니다')
+          }
+
+          // 성공 처리
+          localStorage.removeItem('pendingPrintUrl')
+
+          // URL 파라미터 제거
+          window.history.replaceState({}, '', window.location.pathname)
+
+          setStep('success')
+
+        } catch (err: any) {
+          console.error('Payment confirmation error:', err)
+          setError(err.message || '결제 처리 중 오류가 발생했습니다')
+          logClientError('Payment confirmation failed', err, params.slug)
+          setStep('fill-photos')
+          window.history.replaceState({}, '', window.location.pathname)
+        } finally {
+          setPaymentConfirming(false)
+        }
+      }
+
+      confirmPayment()
+    } else if (paymentStatus === 'fail') {
+      setError('결제가 실패했습니다. 다시 시도해주세요.')
+      setStep('fill-photos')
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [params.slug])
+
+  // 결제 페이지로 가기 전 previewUrl 저장
+  useEffect(() => {
+    if (step === 'payment' && previewUrl) {
+      localStorage.setItem('pendingPrintUrl', previewUrl)
+    }
+  }, [step, previewUrl])
+
   const handleReset = () => {
     setStep('select-layout')
     setFrameType('single')
@@ -760,6 +935,20 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   }
 
   // ============ Loading State ============
+
+  // 결제 승인 처리 중일 때 전용 로딩 화면
+  if (paymentConfirming) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50">
+        <div className="text-center bg-white rounded-3xl shadow-2xl p-8 mx-4">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-purple-600 mx-auto mb-6"></div>
+          <h2 className="text-xl font-bold text-gray-800 mb-2">결제 처리 중...</h2>
+          <p className="text-gray-500">잠시만 기다려주세요 💕</p>
+          <p className="text-sm text-gray-400 mt-2">프린트가 곧 시작됩니다</p>
+        </div>
+      </div>
+    )
+  }
 
   if (loading) {
     return (
@@ -983,7 +1172,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
               {/* Action Buttons */}
               <div className="space-y-3">
-                {/* Download & Print Buttons - Side by side */}
+                {/* Download & Payment Buttons - Side by side */}
                 {allSlotsFilled && previewUrl && !processing && (
                   <div className="flex gap-3">
                     <button
@@ -997,14 +1186,14 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                       저장
                     </button>
                     <button
-                      onClick={handlePrint}
+                      onClick={handleGoToPayment}
                       disabled={printing}
                       className="flex-1 py-4 bg-gradient-to-r from-pink-500 via-purple-500 to-pink-500 text-white rounded-full font-bold text-lg hover:shadow-2xl transition-all shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
                     >
                       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                       </svg>
-                      {printing ? '출력 중...' : '프린트'}
+                      {printing ? '처리 중...' : '프린트 (10원)'}
                     </button>
                   </div>
                 )}
@@ -1032,7 +1221,92 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
             </div>
           )}
 
-          {/* Step 4: Success */}
+          {/* Step 4: Payment */}
+          {step === 'payment' && (
+            <div className="space-y-6">
+              <div className="text-center">
+                <h2 className="text-2xl font-bold text-gray-800 mb-2">결제하기 💳</h2>
+                <p className="text-sm text-gray-500">프린트 비용 10원을 결제해주세요</p>
+              </div>
+
+              {/* 미리보기 이미지 */}
+              {previewUrl && (
+                <div className="flex justify-center">
+                  <div className="relative w-32 h-48 rounded-lg overflow-hidden shadow-lg">
+                    <Image
+                      src={previewUrl}
+                      alt="프린트 미리보기"
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* 결제 금액 */}
+              <div className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-2xl p-4 text-center">
+                <p className="text-sm text-gray-600 mb-1">결제 금액</p>
+                <p className="text-3xl font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
+                  10원
+                </p>
+              </div>
+
+              {/* 토스페이먼츠 위젯 */}
+              <div className="space-y-4">
+                <div id="payment-method" className="min-h-[200px]">
+                  {!paymentReady && (
+                    <div className="flex items-center justify-center h-[200px]">
+                      <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-purple-600"></div>
+                    </div>
+                  )}
+                </div>
+                <div id="agreement" className="min-h-[50px]"></div>
+              </div>
+
+              {error && (
+                <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-4">
+                  <p className="text-red-600 text-center font-medium">{error}</p>
+                </div>
+              )}
+
+              {/* 버튼 */}
+              <div className="space-y-3">
+                <button
+                  onClick={handlePayment}
+                  disabled={!paymentReady || paymentProcessing || printing}
+                  className="w-full py-4 bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 text-white rounded-full font-bold text-lg hover:shadow-2xl transition-all shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {paymentProcessing || printing ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-white"></div>
+                      처리 중...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                      </svg>
+                      10원 결제하기
+                    </>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => {
+                    setStep('fill-photos')
+                    setPaymentWidgets(null)
+                    setPaymentReady(false)
+                  }}
+                  disabled={paymentProcessing || printing}
+                  className="w-full py-3 bg-gray-100 text-gray-700 rounded-full font-bold text-base hover:bg-gray-200 transition-all disabled:opacity-50"
+                >
+                  ← 이전 단계로
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 5: Success */}
           {step === 'success' && (
             <div className="space-y-6">
               <div className="bg-gradient-to-br from-pink-50 to-purple-50 rounded-3xl p-8 shadow-2xl text-center">
