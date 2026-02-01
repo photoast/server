@@ -86,30 +86,14 @@ export async function POST(request: NextRequest) {
 
       console.log('[API] Printer correction applied, final size:', correctedBuffer.length, 'bytes')
 
-      // Save as preview
-      const filename = `preview-${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`
-      const isVercel = process.env.VERCEL === '1'
+      // Return as base64 data URL for Vercel (serverless functions don't share filesystem)
+      // This ensures the image is available across different function invocations
+      const base64 = correctedBuffer.toString('base64')
+      const dataUrl = `data:image/jpeg;base64,${base64}`
 
-      let savedPath: string
-      if (isVercel) {
-        // Vercel: Use /tmp directory
-        const uploadDir = '/tmp/uploads'
-        await fs.mkdir(uploadDir, { recursive: true })
-        const filepath = path.join(uploadDir, filename)
-        await fs.writeFile(filepath, correctedBuffer)
-        savedPath = `/api/serve-image/${filename}`
-      } else {
-        // Local: Use public/uploads directory
-        const uploadDir = path.join(process.cwd(), 'public', 'uploads')
-        await fs.mkdir(uploadDir, { recursive: true })
-        const filepath = path.join(uploadDir, filename)
-        await fs.writeFile(filepath, correctedBuffer)
-        savedPath = `/uploads/${filename}`
-      }
+      console.log('[API] Preview converted to data URL, size:', dataUrl.length, 'chars')
 
-      console.log('[API] Preview saved:', savedPath)
-
-      return NextResponse.json({ url: savedPath })
+      return NextResponse.json({ url: dataUrl })
     }
 
     // Define expected photo counts for each layout
