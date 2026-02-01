@@ -1236,8 +1236,15 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
           {step === 'payment' && (
             <div className="space-y-6">
               <div className="text-center">
-                <h2 className="text-2xl font-bold text-gray-800 mb-2">결제하기 💳</h2>
-                <p className="text-sm text-gray-500">프린트 비용 {event?.price ?? 0}원을 결제해주세요</p>
+                <h2 className="text-2xl font-bold text-gray-800 mb-2">
+                  {(event?.price ?? 0) === 0 ? '무료 프린트 🎉' : '결제하기 💳'}
+                </h2>
+                <p className="text-sm text-gray-500">
+                  {(event?.price ?? 0) === 0
+                    ? '무료로 프린트 하실 수 있습니다'
+                    : `프린트 비용 ${event?.price}원을 결제해주세요`
+                  }
+                </p>
               </div>
 
               {/* 미리보기 이미지 */}
@@ -1256,9 +1263,11 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
               {/* 결제 금액 */}
               <div className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-2xl p-4 text-center">
-                <p className="text-sm text-gray-600 mb-1">결제 금액</p>
+                <p className="text-sm text-gray-600 mb-1">
+                  {(event?.price ?? 0) === 0 ? '프린트 비용' : '결제 금액'}
+                </p>
                 <p className="text-3xl font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
-                  {event?.price ?? 0}원
+                  {(event?.price ?? 0) === 0 ? '무료' : `${event?.price}원`}
                 </p>
               </div>
 
@@ -1297,7 +1306,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                       </svg>
-                      {event?.price ?? 0}원 결제하기
+                      {(event?.price ?? 0) === 0 ? '무료로 프린트하기' : `${event?.price}원 결제하기`}
                     </>
                   )}
                 </button>
