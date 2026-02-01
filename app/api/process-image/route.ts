@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
 
       console.log('[API] Preview saved:', savedPath)
 
-      return NextResponse.json({ previewUrl: savedPath })
+      return NextResponse.json({ url: savedPath })
     }
 
     // Define expected photo counts for each layout
