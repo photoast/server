@@ -262,13 +262,13 @@ async function processSingleImage(
 
         console.log('Processing logo with settings:', { position, sizePercent, x: logoSettings?.x, y: logoSettings?.y })
 
-        // IMPORTANT: Logo size is percentage of LOGO AREA width, NOT total image width
-        // This matches the preview component behavior
-        // Logo area width = full width, so we use outputWidth
-        // But we need to account for padding (8px on each side in preview = 16px total)
-        const PREVIEW_PADDING = 8 * 2 // p-2 in Tailwind = 8px, both sides = 16px
-        const logoAreaWidth = outputWidth - PREVIEW_PADDING
+        // IMPORTANT: Logo size is percentage of FULL WIDTH to match client preview
+        // Client preview uses: width: ${logoSize}% (of container, not considering padding)
+        // So we calculate based on outputWidth directly
+        const logoAreaWidth = outputWidth  // Full width, matching client behavior
         const requestedLogoWidth = Math.round(logoAreaWidth * (sizePercent / 100))
+
+        console.log(`[Logo Debug] logoSize: ${sizePercent}%, logoAreaWidth: ${logoAreaWidth}px, requestedLogoWidth: ${requestedLogoWidth}px`)
 
         // Resize logo based on width - no height limit, allow it to extend into photo area
         const resizedLogoBuffer = await sharp(logoBuffer)
@@ -332,7 +332,9 @@ async function processSingleImage(
           left,
         })
 
-        console.log(`Logo positioned at (${left}, ${top}), size: ${logoWidth}x${actualLogoHeight}, position: ${position}, sizePercent: ${sizePercent}%`)
+        console.log(`[Logo Debug] Final dimensions - logoWidth: ${logoWidth}px, actualLogoHeight: ${actualLogoHeight}px`)
+        console.log(`[Logo Debug] Final position - left: ${left}px, top: ${top}px (position: ${position})`)
+        console.log(`[Logo Debug] Canvas - outputWidth: ${outputWidth}px, outputHeight: ${outputHeight}px, photoHeight: ${photoHeight}px, logoHeight: ${logoHeight}px`)
       }
     } catch (error) {
       console.error('[processSingleImage] Error adding logo:', error)
