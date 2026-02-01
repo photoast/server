@@ -48,7 +48,10 @@ export async function POST(request: NextRequest) {
     // 회전 정보
     const rotationStr = formData.get('rotation') as string | null
     const rotationsStr = formData.get('rotations') as string | null
-    console.log('[API] Request params:', { slug, frameType, hasCropArea: !!cropDataStr, hasCropAreas: !!cropAreasStr, backgroundColor, hasLogoBase64FromClient: !!logoBase64FromClient, rotation: rotationStr, rotations: rotationsStr })
+    // 클라이언트에서 렌더링된 이미지 (single-with-logo용)
+    const preRenderedImage = formData.get('preRenderedImage') as File | null
+    const applyPrinterCorrectionOnly = formData.get('applyPrinterCorrectionOnly') === 'true'
+    console.log('[API] Request params:', { slug, frameType, hasCropArea: !!cropDataStr, hasCropAreas: !!cropAreasStr, backgroundColor, hasLogoBase64FromClient: !!logoBase64FromClient, rotation: rotationStr, rotations: rotationsStr, hasPreRenderedImage: !!preRenderedImage, applyPrinterCorrectionOnly })
 
     if (!slug) {
       console.error('[API] Error: Event slug is required')
@@ -66,6 +69,48 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('[API] Event found:', event.name)
+
+    // Special path: Client-rendered image (single-with-logo only)
+    if (preRenderedImage && applyPrinterCorrectionOnly) {
+      console.log('[API] Using client-rendered image, applying printer correction only')
+      const imageBuffer = Buffer.from(await preRenderedImage.arrayBuffer())
+      console.log('[API] Client-rendered image buffer size:', imageBuffer.length, 'bytes')
+
+      // Apply printer correction
+      const { applyPrinterCorrection } = await import('@/lib/image-correction')
+      const correctedBuffer = await applyPrinterCorrection(imageBuffer, {
+        canvasWidth: 1200,
+        canvasHeight: 1800,
+        backgroundColor: '#FFFFFF'
+      })
+
+      console.log('[API] Printer correction applied, final size:', correctedBuffer.length, 'bytes')
+
+      // Save as preview
+      const filename = `preview-${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`
+      const isVercel = process.env.VERCEL === '1'
+
+      let savedPath: string
+      if (isVercel) {
+        // Vercel: Use /tmp directory
+        const uploadDir = '/tmp/uploads'
+        await fs.mkdir(uploadDir, { recursive: true })
+        const filepath = path.join(uploadDir, filename)
+        await fs.writeFile(filepath, correctedBuffer)
+        savedPath = `/api/serve-image/${filename}`
+      } else {
+        // Local: Use public/uploads directory
+        const uploadDir = path.join(process.cwd(), 'public', 'uploads')
+        await fs.mkdir(uploadDir, { recursive: true })
+        const filepath = path.join(uploadDir, filename)
+        await fs.writeFile(filepath, correctedBuffer)
+        savedPath = `/uploads/${filename}`
+      }
+
+      console.log('[API] Preview saved:', savedPath)
+
+      return NextResponse.json({ previewUrl: savedPath })
+    }
 
     // Define expected photo counts for each layout
     const photoCountMap: Record<FrameType, number> = {

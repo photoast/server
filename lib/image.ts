@@ -262,13 +262,13 @@ async function processSingleImage(
 
         console.log('Processing logo with settings:', { position, sizePercent, x: logoSettings?.x, y: logoSettings?.y })
 
-        // IMPORTANT: Logo size is percentage of FULL WIDTH to match client preview
-        // Client preview uses: width: ${logoSize}% (of container, not considering padding)
-        // So we calculate based on outputWidth directly
-        const logoAreaWidth = outputWidth  // Full width, matching client behavior
+        // IMPORTANT: Logo size is percentage of logo area width (with padding consideration)
+        // Note: single-with-logo is now rendered on client side, this logic is for other potential logo layouts
+        const PREVIEW_PADDING = 8 * 2 // p-2 in Tailwind = 8px, both sides = 16px
+        const logoAreaWidth = outputWidth - PREVIEW_PADDING
         const requestedLogoWidth = Math.round(logoAreaWidth * (sizePercent / 100))
 
-        console.log(`[Logo Debug] logoSize: ${sizePercent}%, logoAreaWidth: ${logoAreaWidth}px, requestedLogoWidth: ${requestedLogoWidth}px`)
+        console.log(`[Logo Debug] logoSize: ${sizePercent}%, logoAreaWidth: ${logoAreaWidth}px (excluding padding), requestedLogoWidth: ${requestedLogoWidth}px`)
 
         // Resize logo based on width - no height limit, allow it to extend into photo area
         const resizedLogoBuffer = await sharp(logoBuffer)

@@ -132,6 +132,101 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   // ============ Event Handlers ============
 
   // Process image handler (defined before useEffect that uses it)
+  // Canvas에서 single-with-logo 레이아웃을 실제 이미지로 렌더링
+  const renderSingleWithLogoToCanvas = async (): Promise<Blob> => {
+    const canvas = document.createElement('canvas')
+    const CANVAS_WIDTH = 1200
+    const CANVAS_HEIGHT = 1800
+    canvas.width = CANVAS_WIDTH
+    canvas.height = CANVAS_HEIGHT
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('Canvas context not available')
+
+    const photoAreaRatio = event?.photoAreaRatio ?? 85
+    const logoSettings = event?.logoSettings || { position: 'bottom-center', size: 80 }
+
+    const photoHeight = Math.round(CANVAS_HEIGHT * (photoAreaRatio / 100))
+    const logoAreaHeight = CANVAS_HEIGHT - photoHeight
+
+    // 1. Fill white background
+    ctx.fillStyle = '#FFFFFF'
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
+
+    // 2. Draw photo
+    const photoSlot = photoSlots[0]
+    if (photoSlot?.croppedImageUrl) {
+      const photoImg = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const img = new window.Image()
+        img.crossOrigin = 'anonymous'
+        img.onload = () => resolve(img)
+        img.onerror = reject
+        img.src = photoSlot.croppedImageUrl!
+      })
+      ctx.drawImage(photoImg, 0, 0, CANVAS_WIDTH, photoHeight)
+    }
+
+    // 3. Draw logo
+    if (event?.logoUrl) {
+      const logoImg = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const img = new window.Image()
+        img.crossOrigin = 'anonymous'
+        img.onload = () => resolve(img)
+        img.onerror = reject
+        img.src = event.logoUrl!
+      })
+
+      const logoSize = logoSettings.size || 80
+      const position = logoSettings.position || 'bottom-center'
+
+      // Calculate logo size based on full width (matching client CSS)
+      const requestedLogoWidth = CANVAS_WIDTH * (logoSize / 100)
+      const logoAspectRatio = logoImg.width / logoImg.height
+      const logoWidth = requestedLogoWidth
+      const logoHeight = requestedLogoWidth / logoAspectRatio
+
+      let logoX = 0
+      let logoY = 0
+
+      if (position === 'custom' && logoSettings.x !== undefined && logoSettings.y !== undefined) {
+        // Custom position
+        logoX = (logoSettings.x / 100) * CANVAS_WIDTH - logoWidth / 2
+        logoY = photoHeight + (logoSettings.y / 100) * logoAreaHeight - logoHeight / 2
+      } else {
+        // Preset positions
+        const [vertical, horizontal] = position.split('-')
+        const PADDING = 8
+
+        // Horizontal
+        if (horizontal === 'left') {
+          logoX = PADDING
+        } else if (horizontal === 'center') {
+          logoX = (CANVAS_WIDTH - logoWidth) / 2
+        } else if (horizontal === 'right') {
+          logoX = CANVAS_WIDTH - logoWidth - PADDING
+        }
+
+        // Vertical (within logo area)
+        if (vertical === 'top') {
+          logoY = photoHeight + PADDING
+        } else if (vertical === 'center') {
+          logoY = photoHeight + (logoAreaHeight - logoHeight) / 2
+        } else if (vertical === 'bottom') {
+          logoY = CANVAS_HEIGHT - logoHeight - PADDING
+        }
+      }
+
+      ctx.drawImage(logoImg, logoX, logoY, logoWidth, logoHeight)
+    }
+
+    // Convert canvas to blob
+    return new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob)
+        else reject(new Error('Failed to create blob from canvas'))
+      }, 'image/jpeg', 0.95)
+    })
+  }
+
   const handleProcess = useCallback(async () => {
     setProcessing(true)
     setError('')
@@ -141,7 +236,23 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       formData.append('slug', params.slug)
       formData.append('frameType', frameType)
 
-      if (frameType === 'single' || frameType === 'single-with-logo' || frameType === 'landscape-single') {
+      // Special handling for single-with-logo: render on client side
+      if (frameType === 'single-with-logo') {
+        console.log('[handleProcess] single-with-logo: Using client-side Canvas rendering')
+        logClientInfo('[Mobile] Using client-side Canvas rendering', params.slug, { frameType })
+
+        if (!photoSlots[0]?.file || !photoSlots[0]?.croppedImageUrl) {
+          throw new Error('사진을 선택해주세요')
+        }
+
+        // Render preview to canvas and get blob
+        const imageBlob = await renderSingleWithLogoToCanvas()
+        console.log('[handleProcess] Canvas rendered, blob size:', imageBlob.size)
+
+        // Send the rendered image to server for printer correction only
+        formData.append('preRenderedImage', imageBlob, 'preview.jpg')
+        formData.append('applyPrinterCorrectionOnly', 'true')
+      } else if (frameType === 'single' || frameType === 'landscape-single') {
         // 회전 정보 전송
         const rotation = photoSlots[0]?.cropSettings?.rotation || 0
         const logData = {
