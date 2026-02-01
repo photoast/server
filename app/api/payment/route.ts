@@ -1,22 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { findEventBySlug } from '@/lib/models'
 
 // 토스페이먼츠 결제 승인 API
 export async function POST(request: NextRequest) {
   try {
-    const { paymentKey, orderId, amount } = await request.json()
+    const { paymentKey, orderId, amount, eventSlug } = await request.json()
 
     // 필수 파라미터 검증
-    if (!paymentKey || !orderId || !amount) {
+    if (!paymentKey || !orderId || !amount || !eventSlug) {
       return NextResponse.json(
         { error: '필수 파라미터가 누락되었습니다' },
         { status: 400 }
       )
     }
 
-    // 금액 검증 (10원)
-    if (amount !== 10) {
+    // 이벤트 정보 조회
+    const event = await findEventBySlug(eventSlug)
+    if (!event) {
       return NextResponse.json(
-        { error: '잘못된 결제 금액입니다' },
+        { error: '이벤트를 찾을 수 없습니다' },
+        { status: 404 }
+      )
+    }
+
+    // 이벤트별 금액 검증
+    const expectedAmount = event.price ?? 10
+    if (amount !== expectedAmount) {
+      return NextResponse.json(
+        { error: `잘못된 결제 금액입니다. 예상 금액: ${expectedAmount}원` },
         { status: 400 }
       )
     }

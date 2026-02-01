@@ -30,6 +30,7 @@ interface Event {
   photoAreaRatio?: number
   availableLayouts?: string[]
   logoSettings?: any
+  price?: number
 }
 
 interface CropArea {
@@ -688,6 +689,15 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   // 결제 페이지로 이동
   const handleGoToPayment = async () => {
     if (!previewUrl) return
+
+    const paymentAmount = event?.price ?? 10
+
+    // 무료 (0원)인 경우 결제 단계 건너뛰고 바로 프린트
+    if (paymentAmount === 0) {
+      await handlePrint()
+      return
+    }
+
     setStep('payment')
     setError('')
     setPaymentReady(false)
@@ -699,10 +709,10 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       // 위젯 초기화 (비회원 결제)
       const widgets = tossPayments.widgets({ customerKey: ANONYMOUS_CUSTOMER_KEY })
 
-      // 결제 금액 설정 (10원)
+      // 결제 금액 설정 (이벤트별 금액)
       await widgets.setAmount({
         currency: 'KRW',
-        value: 10,
+        value: paymentAmount,
       })
 
       // 결제 위젯 렌더링
@@ -783,6 +793,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
               paymentKey,
               orderId,
               amount: Number(amount),
+              eventSlug: params.slug,
             }),
           })
 
@@ -1226,7 +1237,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
             <div className="space-y-6">
               <div className="text-center">
                 <h2 className="text-2xl font-bold text-gray-800 mb-2">결제하기 💳</h2>
-                <p className="text-sm text-gray-500">프린트 비용 10원을 결제해주세요</p>
+                <p className="text-sm text-gray-500">프린트 비용 {event?.price ?? 10}원을 결제해주세요</p>
               </div>
 
               {/* 미리보기 이미지 */}
@@ -1247,7 +1258,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
               <div className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-2xl p-4 text-center">
                 <p className="text-sm text-gray-600 mb-1">결제 금액</p>
                 <p className="text-3xl font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
-                  10원
+                  {event?.price ?? 10}원
                 </p>
               </div>
 
@@ -1286,7 +1297,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                       </svg>
-                      10원 결제하기
+                      {event?.price ?? 10}원 결제하기
                     </>
                   )}
                 </button>

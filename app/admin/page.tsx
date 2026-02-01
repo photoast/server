@@ -22,6 +22,7 @@ interface Event {
   photoAreaRatio?: number
   logoSettings?: LogoSettings
   availableLayouts?: string[]
+  price?: number
   createdAt: string
 }
 
@@ -255,7 +256,7 @@ export default function AdminPage() {
     }
   }
 
-  const handleUpdateEvent = async (eventId: string, updates: { name?: string; printerUrl?: string; availableLayouts?: string[] }) => {
+  const handleUpdateEvent = async (eventId: string, updates: { name?: string; printerUrl?: string; availableLayouts?: string[]; price?: number }) => {
     try {
       const updateRes = await fetch(`/api/events/${eventId}`, {
         method: 'PATCH',
@@ -882,6 +883,39 @@ export default function AdminPage() {
                             Printer: {event.printerUrl} ✏️
                           </p>
                         )}
+                      </div>
+
+                      {/* Payment Price Control */}
+                      <div>
+                        <label className="block text-sm font-medium mb-2">
+                          결제 금액: {event.price ?? 10}원
+                          {(event.price ?? 10) === 0 && (
+                            <span className="ml-2 px-2 py-1 bg-green-100 text-green-800 text-xs rounded">무료</span>
+                          )}
+                        </label>
+                        <div className="flex gap-2 items-center">
+                          <input
+                            type="number"
+                            min="0"
+                            max="10000"
+                            step="10"
+                            value={event.price ?? 10}
+                            onChange={(e) => {
+                              const newPrice = Number(e.target.value)
+                              handleUpdateEvent(event._id, { price: newPrice })
+                            }}
+                            className="px-3 py-2 border rounded-lg w-32"
+                          />
+                          <button
+                            onClick={() => handleUpdateEvent(event._id, { price: 0 })}
+                            className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+                          >
+                            무료로 설정
+                          </button>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          0원 = 결제 없이 바로 인쇄, 그 외 = 결제 후 인쇄
+                        </p>
                       </div>
 
                       {/* Photo/Logo Ratio Control */}
