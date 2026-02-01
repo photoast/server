@@ -7,15 +7,6 @@ import fs from 'fs/promises'
 // @ts-ignore - heic-convert doesn't have TypeScript definitions
 import convert from 'heic-convert'
 
-// Configure route to handle large file uploads (up to 100MB)
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '100mb',
-    },
-  },
-}
-
 // Next.js App Router configuration
 export const runtime = 'nodejs'
 export const maxDuration = 300 // Maximum execution time in seconds (5 minutes)
