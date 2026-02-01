@@ -77,12 +77,13 @@ export async function POST(request: NextRequest) {
       console.log('[API] Client-rendered image buffer size:', imageBuffer.length, 'bytes')
 
       // Apply printer correction
-      const { applyPrinterCorrection } = await import('@/lib/image-correction')
-      const correctedBuffer = await applyPrinterCorrection(imageBuffer, {
-        canvasWidth: 1200,
-        canvasHeight: 1800,
-        backgroundColor: '#FFFFFF'
-      })
+      // const { applyPrinterCorrection } = await import('@/lib/image-correction')
+      // const correctedBuffer = await applyPrinterCorrection(imageBuffer, {
+      //   canvasWidth: 1200,
+      //   canvasHeight: 1800,
+      //   backgroundColor: '#FFFFFF'
+      // })
+      const correctedBuffer = imageBuffer
 
       console.log('[API] Printer correction applied, final size:', correctedBuffer.length, 'bytes')
 
