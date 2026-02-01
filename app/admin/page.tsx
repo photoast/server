@@ -723,7 +723,7 @@ export default function AdminPage() {
       <div className="max-w-6xl mx-auto">
         <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
           <div className="flex justify-between items-center">
-            <h1 className="text-3xl font-bold">Phost Admin</h1>
+            <h1 className="text-3xl font-bold">Photo Toast Admin</h1>
             <button
               onClick={handleLogout}
               className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"

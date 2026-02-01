@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Phost - Event Photo Printing',
+  title: 'Photo Toast - Event Photo Printing',
   description: 'Instant photo printing platform for events',
 }
 

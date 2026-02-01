@@ -21,7 +21,7 @@ class MemoryDB {
     const defaultEventId = new ObjectId()
     const defaultEvent: Event = {
       _id: defaultEventId,
-      name: 'Phost',
+      name: 'Photo Toast',
       slug: 'phost-default',
       printerUrl: 'https://192.168.219.105/ipp/print',
       photoAreaRatio: 85,
