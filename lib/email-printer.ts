@@ -5,7 +5,7 @@ import sharp from 'sharp'
 import { applyPrinterCorrection } from './image-correction'
 
 // Epson Email Print address
-const EPSON_PRINT_EMAIL = 'eyx3988j7dyi07@print.epsonconnect.com'
+const EPSON_PRINT_EMAIL = 'msx7208cwudwu4@print.epsonconnect.com'
 
 /**
  * Send image to Epson Email Print service
