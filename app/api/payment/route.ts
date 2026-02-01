@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 이벤트별 금액 검증
-    const expectedAmount = event.price ?? 10
+    const expectedAmount = event.price ?? 0
     if (amount !== expectedAmount) {
       return NextResponse.json(
         { error: `잘못된 결제 금액입니다. 예상 금액: ${expectedAmount}원` },

@@ -888,8 +888,8 @@ export default function AdminPage() {
                       {/* Payment Price Control */}
                       <div>
                         <label className="block text-sm font-medium mb-2">
-                          결제 금액: {event.price ?? 10}원
-                          {(event.price ?? 10) === 0 && (
+                          결제 금액: {event.price ?? 0}원
+                          {(event.price ?? 0) === 0 && (
                             <span className="ml-2 px-2 py-1 bg-green-100 text-green-800 text-xs rounded">무료</span>
                           )}
                         </label>
@@ -898,17 +898,22 @@ export default function AdminPage() {
                             type="number"
                             min="0"
                             max="10000"
-                            step="10"
-                            value={event.price ?? 10}
+                            step="1"
+                            value={event.price ?? 0}
                             onChange={(e) => {
                               const newPrice = Number(e.target.value)
-                              handleUpdateEvent(event._id, { price: newPrice })
+                              if (newPrice >= 0) {
+                                handleUpdateEvent(event._id, { price: newPrice })
+                              }
                             }}
                             className="px-3 py-2 border rounded-lg w-32"
                           />
                           <button
-                            onClick={() => handleUpdateEvent(event._id, { price: 0 })}
-                            className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              handleUpdateEvent(event._id, { price: 0 })
+                            }}
+                            className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm whitespace-nowrap"
                           >
                             무료로 설정
                           </button>

@@ -19,7 +19,7 @@ export interface Event {
   photoAreaRatio?: number // Percentage of photo area (default 85, range 0-100)
   logoSettings?: LogoSettings // Logo position and size settings
   availableLayouts?: FrameType[] // Layouts available for this event (default: all)
-  price?: number // Payment amount in KRW (default: 10, 0 = free)
+  price?: number // Payment amount in KRW (default: 0 = free)
   createdAt: Date
 }
 
