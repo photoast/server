@@ -72,27 +72,22 @@ export async function POST(request: NextRequest) {
 
     // Special path: Client-rendered image (single-with-logo only)
     if (preRenderedImage && applyPrinterCorrectionOnly) {
-      console.log('[API] Using client-rendered image, applying printer correction only')
+      console.log('[API] Using client-rendered image (NO printer correction here)')
+      console.log('[API] Printer correction will be applied once at print time to avoid double correction')
       const imageBuffer = Buffer.from(await preRenderedImage.arrayBuffer())
       console.log('[API] Client-rendered image buffer size:', imageBuffer.length, 'bytes')
 
-      // Apply printer correction
+      // DO NOT apply printer correction here!
+      // Correction will be applied in printViaEmail() to avoid DOUBLE correction
       // const { applyPrinterCorrection } = await import('@/lib/image-correction')
-      // const correctedBuffer = await applyPrinterCorrection(imageBuffer, {
-      //   canvasWidth: 1200,
-      //   canvasHeight: 1800,
-      //   backgroundColor: '#FFFFFF'
-      // })
-      const correctedBuffer = imageBuffer
-
-      console.log('[API] Printer correction applied, final size:', correctedBuffer.length, 'bytes')
+      // const correctedBuffer = await applyPrinterCorrection(imageBuffer, {...})
 
       // Return as base64 data URL for Vercel (serverless functions don't share filesystem)
       // This ensures the image is available across different function invocations
-      const base64 = correctedBuffer.toString('base64')
+      const base64 = imageBuffer.toString('base64')
       const dataUrl = `data:image/jpeg;base64,${base64}`
 
-      console.log('[API] Preview converted to data URL, size:', dataUrl.length, 'chars')
+      console.log('[API] Preview converted to data URL (uncorrected), size:', dataUrl.length, 'chars')
 
       return NextResponse.json({ url: dataUrl })
     }

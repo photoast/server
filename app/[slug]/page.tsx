@@ -132,6 +132,210 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   // ============ Event Handlers ============
 
   // Process image handler (defined before useEffect that uses it)
+  // ============================================
+  // 공통 Canvas 렌더링 시스템
+  // ============================================
+
+  interface SlotConfig {
+    x: number
+    y: number
+    width: number
+    height: number
+  }
+
+  interface LayoutConfig {
+    canvas: { width: number; height: number }
+    slots: SlotConfig[]
+  }
+
+  // 레이아웃 설정 상수 (서버와 동일)
+  const LAYOUT_CONFIG = {
+    MARGIN_HORIZONTAL: 20,
+    MARGIN_VERTICAL: 20,
+    GAP: 20,
+  }
+
+  const FOUR_CUT_CONFIG = {
+    MARGIN_OUTER: 13,
+    GAP_CENTER: 26,
+    GAP_BETWEEN_PHOTOS: 13,
+  }
+
+  // 각 레이아웃의 슬롯 배치 정보 (마진과 갭 포함, 서버 렌더링과 동일)
+  const LAYOUT_CONFIGS: Record<string, LayoutConfig> = {
+    'four-cut': (() => {
+      const { MARGIN_OUTER, GAP_CENTER, GAP_BETWEEN_PHOTOS } = FOUR_CUT_CONFIG
+      const stripWidth = Math.round((1200 - (MARGIN_OUTER * 2) - GAP_CENTER) / 2)
+      const stripHeight = 1800 - (MARGIN_OUTER * 2)
+      const totalGapsHeight = GAP_BETWEEN_PHOTOS * 3
+      const photoHeight = Math.round((stripHeight - totalGapsHeight) / 4)
+      const photoWidth = stripWidth
+      const rightStripX = MARGIN_OUTER + stripWidth + GAP_CENTER
+
+      return {
+        canvas: { width: 1200, height: 1800 },
+        slots: [
+          // 왼쪽 스트립 - 4개 사진
+          { x: MARGIN_OUTER, y: MARGIN_OUTER, width: photoWidth, height: photoHeight },
+          { x: MARGIN_OUTER, y: MARGIN_OUTER + photoHeight + GAP_BETWEEN_PHOTOS, width: photoWidth, height: photoHeight },
+          { x: MARGIN_OUTER, y: MARGIN_OUTER + (photoHeight + GAP_BETWEEN_PHOTOS) * 2, width: photoWidth, height: photoHeight },
+          { x: MARGIN_OUTER, y: MARGIN_OUTER + (photoHeight + GAP_BETWEEN_PHOTOS) * 3, width: photoWidth, height: photoHeight },
+          // 오른쪽 스트립 - 4개 사진 (동일하게 복제)
+          { x: rightStripX, y: MARGIN_OUTER, width: photoWidth, height: photoHeight },
+          { x: rightStripX, y: MARGIN_OUTER + photoHeight + GAP_BETWEEN_PHOTOS, width: photoWidth, height: photoHeight },
+          { x: rightStripX, y: MARGIN_OUTER + (photoHeight + GAP_BETWEEN_PHOTOS) * 2, width: photoWidth, height: photoHeight },
+          { x: rightStripX, y: MARGIN_OUTER + (photoHeight + GAP_BETWEEN_PHOTOS) * 3, width: photoWidth, height: photoHeight },
+        ]
+      }
+    })(),
+    'two-by-two': (() => {
+      const { MARGIN_HORIZONTAL, MARGIN_VERTICAL, GAP } = LAYOUT_CONFIG
+      const availableWidth = 1200 - (MARGIN_HORIZONTAL * 2)
+      const availableHeight = 1800 - (MARGIN_VERTICAL * 2)
+      const photoWidth = Math.round((availableWidth - GAP) / 2)
+      const photoHeight = Math.round((availableHeight - GAP) / 2)
+
+      return {
+        canvas: { width: 1200, height: 1800 },
+        slots: [
+          { x: MARGIN_HORIZONTAL, y: MARGIN_VERTICAL, width: photoWidth, height: photoHeight },
+          { x: MARGIN_HORIZONTAL + photoWidth + GAP, y: MARGIN_VERTICAL, width: photoWidth, height: photoHeight },
+          { x: MARGIN_HORIZONTAL, y: MARGIN_VERTICAL + photoHeight + GAP, width: photoWidth, height: photoHeight },
+          { x: MARGIN_HORIZONTAL + photoWidth + GAP, y: MARGIN_VERTICAL + photoHeight + GAP, width: photoWidth, height: photoHeight },
+        ]
+      }
+    })(),
+    'vertical-two': (() => {
+      const { MARGIN_HORIZONTAL, MARGIN_VERTICAL, GAP } = LAYOUT_CONFIG
+      const availableWidth = 1200 - (MARGIN_HORIZONTAL * 2)
+      const availableHeight = 1800 - (MARGIN_VERTICAL * 2)
+      const photoWidth = availableWidth
+      const photoHeight = Math.round((availableHeight - GAP) / 2)
+
+      return {
+        canvas: { width: 1200, height: 1800 },
+        slots: [
+          { x: MARGIN_HORIZONTAL, y: MARGIN_VERTICAL, width: photoWidth, height: photoHeight },
+          { x: MARGIN_HORIZONTAL, y: MARGIN_VERTICAL + photoHeight + GAP, width: photoWidth, height: photoHeight },
+        ]
+      }
+    })(),
+    'one-plus-two': (() => {
+      const { MARGIN_HORIZONTAL, MARGIN_VERTICAL, GAP } = LAYOUT_CONFIG
+      const availableWidth = 1200 - (MARGIN_HORIZONTAL * 2)
+      const availableHeight = 1800 - (MARGIN_VERTICAL * 2)
+      const largePhotoHeight = Math.round((availableHeight - GAP) / 2)
+      const smallPhotoWidth = Math.round((availableWidth - GAP) / 2)
+      const smallPhotoHeight = largePhotoHeight
+
+      return {
+        canvas: { width: 1200, height: 1800 },
+        slots: [
+          { x: MARGIN_HORIZONTAL, y: MARGIN_VERTICAL, width: availableWidth, height: largePhotoHeight },
+          { x: MARGIN_HORIZONTAL, y: MARGIN_VERTICAL + largePhotoHeight + GAP, width: smallPhotoWidth, height: smallPhotoHeight },
+          { x: MARGIN_HORIZONTAL + smallPhotoWidth + GAP, y: MARGIN_VERTICAL + largePhotoHeight + GAP, width: smallPhotoWidth, height: smallPhotoHeight },
+        ]
+      }
+    })(),
+    'landscape-single': {
+      canvas: { width: 1800, height: 1200 },
+      slots: [
+        { x: 0, y: 0, width: 1800, height: 1200 },
+      ]
+    },
+    'landscape-two': (() => {
+      const { MARGIN_HORIZONTAL, MARGIN_VERTICAL, GAP } = LAYOUT_CONFIG
+      const availableWidth = 1800 - (MARGIN_HORIZONTAL * 2)
+      const availableHeight = 1200 - (MARGIN_VERTICAL * 2)
+      const photoWidth = Math.round((availableWidth - GAP) / 2)
+      const photoHeight = availableHeight
+
+      return {
+        canvas: { width: 1800, height: 1200 },
+        slots: [
+          { x: MARGIN_HORIZONTAL, y: MARGIN_VERTICAL, width: photoWidth, height: photoHeight },
+          { x: MARGIN_HORIZONTAL + photoWidth + GAP, y: MARGIN_VERTICAL, width: photoWidth, height: photoHeight },
+        ]
+      }
+    })(),
+    'single': {
+      canvas: { width: 1200, height: 1800 },
+      slots: [
+        { x: 0, y: 0, width: 1200, height: 1800 },
+      ]
+    },
+  }
+
+  // 이미지 로드 헬퍼 함수
+  const loadImage = async (src: string): Promise<HTMLImageElement> => {
+    return new Promise((resolve, reject) => {
+      const img = new window.Image()
+      if (!src.startsWith('blob:') && !src.startsWith('data:') && !src.startsWith('/uploads/')) {
+        img.crossOrigin = 'anonymous'
+      }
+      img.onload = () => resolve(img)
+      img.onerror = () => reject(new Error(`Failed to load image: ${src}`))
+      img.src = src
+    })
+  }
+
+  // Canvas를 Blob으로 변환
+  const canvasToBlob = async (canvas: HTMLCanvasElement, quality = 0.95): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob)
+        else reject(new Error('Failed to create blob from canvas'))
+      }, 'image/jpeg', quality)
+    })
+  }
+
+  // 공통 레이아웃 렌더링 함수
+  const renderLayoutToCanvas = async (layout: FrameType): Promise<Blob> => {
+    const config = LAYOUT_CONFIGS[layout]
+    if (!config) {
+      throw new Error(`Layout config not found: ${layout}`)
+    }
+
+    console.log(`[Canvas] Rendering ${layout} layout...`)
+
+    const canvas = document.createElement('canvas')
+    canvas.width = config.canvas.width
+    canvas.height = config.canvas.height
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('Canvas context not available')
+
+    // 화질 최대 설정
+    ctx.imageSmoothingEnabled = true
+    ctx.imageSmoothingQuality = 'high'
+
+    // 배경색 채우기
+    ctx.fillStyle = backgroundColor
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    console.log(`[Canvas] Background filled: ${backgroundColor}`)
+
+    // 각 슬롯에 사진 그리기
+    for (let i = 0; i < config.slots.length; i++) {
+      const slotConfig = config.slots[i]
+
+      // Four-cut: 오른쪽 스트립(슬롯 4-7)은 왼쪽 스트립(슬롯 0-3)과 동일한 사진 사용
+      const photoIndex = layout === 'four-cut' && i >= 4 ? i - 4 : i
+      const photoSlot = photoSlots[photoIndex]
+
+      if (photoSlot?.croppedImageUrl) {
+        console.log(`[Canvas] Loading photo ${photoIndex + 1} for slot ${i + 1}/${config.slots.length}...`)
+        const img = await loadImage(photoSlot.croppedImageUrl)
+        console.log(`[Canvas] Drawing photo at slot ${i + 1}: (${slotConfig.x}, ${slotConfig.y})`)
+        ctx.drawImage(img, slotConfig.x, slotConfig.y, slotConfig.width, slotConfig.height)
+      }
+    }
+
+    console.log('[Canvas] Converting to blob...')
+    const blob = await canvasToBlob(canvas, 0.95)
+    console.log(`[Canvas] Blob created, size: ${blob.size} bytes`)
+
+    return blob
+  }
+
   // Canvas에서 single-with-logo 레이아웃을 실제 이미지로 렌더링
   const renderSingleWithLogoToCanvas = async (): Promise<Blob> => {
     console.log('[Canvas] Starting canvas rendering...')
@@ -266,130 +470,40 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     setError('')
 
     try {
+      console.log(`[handleProcess] Processing ${frameType} layout with client-side rendering`)
+      logClientInfo('[Mobile] Using client-side Canvas rendering', params.slug, { frameType })
+
+      // 모든 사진이 crop되었는지 확인
+      const expectedPhotoCount = getPhotoCount(frameType)
+      const validPhotos = photoSlots.filter(slot => slot.croppedImageUrl !== null)
+
+      if (validPhotos.length !== expectedPhotoCount) {
+        throw new Error('모든 사진을 선택하고 편집해주세요')
+      }
+
+      // 클라이언트에서 Canvas로 렌더링
+      let imageBlob: Blob
+
+      if (frameType === 'single-with-logo') {
+        // 로고 레이아웃은 특별 처리
+        console.log('[handleProcess] Rendering single-with-logo with Canvas')
+        imageBlob = await renderSingleWithLogoToCanvas()
+      } else {
+        // 다른 모든 레이아웃은 공통 함수 사용
+        console.log(`[handleProcess] Rendering ${frameType} with common Canvas function`)
+        imageBlob = await renderLayoutToCanvas(frameType)
+      }
+
+      console.log('[handleProcess] Canvas rendered, blob size:', imageBlob.size)
+
+      // 서버에 렌더링된 이미지 전송 (프린터 보정만 적용)
       const formData = new FormData()
       formData.append('slug', params.slug)
       formData.append('frameType', frameType)
+      formData.append('preRenderedImage', imageBlob, 'preview.jpg')
+      formData.append('applyPrinterCorrectionOnly', 'true')
 
-      // Special handling for single-with-logo: render on client side
-      if (frameType === 'single-with-logo') {
-        console.log('[handleProcess] single-with-logo: Using client-side Canvas rendering')
-        logClientInfo('[Mobile] Using client-side Canvas rendering', params.slug, { frameType })
-
-        if (!photoSlots[0]?.file || !photoSlots[0]?.croppedImageUrl) {
-          throw new Error('사진을 선택해주세요')
-        }
-
-        // Render preview to canvas and get blob
-        const imageBlob = await renderSingleWithLogoToCanvas()
-        console.log('[handleProcess] Canvas rendered, blob size:', imageBlob.size)
-
-        // Send the rendered image to server for printer correction only
-        formData.append('preRenderedImage', imageBlob, 'preview.jpg')
-        formData.append('applyPrinterCorrectionOnly', 'true')
-      } else if (frameType === 'single' || frameType === 'landscape-single') {
-        // 회전 정보 전송
-        const rotation = photoSlots[0]?.cropSettings?.rotation || 0
-        const logData = {
-          hasFile: !!photoSlots[0]?.file,
-          hasCropArea: !!photoSlots[0]?.cropArea,
-          hasRotation: !!photoSlots[0]?.cropSettings?.rotation,
-          rotation: rotation,
-          cropSettings: photoSlots[0]?.cropSettings,
-          fileName: photoSlots[0]?.file?.name,
-          fileSize: photoSlots[0]?.file?.size,
-          fileType: photoSlots[0]?.file?.type
-        }
-        console.log('[handleProcess] Single photo mode:', logData)
-        console.log('[handleProcess] Rotation value being sent:', rotation)
-        logClientInfo('[Mobile] Starting single photo processing', params.slug, logData)
-
-        if (!photoSlots[0]?.file) {
-          throw new Error('사진을 선택해주세요')
-        }
-        formData.append('photo', photoSlots[0].file)
-        if (photoSlots[0].cropArea) {
-          formData.append('cropArea', JSON.stringify(photoSlots[0].cropArea))
-        }
-        formData.append('rotation', rotation.toString())
-        formData.append('backgroundColor', '#FFFFFF')
-      } else {
-        // Verify all photos exist
-        const validPhotos = photoSlots.filter(slot => slot.file !== null)
-        const logData = {
-          frameType,
-          totalSlots: photoSlots.length,
-          filledSlots: validPhotos.length,
-          croppedSlots: photoSlots.filter(slot => slot.cropArea !== null).length,
-          slotDetails: photoSlots.map((slot, i) => ({
-            index: i,
-            hasFile: !!slot.file,
-            hasCropArea: !!slot.cropArea,
-            hasRotation: !!slot.cropSettings?.rotation,
-            fileName: slot.file?.name,
-            fileSize: slot.file?.size,
-            fileType: slot.file?.type
-          }))
-        }
-        console.log('[handleProcess] Multi-photo mode:', logData)
-        logClientInfo('[Mobile] Starting multi-photo processing', params.slug, logData)
-
-        if (validPhotos.length !== photoSlots.length) {
-          throw new Error('모든 사진을 선택해주세요')
-        }
-
-        // Add all photos to formData
-        let photoCount = 0
-        photoSlots.forEach((slot, index) => {
-          if (slot.file) {
-            formData.append('photos', slot.file)
-            photoCount++
-            console.log(`[handleProcess] Added photo ${index + 1}:`, slot.file.name)
-          }
-        })
-        const cropAreas = photoSlots.map(slot => slot.cropArea)
-        formData.append('cropAreas', JSON.stringify(cropAreas))
-        // 회전 정보 배열 전송
-        const rotations = photoSlots.map(slot => slot.cropSettings?.rotation || 0)
-        formData.append('rotations', JSON.stringify(rotations))
-        formData.append('backgroundColor', backgroundColor)
-        console.log(`[handleProcess] Added ${photoCount} photos to FormData`)
-        console.log('[handleProcess] Rotations being sent:', rotations)
-        console.log('[handleProcess] CropSettings per slot:', photoSlots.map(s => s.cropSettings))
-        logClientInfo('[Mobile] FormData prepared', params.slug, { photoCount, backgroundColor, rotations })
-      }
-
-      // If single-with-logo layout and logo exists, convert logoUrl to base64
-      // Only do this in production/Vercel environment where logoUrl might not be accessible
-      if (frameType === 'single-with-logo' && event?.logoUrl) {
-        // Check if we're in production (Vercel) by checking if logoUrl starts with /api/serve-image/
-        const isVercelLogo = event.logoUrl.startsWith('/api/serve-image/')
-
-        if (isVercelLogo) {
-          // In Vercel, convert logo to base64 to send to API
-          try {
-            console.log('[handleProcess] Fetching logo from:', event.logoUrl)
-            const logoResponse = await fetch(event.logoUrl)
-            if (logoResponse.ok) {
-              const logoBlob = await logoResponse.blob()
-              const logoBase64 = await new Promise<string>((resolve) => {
-                const reader = new FileReader()
-                reader.onloadend = () => resolve(reader.result as string)
-                reader.readAsDataURL(logoBlob)
-              })
-              formData.append('logoBase64', logoBase64)
-              console.log('[handleProcess] Logo converted to base64 and added to FormData')
-            } else {
-              console.warn('[handleProcess] Failed to fetch logo:', logoResponse.status)
-            }
-          } catch (logoErr) {
-            console.error('[handleProcess] Error fetching logo:', logoErr)
-            // Continue without logo if fetch fails
-          }
-        } else {
-          // In local development, logo is accessible via /uploads/, no need to convert
-          console.log('[handleProcess] Using local logo URL (no conversion needed):', event.logoUrl)
-        }
-      }
+      // 모든 레이아웃이 클라이언트에서 렌더링되므로 서버는 프린터 보정만 담당
 
       console.log('[handleProcess] Sending request to /api/process-image')
       logClientInfo('[Mobile] Sending fetch request', params.slug, { frameType })
