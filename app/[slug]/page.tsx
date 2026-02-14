@@ -90,6 +90,9 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   const [printing, setPrinting] = useState(false)
   const [error, setError] = useState('')
   const [printQuantity, setPrintQuantity] = useState(1)
+  const [puzzlePieces, setPuzzlePieces] = useState<Blob[]>([])
+  const [puzzlePieceUrls, setPuzzlePieceUrls] = useState<string[]>([])
+  const [puzzleAnimationSplit, setPuzzleAnimationSplit] = useState(false)
 
   // Payment state
   const [paymentWidgets, setPaymentWidgets] = useState<TossPaymentsWidgets | null>(null)
@@ -129,6 +132,17 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     }
     fetchEvent()
   }, [params.slug])
+
+  // Auto-animate puzzle pieces (split/combine)
+  useEffect(() => {
+    if (puzzlePieceUrls.length > 0) {
+      const interval = setInterval(() => {
+        setPuzzleAnimationSplit(prev => !prev)
+      }, 2500) // Toggle every 2.5 seconds
+
+      return () => clearInterval(interval)
+    }
+  }, [puzzlePieceUrls.length])
 
   // ============ Event Handlers ============
 
@@ -466,6 +480,76 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     })
   }
 
+  // 퍼즐 레이아웃 렌더링 (1장의 사진을 여러 조각으로 분할)
+  const renderPuzzleToCanvases = async (gridSize: 2 | 3): Promise<Blob[]> => {
+    console.log(`[Puzzle] Rendering ${gridSize}x${gridSize} puzzle...`)
+
+    const photoSlot = photoSlots[0]
+    if (!photoSlot?.croppedImageUrl) {
+      throw new Error('사진을 선택하고 편집해주세요')
+    }
+
+    // 원본 사진 로드
+    const sourceImg = await loadImage(photoSlot.croppedImageUrl)
+    console.log(`[Puzzle] Source image loaded: ${sourceImg.width}x${sourceImg.height}`)
+
+    const CANVAS_WIDTH = 1200
+    const CANVAS_HEIGHT = 1800
+    const pieceCount = gridSize * gridSize
+
+    // 원본 이미지의 각 조각 크기
+    const pieceWidth = sourceImg.width / gridSize
+    const pieceHeight = sourceImg.height / gridSize
+
+    console.log(`[Puzzle] Piece dimensions: ${pieceWidth}x${pieceHeight}`)
+    console.log(`[Puzzle] Creating ${pieceCount} pieces...`)
+
+    const blobs: Blob[] = []
+
+    // 각 조각을 개별 캔버스로 렌더링
+    for (let row = 0; row < gridSize; row++) {
+      for (let col = 0; col < gridSize; col++) {
+        const pieceIndex = row * gridSize + col
+        console.log(`[Puzzle] Rendering piece ${pieceIndex + 1}/${pieceCount} (row=${row}, col=${col})`)
+
+        // 새 캔버스 생성
+        const canvas = document.createElement('canvas')
+        canvas.width = CANVAS_WIDTH
+        canvas.height = CANVAS_HEIGHT
+        const ctx = canvas.getContext('2d')
+        if (!ctx) throw new Error('Canvas context not available')
+
+        ctx.imageSmoothingEnabled = true
+        ctx.imageSmoothingQuality = 'high'
+
+        // 배경색 채우기
+        ctx.fillStyle = backgroundColor
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
+
+        // 원본 이미지에서 이 조각에 해당하는 부분 추출
+        const sourceX = col * pieceWidth
+        const sourceY = row * pieceHeight
+
+        // 전체 캔버스에 확대하여 그리기
+        ctx.drawImage(
+          sourceImg,
+          sourceX, sourceY, pieceWidth, pieceHeight,  // 소스 영역
+          0, 0, CANVAS_WIDTH, CANVAS_HEIGHT           // 대상 영역 (전체 캔버스)
+        )
+
+        console.log(`[Puzzle] Piece ${pieceIndex + 1}: source=(${sourceX},${sourceY},${pieceWidth},${pieceHeight})`)
+
+        // Blob으로 변환
+        const blob = await canvasToBlob(canvas, 0.95)
+        blobs.push(blob)
+        console.log(`[Puzzle] Piece ${pieceIndex + 1} converted to blob: ${blob.size} bytes`)
+      }
+    }
+
+    console.log(`[Puzzle] All ${pieceCount} pieces rendered successfully`)
+    return blobs
+  }
+
   const handleProcess = useCallback(async () => {
     setProcessing(true)
     setError('')
@@ -482,7 +566,49 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         throw new Error('모든 사진을 선택하고 편집해주세요')
       }
 
-      // 클라이언트에서 Canvas로 렌더링
+      // 퍼즐 레이아웃 처리
+      if (frameType === 'puzzle-2x2' || frameType === 'puzzle-3x3') {
+        const gridSize = frameType === 'puzzle-2x2' ? 2 : 3
+        console.log(`[handleProcess] Rendering ${gridSize}x${gridSize} puzzle`)
+
+        const pieces = await renderPuzzleToCanvases(gridSize)
+        setPuzzlePieces(pieces)
+
+        // 각 조각의 미리보기 URL 생성
+        const pieceUrls = pieces.map(piece => URL.createObjectURL(piece))
+        setPuzzlePieceUrls(pieceUrls)
+
+        // 미리보기용: 모든 조각을 하나의 그리드 이미지로 결합
+        const previewCanvas = document.createElement('canvas')
+        const previewSize = 600 // 미리보기 크기
+        previewCanvas.width = previewSize
+        previewCanvas.height = previewSize
+        const ctx = previewCanvas.getContext('2d')
+        if (!ctx) throw new Error('Canvas context not available')
+
+        ctx.fillStyle = backgroundColor
+        ctx.fillRect(0, 0, previewSize, previewSize)
+
+        const pieceSize = previewSize / gridSize
+
+        for (let row = 0; row < gridSize; row++) {
+          for (let col = 0; col < gridSize; col++) {
+            const pieceIndex = row * gridSize + col
+            const img = await loadImage(pieceUrls[pieceIndex])
+            ctx.drawImage(img, col * pieceSize, row * pieceSize, pieceSize, pieceSize)
+          }
+        }
+
+        const previewBlob = await canvasToBlob(previewCanvas, 0.85)
+        const previewDataUrl = URL.createObjectURL(previewBlob)
+        setPreviewUrl(previewDataUrl)
+
+        console.log(`[handleProcess] Puzzle preview created, ${pieces.length} pieces ready`)
+        setProcessing(false)
+        return
+      }
+
+      // 클라이언트에서 Canvas로 렌더링 (일반 레이아웃)
       let imageBlob: Blob
 
       if (frameType === 'single-with-logo') {
@@ -861,6 +987,40 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     if (!previewUrl) return
 
     try {
+      // Generate timestamp for filenames
+      const now = new Date()
+      const timestamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`
+      const layoutName = (LAYOUT_OPTIONS.find(l => l.type === frameType)?.nameEn || frameType).replace(/\s+/g, '-').toLowerCase()
+
+      // 퍼즐 레이아웃: 모든 조각 다운로드
+      if (frameType === 'puzzle-2x2' || frameType === 'puzzle-3x3') {
+        if (puzzlePieces.length === 0) {
+          throw new Error('퍼즐 조각이 생성되지 않았습니다')
+        }
+
+        console.log(`[Download] Downloading ${puzzlePieces.length} puzzle pieces`)
+
+        // 각 조각을 순차적으로 다운로드
+        for (let i = 0; i < puzzlePieces.length; i++) {
+          const url = window.URL.createObjectURL(puzzlePieces[i])
+          const link = document.createElement('a')
+          link.href = url
+          link.download = `phost_${layoutName}_piece-${i + 1}_${timestamp}.jpg`
+
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
+          window.URL.revokeObjectURL(url)
+
+          // 다운로드 간 짧은 딜레이 (브라우저가 여러 다운로드를 처리할 시간)
+          await new Promise(resolve => setTimeout(resolve, 100))
+        }
+
+        console.log(`[Download] All ${puzzlePieces.length} pieces downloaded`)
+        return
+      }
+
+      // 일반 레이아웃: 기존 로직
       let blob: Blob
 
       // Handle data URL (Vercel environment)
@@ -887,11 +1047,6 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-
-      // Generate safe filename with timestamp (mobile-friendly)
-      const now = new Date()
-      const timestamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`
-      const layoutName = (LAYOUT_OPTIONS.find(l => l.type === frameType)?.nameEn || frameType).replace(/\s+/g, '-').toLowerCase()
       link.download = `phost_${layoutName}_${timestamp}.jpg`
 
       // Trigger download
@@ -919,6 +1074,55 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     setError('')
 
     try {
+      // 퍼즐 레이아웃: 각 조각을 개별 프린트
+      if (frameType === 'puzzle-2x2' || frameType === 'puzzle-3x3') {
+        if (puzzlePieces.length === 0) {
+          throw new Error('퍼즐 조각이 생성되지 않았습니다')
+        }
+
+        console.log(`[Print] Printing ${puzzlePieces.length} puzzle pieces, ${printQuantity} copy(ies) each`)
+
+        const totalJobs = puzzlePieces.length * printQuantity
+        console.log(`[Print] Total print jobs: ${totalJobs}`)
+
+        // 각 조각을 프린트 (수량만큼 반복)
+        for (let copy = 0; copy < printQuantity; copy++) {
+          for (let i = 0; i < puzzlePieces.length; i++) {
+            console.log(`[Print] Sending puzzle piece ${i + 1}/${puzzlePieces.length}, copy ${copy + 1}/${printQuantity}`)
+
+            // Blob을 data URL로 변환
+            const reader = new FileReader()
+            const dataUrl = await new Promise<string>((resolve, reject) => {
+              reader.onload = () => resolve(reader.result as string)
+              reader.onerror = reject
+              reader.readAsDataURL(puzzlePieces[i])
+            })
+
+            const res = await fetch('/api/print', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                slug: params.slug,
+                imageUrl: dataUrl,
+                quantity: 1, // 각 조각은 1장씩
+              }),
+            })
+
+            if (!res.ok) {
+              const data = await res.json()
+              throw new Error(`Piece ${i + 1} failed: ${data.error || 'Print failed'}`)
+            }
+
+            console.log(`[Print] Piece ${i + 1}/${puzzlePieces.length}, copy ${copy + 1}/${printQuantity} sent successfully`)
+          }
+        }
+
+        console.log(`[Print] All ${totalJobs} puzzle pieces sent successfully`)
+        setStep('success')
+        return
+      }
+
+      // 일반 레이아웃: 기존 로직
       const res = await fetch('/api/print', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1121,6 +1325,9 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   }, [step, previewUrl])
 
   const handleReset = () => {
+    // Clean up puzzle piece URLs
+    puzzlePieceUrls.forEach(url => URL.revokeObjectURL(url))
+
     setStep('select-layout')
     setFrameType('single')
     setBackgroundColor('#000000')
@@ -1128,6 +1335,8 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     setPreviewUrl(null)
     setError('')
     setPrintQuantity(1)
+    setPuzzlePieces([])
+    setPuzzlePieceUrls([])
   }
 
   // ============ Render Helpers ============
@@ -1156,6 +1365,9 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         return <VerticalTwoPreview {...baseProps} />
       case 'one-plus-two':
         return <OnePlusTwoPreview {...baseProps} />
+      case 'puzzle-2x2':
+      case 'puzzle-3x3':
+        return <SinglePhotoPreview {...baseProps} />
       default:
         return null
     }
@@ -1173,7 +1385,9 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       'vertical-two': 'grid-cols-1 grid-rows-2',
       'one-plus-two': 'grid-cols-2 grid-rows-2',
       'four-cut': 'grid-cols-1 grid-rows-4',
-      'two-by-two': 'grid-cols-2 grid-rows-2'
+      'two-by-two': 'grid-cols-2 grid-rows-2',
+      'puzzle-2x2': 'grid-cols-2 grid-rows-2',
+      'puzzle-3x3': 'grid-cols-3 grid-rows-3'
     }
 
     const getCells = (): { colspan?: number, rowspan?: number }[] => {
@@ -1186,6 +1400,8 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         case 'one-plus-two': return [{ colspan: 2 }, {}, {}]
         case 'four-cut': return [{}, {}, {}, {}]
         case 'two-by-two': return [{}, {}, {}, {}]
+        case 'puzzle-2x2': return [{}, {}, {}, {}]
+        case 'puzzle-3x3': return [{}, {}, {}, {}, {}, {}, {}, {}, {}]
         default: return []
       }
     }
@@ -1426,6 +1642,16 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                       ✂️ 중앙을 세로로 자르면 2개의 동일한 스트립
                     </p>
                   )}
+                  {frameType === 'puzzle-2x2' && (
+                    <p className="text-center text-xs text-purple-600 mt-2">
+                      🧩 4조각으로 나눠져 인쇄됩니다 • 조립하면 2배 확대!
+                    </p>
+                  )}
+                  {frameType === 'puzzle-3x3' && (
+                    <p className="text-center text-xs text-purple-600 mt-2">
+                      🧩 9조각으로 나눠져 인쇄됩니다 • 조립하면 3배 확대!
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -1445,13 +1671,80 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                 </div>
               )}
 
+              {/* Puzzle Pieces Preview with Animation */}
+              {(frameType === 'puzzle-2x2' || frameType === 'puzzle-3x3') && puzzlePieceUrls.length > 0 && (
+                <div className="bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200 rounded-2xl p-4">
+                  <h4 className="text-sm font-semibold text-gray-800 mb-3 text-center">
+                    🧩 인쇄될 퍼즐 조각들 (총 {puzzlePieceUrls.length}조각)
+                  </h4>
+                  <div className="relative w-full" style={{ paddingBottom: '150%' }}>
+                    {puzzlePieceUrls.map((url, index) => {
+                      const gridSize = frameType === 'puzzle-2x2' ? 2 : 3
+                      const row = Math.floor(index / gridSize)
+                      const col = index % gridSize
+
+                      // Combined position (perfectly aligned, no gap)
+                      const combinedX = col * (100 / gridSize)
+                      const combinedY = row * (100 / gridSize)
+
+                      // Split position (spread out from center)
+                      const spreadFactor = puzzleAnimationSplit ? 1.08 : 1 // 8% spread when split (subtle)
+                      const centerOffset = (gridSize - 1) / 2
+                      const splitX = combinedX + (col - centerOffset) * 5 * (spreadFactor - 1)
+                      const splitY = combinedY + (row - centerOffset) * 5 * (spreadFactor - 1)
+
+                      return (
+                        <div
+                          key={index}
+                          className="absolute transition-all duration-1000 ease-in-out"
+                          style={{
+                            width: `${100 / gridSize}%`,
+                            height: `${100 / gridSize}%`,
+                            left: `${puzzleAnimationSplit ? splitX : combinedX}%`,
+                            top: `${puzzleAnimationSplit ? splitY : combinedY}%`,
+                            transform: `scale(${puzzleAnimationSplit ? 0.98 : 1})`,
+                          }}
+                        >
+                          <div className="relative w-full h-full" style={{
+                            padding: puzzleAnimationSplit ? '2px' : '0px',
+                            transition: 'padding 1000ms ease-in-out'
+                          }}>
+                            <div
+                              className="relative bg-white overflow-hidden shadow-lg h-full transition-all duration-1000"
+                              style={{
+                                borderRadius: puzzleAnimationSplit ? '8px' : '0px',
+                                border: puzzleAnimationSplit ? '2px solid rgb(192, 132, 252)' : '0px solid transparent',
+                              }}
+                            >
+                              <img
+                                src={url}
+                                alt={`퍼즐 조각 ${index + 1}`}
+                                className="w-full h-full object-cover"
+                              />
+                              <div className="absolute top-1 right-1 bg-purple-600 text-white text-xs font-bold px-2 py-1 rounded-full shadow-md">
+                                {index + 1}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <p className="text-xs text-gray-500 text-center mt-3">
+                    {puzzleAnimationSplit ? '📤 각 조각이 개별 인쇄됩니다' : '🧩 조립하면 하나의 큰 사진!'}
+                  </p>
+                </div>
+              )}
+
               {/* Action Buttons */}
               <div className="space-y-3">
                 {/* Print Quantity Selector */}
                 {allSlotsFilled && previewUrl && !processing && (
                   <div className="bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-200 rounded-2xl p-4">
                     <div className="flex items-center justify-between">
-                      <span className="text-gray-700 font-semibold">인쇄 매수</span>
+                      <span className="text-gray-700 font-semibold">
+                        {frameType === 'puzzle-2x2' || frameType === 'puzzle-3x3' ? '퍼즐 세트 수' : '인쇄 매수'}
+                      </span>
                       <div className="flex items-center gap-3">
                         <button
                           onClick={() => setPrintQuantity(Math.max(1, printQuantity - 1))}
@@ -1473,7 +1766,12 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                       </div>
                     </div>
                     <p className="text-xs text-gray-500 text-center mt-2">
-                      최대 10매까지 선택 가능합니다
+                      {frameType === 'puzzle-2x2'
+                        ? `최대 10세트 (총 ${printQuantity * 4}장)`
+                        : frameType === 'puzzle-3x3'
+                        ? `최대 10세트 (총 ${printQuantity * 9}장)`
+                        : '최대 10매까지 선택 가능합니다'
+                      }
                     </p>
                   </div>
                 )}

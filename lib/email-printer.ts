@@ -16,29 +16,40 @@ export async function printViaEmail(
   imagePath: string
 ): Promise<{ success: boolean; error?: string; printedImageBase64?: string }> {
   try {
+    // Check if SEND_MAIL is disabled (for local testing)
+    const sendMailEnabled = process.env.SEND_MAIL !== 'false'
+
     // Validate image file exists
     if (!fs.existsSync(imagePath)) {
       throw new Error(`Image file not found: ${imagePath}`)
     }
 
-    // Get SMTP configuration from environment variables
-    const smtpHost = process.env.SMTP_HOST
-    const smtpPort = parseInt(process.env.SMTP_PORT || '587')
-    const smtpUser = process.env.SMTP_USER
-    const smtpPass = process.env.SMTP_PASS
-    const smtpFrom = process.env.SMTP_FROM || smtpUser
-
-    if (!smtpHost || !smtpUser || !smtpPass) {
-      throw new Error('SMTP configuration missing. Please set SMTP_HOST, SMTP_USER, and SMTP_PASS in .env file')
-    }
-
     console.log('\n====================================')
-    console.log('Email Print Job Request')
+    console.log(sendMailEnabled ? 'Email Print Job Request' : 'Email Print SKIPPED (SEND_MAIL=false)')
     console.log('====================================')
     console.log(`Image: ${imagePath}`)
-    console.log(`Printer Email: ${EPSON_PRINT_EMAIL}`)
-    console.log(`SMTP Server: ${smtpHost}:${smtpPort}`)
-    console.log(`From: ${smtpFrom}`)
+    if (sendMailEnabled) {
+      console.log(`Printer Email: ${EPSON_PRINT_EMAIL}`)
+    }
+
+    // Get SMTP configuration from environment variables (only if sending email)
+    let smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom
+    if (sendMailEnabled) {
+      smtpHost = process.env.SMTP_HOST
+      smtpPort = parseInt(process.env.SMTP_PORT || '587')
+      smtpUser = process.env.SMTP_USER
+      smtpPass = process.env.SMTP_PASS
+      smtpFrom = process.env.SMTP_FROM || smtpUser
+
+      if (!smtpHost || !smtpUser || !smtpPass) {
+        throw new Error('SMTP configuration missing. Please set SMTP_HOST, SMTP_USER, and SMTP_PASS in .env file')
+      }
+
+      console.log(`SMTP Server: ${smtpHost}:${smtpPort}`)
+      console.log(`From: ${smtpFrom}`)
+    } else {
+      console.log('로컬 테스트 모드: 이미지 처리만 수행하고 SMTP는 건너뜁니다')
+    }
 
     // Step 1: Read the original image and detect dimensions
     console.log(`\nStep 1: Reading original image and detecting dimensions`)
@@ -95,6 +106,17 @@ export async function printViaEmail(
     console.log(`보정 이미지 저장: ${correctedPath}`)
     console.log(`주의: 다운로드는 원본, 프린트는 보정된 이미지 사용`)
 
+    // Return the corrected image as base64 for print history
+    const printedImageBase64 = `data:image/jpeg;base64,${correctedBuffer.toString('base64')}`
+
+    // Skip email sending if SEND_MAIL is disabled
+    if (!sendMailEnabled) {
+      console.log('\n이미지 처리 완료 (output 저장됨)')
+      console.log('SEND_MAIL=false이므로 실제 프린트는 건너뜁니다')
+      console.log('====================================\n')
+      return { success: true, printedImageBase64 }
+    }
+
     // Create nodemailer transporter
     const transporter = nodemailer.createTransport({
       host: smtpHost,
@@ -129,9 +151,6 @@ export async function printViaEmail(
     console.log('Email sent successfully')
     console.log(`Message ID: ${info.messageId}`)
     console.log('====================================\n')
-
-    // Return the corrected image as base64 for print history
-    const printedImageBase64 = `data:image/jpeg;base64,${correctedBuffer.toString('base64')}`
 
     return { success: true, printedImageBase64 }
   } catch (error: any) {

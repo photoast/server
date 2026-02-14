@@ -65,6 +65,20 @@ export const LAYOUT_OPTIONS: LayoutOption[] = [
     nameEn: '2×2 Grid',
     description: '4장 그리드',
     photoCount: 4
+  },
+  {
+    type: 'puzzle-2x2',
+    name: '🧩 퍼즐 2×2',
+    nameEn: 'Puzzle 2×2',
+    description: '1장 → 4조각 퍼즐',
+    photoCount: 1
+  },
+  {
+    type: 'puzzle-3x3',
+    name: '🧩 퍼즐 3×3',
+    nameEn: 'Puzzle 3×3',
+    description: '1장 → 9조각 퍼즐',
+    photoCount: 1
   }
 ]
 
@@ -135,6 +149,9 @@ export function getCropAspectRatio(type: FrameType, hasLogo: boolean = false, ph
     const topPhotoWidth = availableWidth
     const topPhotoHeight = Math.round((availableHeight - GAP) / 2)
     baseRatio = topPhotoWidth / topPhotoHeight
+  } else if (type === 'puzzle-2x2' || type === 'puzzle-3x3') {
+    // Puzzle: crop to full 4x6 aspect ratio (photo will be divided later)
+    baseRatio = canvasWidth / canvasHeight
   } else {
     // Single photo default (no logo)
     baseRatio = canvasWidth / canvasHeight
