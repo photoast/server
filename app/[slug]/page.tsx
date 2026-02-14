@@ -89,6 +89,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   const [processing, setProcessing] = useState(false)
   const [printing, setPrinting] = useState(false)
   const [error, setError] = useState('')
+  const [printQuantity, setPrintQuantity] = useState(1)
 
   // Payment state
   const [paymentWidgets, setPaymentWidgets] = useState<TossPaymentsWidgets | null>(null)
@@ -924,6 +925,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         body: JSON.stringify({
           slug: params.slug,
           imageUrl: previewUrl,
+          quantity: printQuantity,
         }),
       })
 
@@ -939,6 +941,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       logClientError('Failed to print image', err, params.slug, {
         previewUrl,
         frameType,
+        quantity: printQuantity,
       })
     } finally {
       setPrinting(false)
@@ -949,7 +952,8 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   const handleGoToPayment = async () => {
     if (!previewUrl) return
 
-    const paymentAmount = event?.price ?? 0
+    const unitPrice = event?.price ?? 0
+    const paymentAmount = unitPrice * printQuantity
 
     // 무료 (0원)인 경우 결제 단계 건너뛰고 바로 프린트
     if (paymentAmount === 0) {
@@ -968,7 +972,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       // 위젯 초기화 (비회원 결제)
       const widgets = tossPayments.widgets({ customerKey: ANONYMOUS_CUSTOMER_KEY })
 
-      // 결제 금액 설정 (이벤트별 금액)
+      // 결제 금액 설정 (단가 × 수량)
       await widgets.setAmount({
         currency: 'KRW',
         value: paymentAmount,
@@ -1123,6 +1127,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     setPhotoSlots([])
     setPreviewUrl(null)
     setError('')
+    setPrintQuantity(1)
   }
 
   // ============ Render Helpers ============
@@ -1442,6 +1447,37 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
               {/* Action Buttons */}
               <div className="space-y-3">
+                {/* Print Quantity Selector */}
+                {allSlotsFilled && previewUrl && !processing && (
+                  <div className="bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-200 rounded-2xl p-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-700 font-semibold">인쇄 매수</span>
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => setPrintQuantity(Math.max(1, printQuantity - 1))}
+                          disabled={printing || printQuantity <= 1}
+                          className="w-10 h-10 rounded-full bg-white border-2 border-purple-300 text-purple-600 font-bold text-xl hover:bg-purple-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          −
+                        </button>
+                        <span className="text-2xl font-bold text-purple-600 min-w-[3rem] text-center">
+                          {printQuantity}
+                        </span>
+                        <button
+                          onClick={() => setPrintQuantity(Math.min(10, printQuantity + 1))}
+                          disabled={printing || printQuantity >= 10}
+                          className="w-10 h-10 rounded-full bg-white border-2 border-purple-300 text-purple-600 font-bold text-xl hover:bg-purple-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500 text-center mt-2">
+                      최대 10매까지 선택 가능합니다
+                    </p>
+                  </div>
+                )}
+
                 {/* Download & Payment Buttons - Side by side */}
                 {allSlotsFilled && previewUrl && !processing && (
                   <div className="flex gap-3">
@@ -1463,7 +1499,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                       </svg>
-                      {printing ? '처리 중...' : (event?.price ?? 0) === 0 ? '무료 프린트' : `${event?.price}원 결제하기`}
+                      {printing ? '처리 중...' : (event?.price ?? 0) === 0 ? `무료 프린트 ${printQuantity}매` : `${(event?.price ?? 0) * printQuantity}원 결제하기`}
                     </button>
                   </div>
                 )}
@@ -1500,8 +1536,8 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                 </h2>
                 <p className="text-sm text-gray-500">
                   {(event?.price ?? 0) === 0
-                    ? '무료로 프린트 하실 수 있습니다'
-                    : `프린트 비용 ${event?.price}원을 결제해주세요`
+                    ? `${printQuantity}매 무료로 프린트 하실 수 있습니다`
+                    : `${printQuantity}매 프린트 비용을 결제해주세요`
                   }
                 </p>
               </div>
@@ -1521,13 +1557,35 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
               )}
 
               {/* 결제 금액 */}
-              <div className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-2xl p-4 text-center">
-                <p className="text-sm text-gray-600 mb-1">
-                  {(event?.price ?? 0) === 0 ? '프린트 비용' : '결제 금액'}
-                </p>
-                <p className="text-3xl font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
-                  {(event?.price ?? 0) === 0 ? '무료' : `${event?.price}원`}
-                </p>
+              <div className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-2xl p-4">
+                {(event?.price ?? 0) === 0 ? (
+                  <div className="text-center">
+                    <p className="text-sm text-gray-600 mb-1">프린트 비용</p>
+                    <p className="text-3xl font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
+                      무료
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">{printQuantity}매</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-sm text-gray-600">
+                      <span>단가</span>
+                      <span>{event?.price}원</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm text-gray-600">
+                      <span>수량</span>
+                      <span>{printQuantity}매</span>
+                    </div>
+                    <div className="border-t border-purple-200 pt-2 mt-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">총 결제 금액</span>
+                        <p className="text-2xl font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
+                          {(event?.price ?? 0) * printQuantity}원
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* 토스페이먼츠 위젯 */}
@@ -1594,7 +1652,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                   완성되었어요!
                 </h2>
                 <p className="text-gray-600 mb-6 font-medium">
-                  소중한 추억이 프린터로 전송되었어요 💕<br />
+                  소중한 추억 {printQuantity}매가 프린터로 전송되었어요 💕<br />
                   <span className="text-sm">곧 멋진 사진을 받아보실 수 있어요!</span>
                 </p>
                 <button
