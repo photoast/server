@@ -59,9 +59,19 @@ export async function renderSingleWithLogoToCanvas(
       let logoY = 0
 
       if (position === 'custom' && logoSettings.x !== undefined && logoSettings.y !== undefined) {
-        // Custom position
-        logoX = (logoSettings.x / 100) * CANVAS_WIDTH - logoWidth / 2
-        logoY = photoHeight + (logoSettings.y / 100) * logoAreaHeight - logoHeight / 2
+        // Custom position - matching client CSS calculation
+        // Client CSS: left: ${logoX}%, top: ${photoAreaRatio + (logoY * logoAreaHeight / 100)}%, transform: translate(-50%, -50%)
+        // We need to convert % to pixels, then apply the same transform
+        const leftPercent = logoSettings.x
+        const topPercent = photoAreaRatio + (logoSettings.y * (100 - photoAreaRatio) / 100)
+
+        // Convert % to pixels
+        const leftPx = (leftPercent / 100) * CANVAS_WIDTH
+        const topPx = (topPercent / 100) * CANVAS_HEIGHT
+
+        // Apply transform: translate(-50%, -50%) - center the logo on the position
+        logoX = leftPx - logoWidth / 2
+        logoY = topPx - logoHeight / 2
       } else {
         // Preset positions
         const [vertical, horizontal] = position.split('-')

@@ -933,7 +933,7 @@ export default function AdminPage() {
                                 {loadingPreviews[event._id] ? 'Loading...' : 'Refresh'}
                               </button>
                             </div>
-                            <div className="relative w-full aspect-[1000/1500] bg-gray-100 border-2 border-gray-300 rounded shadow-lg overflow-hidden">
+                            <div className="relative w-3/4 mx-auto aspect-[1000/1500] bg-gray-100 border-2 border-gray-300 rounded shadow-lg overflow-hidden">
                               {previewUrls[event._id] ? (
                                 <Image
                                   key={previewUrls[event._id]}
