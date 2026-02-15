@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import QRCode from 'qrcode'
 import { logClientError } from '@/lib/errorLogger'
+import { renderSingleWithLogoToCanvas } from '@/lib/canvas-renderer'
 
 interface LogoSettings {
   position: 'top-left' | 'top-center' | 'top-right' | 'center-left' | 'center' | 'center-right' | 'bottom-left' | 'bottom-center' | 'bottom-right' | 'custom'
@@ -373,21 +374,15 @@ export default function AdminPage() {
     setLoadingPreviews(prev => ({ ...prev, [eventId]: true }))
 
     try {
-      // Add timestamp to prevent caching
-      const res = await fetch('/api/preview-logo', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          logoUrl: event.logoUrl,
-          photoAreaRatio: event.photoAreaRatio ?? 85,
-          logoSettings: event.logoSettings,
-          timestamp: Date.now(), // Force new request
-        }),
-      })
+      console.log('[Admin] Generating Canvas preview for event:', eventId)
 
-      if (!res.ok) throw new Error('Failed to generate preview')
-
-      const blob = await res.blob()
+      // Use Canvas rendering (same as user page)
+      const blob = await renderSingleWithLogoToCanvas(
+        '/sample-photo.jpg', // Sample photo from public folder
+        event.logoUrl,
+        event.photoAreaRatio ?? 85,
+        event.logoSettings || { position: 'bottom-center', size: 80 }
+      )
 
       // Revoke old URL if exists
       if (previewUrls[eventId]) {
@@ -923,129 +918,213 @@ export default function AdminPage() {
                         </p>
                       </div>
 
-                      {/* Photo/Logo Ratio Control */}
-                      <div>
-                        <label className="block text-sm font-medium mb-2">
-                          Photo Area Ratio: {photoRatio}%
-                          <span className="text-gray-500 ml-2">(Logo: {100 - photoRatio}%)</span>
-                        </label>
-                        <input
-                          type="range"
-                          min="50"
-                          max="100"
-                          value={photoRatio}
-                          onChange={(e) => debouncedUpdatePhotoRatio(event._id, Number(e.target.value))}
-                          className="w-full"
-                        />
-                      </div>
-
-                      {/* Logo Settings */}
+                      {/* Logo Preview & Settings - 2 Column Layout */}
                       {event.logoUrl && (
-                        <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-6 border-t pt-4">
+                          {/* Left: Preview */}
                           <div>
-                            <label className="block text-sm font-medium mb-2">
-                              Logo Position:
-                            </label>
-                            <select
-                              value={logoSettings.position}
-                              onChange={(e) => {
-                                const newPosition = e.target.value as LogoSettings['position']
-                                if (newPosition === 'custom') {
-                                  handleUpdateLogoSettings(event._id, {
-                                    ...logoSettings,
-                                    position: 'custom',
-                                    x: 50,
-                                    y: 50
-                                  })
-                                } else {
-                                  handleUpdateLogoSettings(event._id, {
-                                    ...logoSettings,
-                                    position: newPosition
-                                  })
-                                }
-                              }}
-                              className="w-full px-3 py-2 border rounded-lg text-sm"
-                            >
-                              <option value="top-left">Top Left</option>
-                              <option value="top-center">Top Center</option>
-                              <option value="top-right">Top Right</option>
-                              <option value="center-left">Center Left</option>
-                              <option value="center">Center</option>
-                              <option value="center-right">Center Right</option>
-                              <option value="bottom-left">Bottom Left</option>
-                              <option value="bottom-center">Bottom Center</option>
-                              <option value="bottom-right">Bottom Right</option>
-                              <option value="custom">Custom (Drag to position)</option>
-                            </select>
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="text-sm font-medium">Preview (102×152mm):</p>
+                              <button
+                                onClick={() => generatePreview(event)}
+                                disabled={loadingPreviews[event._id]}
+                                className="text-xs px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                              >
+                                {loadingPreviews[event._id] ? 'Loading...' : 'Refresh'}
+                              </button>
+                            </div>
+                            <div className="relative w-full aspect-[1000/1500] bg-gray-100 border-2 border-gray-300 rounded shadow-lg overflow-hidden">
+                              {previewUrls[event._id] ? (
+                                <Image
+                                  key={previewUrls[event._id]}
+                                  src={previewUrls[event._id]}
+                                  alt="Preview"
+                                  fill
+                                  className="object-cover"
+                                  unoptimized
+                                />
+                              ) : (
+                                <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm px-4 text-center">
+                                  Click &quot;Refresh&quot; to see preview
+                                </div>
+                              )}
+                              {loadingPreviews[event._id] && (
+                                <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center">
+                                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                                </div>
+                              )}
+
+                              {/* Draggable overlay for custom position mode */}
+                              {logoSettings.position === 'custom' && previewUrls[event._id] && !loadingPreviews[event._id] && (
+                                <div
+                                  className="absolute inset-0 cursor-move"
+                                  onMouseDown={(e) => {
+                                    e.preventDefault()
+                                    const container = e.currentTarget
+                                    const rect = container.getBoundingClientRect()
+
+                                    const logoAreaHeight = rect.height * ((100 - photoRatio) / 100)
+                                    const logoAreaTop = rect.height * (photoRatio / 100)
+
+                                    const handleMouseMove = (moveEvent: MouseEvent) => {
+                                      const relativeY = moveEvent.clientY - rect.top - logoAreaTop
+                                      const relativeX = moveEvent.clientX - rect.left
+
+                                      const percentX = Math.max(0, Math.min(100, (relativeX / rect.width) * 100))
+                                      const percentY = Math.max(0, Math.min(100, (relativeY / logoAreaHeight) * 100))
+
+                                      handleUpdateLogoSettings(event._id, {
+                                        ...logoSettings,
+                                        x: Math.round(percentX * 10) / 10,
+                                        y: Math.round(percentY * 10) / 10
+                                      }, false)
+                                    }
+
+                                    const handleMouseUp = () => {
+                                      document.removeEventListener('mousemove', handleMouseMove)
+                                      document.removeEventListener('mouseup', handleMouseUp)
+                                      setTimeout(() => generatePreview(event), 100)
+                                    }
+
+                                    document.addEventListener('mousemove', handleMouseMove)
+                                    document.addEventListener('mouseup', handleMouseUp)
+                                  }}
+                                >
+                                  <div className="absolute inset-0 bg-blue-400 bg-opacity-0 hover:bg-opacity-10 transition-all">
+                                    <div className="absolute top-2 left-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded pointer-events-none">
+                                      Drag to position logo
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {logoSettings.position === 'custom' ? 'Drag on preview to position logo' : 'Adjust settings on the right →'}
+                            </p>
                           </div>
 
-                          {logoSettings.position === 'custom' && (
-                            <div className="space-y-3">
-                              <div className="text-sm text-blue-600 bg-blue-50 p-2 rounded">
-                                💡 Drag the logo in the preview or enter values below
-                              </div>
-
-                              <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                  <label className="block text-xs font-medium mb-1">
-                                    X Position (%):
-                                  </label>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    max="100"
-                                    step="1"
-                                    value={Math.round(logoSettings.x ?? 50)}
-                                    onChange={(e) => debouncedUpdateLogoSettings(event._id, {
-                                      ...logoSettings,
-                                      x: Number(e.target.value)
-                                    })}
-                                    className="w-full px-2 py-1 border rounded text-sm"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-medium mb-1">
-                                    Y Position (%):
-                                  </label>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    max="100"
-                                    step="1"
-                                    value={Math.round(logoSettings.y ?? 50)}
-                                    onChange={(e) => debouncedUpdateLogoSettings(event._id, {
-                                      ...logoSettings,
-                                      y: Number(e.target.value)
-                                    })}
-                                    className="w-full px-2 py-1 border rounded text-sm"
-                                  />
-                                </div>
-                              </div>
+                          {/* Right: Logo Controls */}
+                          <div className="space-y-4">
+                            {/* Photo/Logo Ratio Control */}
+                            <div>
+                              <label className="block text-sm font-medium mb-2">
+                                Photo Area Ratio: {photoRatio}%
+                                <span className="text-gray-500 ml-2">(Logo: {100 - photoRatio}%)</span>
+                              </label>
+                              <input
+                                type="range"
+                                min="50"
+                                max="100"
+                                value={photoRatio}
+                                onChange={(e) => debouncedUpdatePhotoRatio(event._id, Number(e.target.value))}
+                                className="w-full"
+                              />
                             </div>
-                          )}
 
-                          <div>
-                            <label className="block text-sm font-medium mb-2">
-                              Logo Size: {logoSettings.size}%
-                              <span className="text-xs text-gray-500 ml-2">(of image width)</span>
-                            </label>
-                            <input
-                              type="range"
-                              min="5"
-                              max="300"
-                              step="1"
-                              value={logoSettings.size}
-                              onChange={(e) => debouncedUpdateLogoSettings(event._id, {
-                                ...logoSettings,
-                                size: Number(e.target.value)
-                              })}
-                              className="w-full"
-                            />
-                            <div className="flex justify-between text-xs text-gray-400 mt-1">
-                              <span>5%</span>
-                              <span>100%</span>
-                              <span>200%</span>
-                              <span>300%</span>
+                            <div>
+                              <label className="block text-sm font-medium mb-2">
+                                Logo Position:
+                              </label>
+                              <select
+                                value={logoSettings.position}
+                                onChange={(e) => {
+                                  const newPosition = e.target.value as LogoSettings['position']
+                                  if (newPosition === 'custom') {
+                                    handleUpdateLogoSettings(event._id, {
+                                      ...logoSettings,
+                                      position: 'custom',
+                                      x: 50,
+                                      y: 50
+                                    })
+                                  } else {
+                                    handleUpdateLogoSettings(event._id, {
+                                      ...logoSettings,
+                                      position: newPosition
+                                    })
+                                  }
+                                }}
+                                className="w-full px-3 py-2 border rounded-lg text-sm"
+                              >
+                                <option value="top-left">Top Left</option>
+                                <option value="top-center">Top Center</option>
+                                <option value="top-right">Top Right</option>
+                                <option value="center-left">Center Left</option>
+                                <option value="center">Center</option>
+                                <option value="center-right">Center Right</option>
+                                <option value="bottom-left">Bottom Left</option>
+                                <option value="bottom-center">Bottom Center</option>
+                                <option value="bottom-right">Bottom Right</option>
+                                <option value="custom">Custom (Drag)</option>
+                              </select>
+                            </div>
+
+                            {logoSettings.position === 'custom' && (
+                              <div className="space-y-3">
+                                <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
+                                  💡 Drag logo in preview or enter values
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <label className="block text-xs font-medium mb-1">
+                                      X Position (%):
+                                    </label>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max="100"
+                                      step="1"
+                                      value={Math.round(logoSettings.x ?? 50)}
+                                      onChange={(e) => debouncedUpdateLogoSettings(event._id, {
+                                        ...logoSettings,
+                                        x: Number(e.target.value)
+                                      })}
+                                      className="w-full px-2 py-1 border rounded text-sm"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium mb-1">
+                                      Y Position (%):
+                                    </label>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max="100"
+                                      step="1"
+                                      value={Math.round(logoSettings.y ?? 50)}
+                                      onChange={(e) => debouncedUpdateLogoSettings(event._id, {
+                                        ...logoSettings,
+                                        y: Number(e.target.value)
+                                      })}
+                                      className="w-full px-2 py-1 border rounded text-sm"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            <div>
+                              <label className="block text-sm font-medium mb-2">
+                                Logo Size: {logoSettings.size}%
+                              </label>
+                              <input
+                                type="range"
+                                min="5"
+                                max="300"
+                                step="1"
+                                value={logoSettings.size}
+                                onChange={(e) => debouncedUpdateLogoSettings(event._id, {
+                                  ...logoSettings,
+                                  size: Number(e.target.value)
+                                })}
+                                className="w-full"
+                              />
+                              <div className="flex justify-between text-xs text-gray-400 mt-1">
+                                <span>5%</span>
+                                <span>100%</span>
+                                <span>200%</span>
+                                <span>300%</span>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -1123,96 +1202,6 @@ export default function AdminPage() {
                             : '모든 레이아웃 활성화됨'}
                         </p>
                       </div>
-
-                      {/* Preview with exact 102x152mm ratio */}
-                      {event.logoUrl && (
-                        <div>
-                          <div className="flex items-center justify-between mb-2">
-                            <p className="text-sm font-medium">Preview (102×152mm):</p>
-                            <button
-                              onClick={() => generatePreview(event)}
-                              disabled={loadingPreviews[event._id]}
-                              className="text-xs px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-                            >
-                              {loadingPreviews[event._id] ? 'Loading...' : 'Refresh Preview'}
-                            </button>
-                          </div>
-                          <div className="relative w-48 aspect-[1000/1500] bg-gray-100 border-2 border-gray-300 rounded shadow-lg overflow-hidden">
-                            {previewUrls[event._id] ? (
-                              <Image
-                                key={previewUrls[event._id]} // Force re-render when URL changes
-                                src={previewUrls[event._id]}
-                                alt="Preview"
-                                fill
-                                className="object-cover"
-                                unoptimized
-                              />
-                            ) : (
-                              <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm px-4 text-center">
-                                Click &quot;Refresh Preview&quot; to see actual result
-                              </div>
-                            )}
-                            {loadingPreviews[event._id] && (
-                              <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                              </div>
-                            )}
-
-                            {/* Draggable overlay for custom position mode */}
-                            {logoSettings.position === 'custom' && previewUrls[event._id] && !loadingPreviews[event._id] && (
-                              <div
-                                className="absolute inset-0 cursor-move"
-                                onMouseDown={(e) => {
-                                  e.preventDefault()
-                                  const container = e.currentTarget
-                                  const rect = container.getBoundingClientRect()
-
-                                  // Calculate logo area (bottom portion)
-                                  const logoAreaHeight = rect.height * ((100 - photoRatio) / 100)
-                                  const logoAreaTop = rect.height * (photoRatio / 100)
-
-                                  const handleMouseMove = (moveEvent: MouseEvent) => {
-                                    // Get position relative to logo area
-                                    const relativeY = moveEvent.clientY - rect.top - logoAreaTop
-                                    const relativeX = moveEvent.clientX - rect.left
-
-                                    // Convert to percentage
-                                    const percentX = Math.max(0, Math.min(100, (relativeX / rect.width) * 100))
-                                    const percentY = Math.max(0, Math.min(100, (relativeY / logoAreaHeight) * 100))
-
-                                    // Update settings without auto-refresh
-                                    handleUpdateLogoSettings(event._id, {
-                                      ...logoSettings,
-                                      x: Math.round(percentX * 10) / 10,
-                                      y: Math.round(percentY * 10) / 10
-                                    }, false)
-                                  }
-
-                                  const handleMouseUp = () => {
-                                    document.removeEventListener('mousemove', handleMouseMove)
-                                    document.removeEventListener('mouseup', handleMouseUp)
-
-                                    // Refresh preview after drag ends
-                                    setTimeout(() => generatePreview(event), 100)
-                                  }
-
-                                  document.addEventListener('mousemove', handleMouseMove)
-                                  document.addEventListener('mouseup', handleMouseUp)
-                                }}
-                              >
-                                <div className="absolute inset-0 bg-blue-400 bg-opacity-0 hover:bg-opacity-10 transition-all">
-                                  <div className="absolute top-2 left-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded pointer-events-none">
-                                    Drag to position logo
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                          <p className="text-xs text-gray-500 mt-1">
-                            {logoSettings.position === 'custom' ? 'Drag on preview to position logo, or use inputs above' : 'Actual preview using your logo settings'}
-                          </p>
-                        </div>
-                      )}
                     </div>
 
                     <div className="flex flex-col gap-2">

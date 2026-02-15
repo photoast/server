@@ -21,6 +21,7 @@ import {
 import { LAYOUT_OPTIONS, getPhotoCount, getCropAspectRatioForSlot } from './layoutConfig'
 import type { FrameType } from '@/lib/types'
 import { logClientError, logClientInfo } from '@/lib/errorLogger'
+import { renderSingleWithLogoToCanvas } from '@/lib/canvas-renderer'
 
 interface Event {
   name: string
@@ -351,135 +352,6 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     return blob
   }
 
-  // Canvas에서 single-with-logo 레이아웃을 실제 이미지로 렌더링
-  const renderSingleWithLogoToCanvas = async (): Promise<Blob> => {
-    console.log('[Canvas] Starting canvas rendering...')
-    const canvas = document.createElement('canvas')
-    const CANVAS_WIDTH = 1200
-    const CANVAS_HEIGHT = 1800
-    canvas.width = CANVAS_WIDTH
-    canvas.height = CANVAS_HEIGHT
-    const ctx = canvas.getContext('2d')
-    if (!ctx) throw new Error('Canvas context not available')
-
-    const photoAreaRatio = event?.photoAreaRatio ?? 85
-    const logoSettings = event?.logoSettings || { position: 'bottom-center', size: 80 }
-
-    const photoHeight = Math.round(CANVAS_HEIGHT * (photoAreaRatio / 100))
-    const logoAreaHeight = CANVAS_HEIGHT - photoHeight
-
-    console.log('[Canvas] Settings:', { photoAreaRatio, logoSettings, photoHeight, logoAreaHeight })
-
-    // 1. Fill white background
-    ctx.fillStyle = '#FFFFFF'
-    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
-
-    // 2. Draw photo
-    const photoSlot = photoSlots[0]
-    if (photoSlot?.croppedImageUrl) {
-      console.log('[Canvas] Loading photo image...')
-      const photoImg = await new Promise<HTMLImageElement>((resolve, reject) => {
-        const img = new window.Image()
-        img.crossOrigin = 'anonymous'
-        img.onload = () => {
-          console.log('[Canvas] Photo loaded:', img.width, 'x', img.height)
-          resolve(img)
-        }
-        img.onerror = (e) => {
-          console.error('[Canvas] Photo load error:', e)
-          reject(new Error('Failed to load photo image'))
-        }
-        img.src = photoSlot.croppedImageUrl!
-      })
-      ctx.drawImage(photoImg, 0, 0, CANVAS_WIDTH, photoHeight)
-      console.log('[Canvas] Photo drawn')
-    }
-
-    // 3. Draw logo
-    if (event?.logoUrl) {
-      console.log('[Canvas] Loading logo image:', event.logoUrl)
-      try {
-        const logoImg = await new Promise<HTMLImageElement>((resolve, reject) => {
-          const img = new window.Image()
-          // Don't set crossOrigin for same-origin requests (local /uploads/)
-          if (!event.logoUrl!.startsWith('/uploads/')) {
-            img.crossOrigin = 'anonymous'
-          }
-          img.onload = () => {
-            console.log('[Canvas] Logo loaded:', img.width, 'x', img.height)
-            resolve(img)
-          }
-          img.onerror = (e) => {
-            console.error('[Canvas] Logo load error:', e)
-            reject(new Error(`Failed to load logo image: ${event.logoUrl}`))
-          }
-          img.src = event.logoUrl!
-        })
-
-        const logoSize = logoSettings.size || 80
-        const position = logoSettings.position || 'bottom-center'
-
-        // Calculate logo size based on full width (matching client CSS)
-        const requestedLogoWidth = CANVAS_WIDTH * (logoSize / 100)
-        const logoAspectRatio = logoImg.width / logoImg.height
-        const logoWidth = requestedLogoWidth
-        const logoHeight = requestedLogoWidth / logoAspectRatio
-
-        let logoX = 0
-        let logoY = 0
-
-        if (position === 'custom' && logoSettings.x !== undefined && logoSettings.y !== undefined) {
-          // Custom position
-          logoX = (logoSettings.x / 100) * CANVAS_WIDTH - logoWidth / 2
-          logoY = photoHeight + (logoSettings.y / 100) * logoAreaHeight - logoHeight / 2
-        } else {
-          // Preset positions
-          const [vertical, horizontal] = position.split('-')
-          const PADDING = 8
-
-          // Horizontal
-          if (horizontal === 'left') {
-            logoX = PADDING
-          } else if (horizontal === 'center') {
-            logoX = (CANVAS_WIDTH - logoWidth) / 2
-          } else if (horizontal === 'right') {
-            logoX = CANVAS_WIDTH - logoWidth - PADDING
-          }
-
-          // Vertical (within logo area)
-          if (vertical === 'top') {
-            logoY = photoHeight + PADDING
-          } else if (vertical === 'center') {
-            logoY = photoHeight + (logoAreaHeight - logoHeight) / 2
-          } else if (vertical === 'bottom') {
-            logoY = CANVAS_HEIGHT - logoHeight - PADDING
-          }
-        }
-
-        console.log('[Canvas] Drawing logo at:', { logoX, logoY, logoWidth, logoHeight, position })
-        ctx.drawImage(logoImg, logoX, logoY, logoWidth, logoHeight)
-        console.log('[Canvas] Logo drawn')
-      } catch (logoError) {
-        console.error('[Canvas] Failed to draw logo:', logoError)
-        // Continue without logo - don't fail the entire render
-      }
-    }
-
-    // Convert canvas to blob
-    console.log('[Canvas] Converting to blob...')
-    return new Promise((resolve, reject) => {
-      canvas.toBlob((blob) => {
-        if (blob) {
-          console.log('[Canvas] Blob created, size:', blob.size)
-          resolve(blob)
-        } else {
-          console.error('[Canvas] Failed to create blob')
-          reject(new Error('Failed to create blob from canvas'))
-        }
-      }, 'image/jpeg', 0.95)
-    })
-  }
-
   // 퍼즐 레이아웃 렌더링 (1장의 사진을 여러 조각으로 분할)
   const renderPuzzleToCanvases = async (gridSize: 2 | 3): Promise<Blob[]> => {
     console.log(`[Puzzle] Rendering ${gridSize}x${gridSize} puzzle...`)
@@ -612,9 +484,18 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       let imageBlob: Blob
 
       if (frameType === 'single-with-logo') {
-        // 로고 레이아웃은 특별 처리
+        // 로고 레이아웃은 공통 함수 사용
         console.log('[handleProcess] Rendering single-with-logo with Canvas')
-        imageBlob = await renderSingleWithLogoToCanvas()
+        const photoSlot = photoSlots[0]
+        if (!photoSlot?.croppedImageUrl) {
+          throw new Error('사진을 선택하고 편집해주세요')
+        }
+        imageBlob = await renderSingleWithLogoToCanvas(
+          photoSlot.croppedImageUrl,
+          event?.logoUrl,
+          event?.photoAreaRatio ?? 85,
+          event?.logoSettings || { position: 'bottom-center', size: 80 }
+        )
       } else {
         // 다른 모든 레이아웃은 공통 함수 사용
         console.log(`[handleProcess] Rendering ${frameType} with common Canvas function`)
