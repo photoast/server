@@ -98,6 +98,14 @@ export async function processImage(
     return processSingleImage(singleBuffer, singleCropArea, logoPath, logoSettings, photoAreaRatio, singleRotation, false)
   }
 
+  // Handle single frame with logo overlay (photo 100%, logo on top)
+  if (frameType === 'single-with-logo-overlay') {
+    const singleBuffer = Array.isArray(inputBuffer) ? inputBuffer[0] : inputBuffer
+    const singleCropArea = Array.isArray(cropArea) ? cropArea[0] : cropArea
+    const singleRotation = Array.isArray(rotation) ? rotation[0] : (rotation || 0)
+    return processSingleImage(singleBuffer, singleCropArea, logoPath, logoSettings, 100, singleRotation, false)
+  }
+
   // Handle landscape-single (6x4 single photo)
   if (frameType === 'landscape-single') {
     const singleBuffer = Array.isArray(inputBuffer) ? inputBuffer[0] : inputBuffer
@@ -210,9 +218,10 @@ async function processSingleImage(
 
   const composites: any[] = []
 
-  // If logo exists, add it FIRST (lower z-index)
-  console.log(`[processSingleImage] Logo path provided: ${logoPath}, logoHeight: ${logoHeight}`)
-  if (logoPath && logoHeight > 0) {
+  // If logo exists, add it
+  const isOverlayMode = ratio === 100 && logoPath
+  console.log(`[processSingleImage] Logo path provided: ${logoPath}, logoHeight: ${logoHeight}, isOverlayMode: ${isOverlayMode}`)
+  if (logoPath && (logoHeight > 0 || isOverlayMode)) {
     try {
       let logoBuffer: Buffer
 
@@ -287,13 +296,19 @@ async function processSingleImage(
         let top = photoHeight
 
         if (position === 'custom' && logoSettings?.x !== undefined && logoSettings?.y !== undefined) {
-          // Use custom position (percentage of logo area)
-          // Position is center-based, so we need to offset by half the logo size
-          const centerX = Math.round((logoSettings.x / 100) * outputWidth)
-          const centerY = photoHeight + Math.round((logoSettings.y / 100) * logoHeight)
-
-          left = centerX - Math.round(logoWidth / 2)
-          top = centerY - Math.round(actualLogoHeight / 2)
+          if (isOverlayMode) {
+            // Overlay mode: x and y are direct percentages of full canvas
+            const centerX = Math.round((logoSettings.x / 100) * outputWidth)
+            const centerY = Math.round((logoSettings.y / 100) * outputHeight)
+            left = centerX - Math.round(logoWidth / 2)
+            top = centerY - Math.round(actualLogoHeight / 2)
+          } else {
+            // Logo area mode: position within logo area below photo
+            const centerX = Math.round((logoSettings.x / 100) * outputWidth)
+            const centerY = photoHeight + Math.round((logoSettings.y / 100) * logoHeight)
+            left = centerX - Math.round(logoWidth / 2)
+            top = centerY - Math.round(actualLogoHeight / 2)
+          }
         } else {
           // Parse position string
           const [vertical, horizontal] = position.split('-')
@@ -310,13 +325,25 @@ async function processSingleImage(
             left = outputWidth - logoWidth - PADDING // Right padding
           }
 
-          // Calculate vertical position within logo area
-          if (vertical === 'top') {
-            top = photoHeight + PADDING // Top of logo area with padding
-          } else if (vertical === 'center') {
-            top = photoHeight + Math.round((logoHeight - actualLogoHeight) / 2)
-          } else if (vertical === 'bottom') {
-            top = outputHeight - actualLogoHeight - PADDING // Bottom with padding
+          // Calculate vertical position
+          if (isOverlayMode) {
+            // Overlay mode: position relative to full canvas
+            if (vertical === 'top') {
+              top = PADDING
+            } else if (vertical === 'center') {
+              top = Math.round((outputHeight - actualLogoHeight) / 2)
+            } else if (vertical === 'bottom') {
+              top = outputHeight - actualLogoHeight - PADDING
+            }
+          } else {
+            // Logo area mode: position within logo area below photo
+            if (vertical === 'top') {
+              top = photoHeight + PADDING
+            } else if (vertical === 'center') {
+              top = photoHeight + Math.round((logoHeight - actualLogoHeight) / 2)
+            } else if (vertical === 'bottom') {
+              top = outputHeight - actualLogoHeight - PADDING
+            }
           }
         }
 
@@ -326,14 +353,29 @@ async function processSingleImage(
         left = Math.max(-logoWidth, Math.min(left, outputWidth))
         top = Math.max(0, Math.min(top, outputHeight))
 
-        composites.push({
-          input: resizedLogoBuffer,
-          top,
-          left,
-        })
+        if (isOverlayMode) {
+          // Overlay mode: photo first, then logo on top
+          composites.push({
+            input: photoBuffer,
+            top: 0,
+            left: 0,
+          })
+          composites.push({
+            input: resizedLogoBuffer,
+            top,
+            left,
+          })
+        } else {
+          // Normal mode: logo first (below), photo on top
+          composites.push({
+            input: resizedLogoBuffer,
+            top,
+            left,
+          })
+        }
 
         console.log(`[Logo Debug] Final dimensions - logoWidth: ${logoWidth}px, actualLogoHeight: ${actualLogoHeight}px`)
-        console.log(`[Logo Debug] Final position - left: ${left}px, top: ${top}px (position: ${position})`)
+        console.log(`[Logo Debug] Final position - left: ${left}px, top: ${top}px (position: ${position}, overlay: ${isOverlayMode})`)
         console.log(`[Logo Debug] Canvas - outputWidth: ${outputWidth}px, outputHeight: ${outputHeight}px, photoHeight: ${photoHeight}px, logoHeight: ${logoHeight}px`)
       }
     } catch (error) {
@@ -344,12 +386,22 @@ async function processSingleImage(
     console.log(`[processSingleImage] Logo NOT added. logoPath=${logoPath}, logoHeight=${logoHeight}`)
   }
 
-  // Add photo LAST (higher z-index) so it covers any logo that extends into photo area
-  composites.push({
-    input: photoBuffer,
-    top: 0,
-    left: 0,
-  })
+  // Add photo if not already added (overlay mode adds it above)
+  if (!isOverlayMode) {
+    // Normal mode: Add photo LAST (higher z-index) so it covers any logo that extends into photo area
+    composites.push({
+      input: photoBuffer,
+      top: 0,
+      left: 0,
+    })
+  } else if (composites.length === 0) {
+    // Overlay mode but no logo was added (error case): just add photo
+    composites.push({
+      input: photoBuffer,
+      top: 0,
+      left: 0,
+    })
+  }
 
   finalImage = finalImage.composite(composites)
 

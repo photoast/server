@@ -22,6 +22,7 @@ interface Event {
   logoBase64?: string
   photoAreaRatio?: number
   logoSettings?: LogoSettings
+  overlayLogoSettings?: LogoSettings
   availableLayouts?: string[]
   price?: number
   createdAt: string
@@ -79,7 +80,9 @@ export default function AdminPage() {
 
   // Preview states
   const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({})
+  const [overlayPreviewUrls, setOverlayPreviewUrls] = useState<Record<string, string>>({})
   const [loadingPreviews, setLoadingPreviews] = useState<Record<string, boolean>>({})
+  const [loadingOverlayPreviews, setLoadingOverlayPreviews] = useState<Record<string, boolean>>({})
   const [showGrid, setShowGrid] = useState<Record<string, boolean>>({})
 
   // Debounce timers
@@ -94,6 +97,9 @@ export default function AdminPage() {
     events.forEach(event => {
       if (event.logoUrl && !previewUrls[event._id] && !loadingPreviews[event._id]) {
         generatePreview(event)
+      }
+      if (event.logoUrl && !overlayPreviewUrls[event._id] && !loadingOverlayPreviews[event._id]) {
+        generateOverlayPreview(event)
       }
     })
   }, [events])
@@ -337,6 +343,54 @@ export default function AdminPage() {
     setDebounceTimers(prev => ({ ...prev, [eventId]: timer }))
   }
 
+  const handleUpdateOverlayLogoSettings = async (eventId: string, overlayLogoSettings: LogoSettings, autoRefreshPreview = true) => {
+    try {
+      const updateRes = await fetch(`/api/events/${eventId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ overlayLogoSettings }),
+      })
+
+      if (!updateRes.ok) throw new Error('Failed to update overlay logo settings')
+
+      await fetchEvents()
+
+      if (autoRefreshPreview) {
+        const updatedEvent = events.find(e => e._id === eventId)
+        if (updatedEvent) {
+          setTimeout(() => generateOverlayPreview({ ...updatedEvent, overlayLogoSettings }), 300)
+        }
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to update overlay logo settings')
+    }
+  }
+
+  const debouncedUpdateOverlayLogoSettings = (eventId: string, overlayLogoSettings: LogoSettings, autoRefreshPreview = true) => {
+    const timerKey = `overlay-${eventId}`
+    if (debounceTimers[timerKey]) {
+      clearTimeout(debounceTimers[timerKey])
+    }
+
+    const currentEvent = events.find(e => e._id === eventId)
+
+    setEvents(prevEvents =>
+      prevEvents.map(e =>
+        e._id === eventId ? { ...e, overlayLogoSettings } : e
+      )
+    )
+
+    if (autoRefreshPreview && currentEvent) {
+      generateOverlayPreview({ ...currentEvent, overlayLogoSettings })
+    }
+
+    const timer = setTimeout(() => {
+      handleUpdateOverlayLogoSettings(eventId, overlayLogoSettings, false)
+    }, 500)
+
+    setDebounceTimers(prev => ({ ...prev, [timerKey]: timer }))
+  }
+
   const debouncedUpdatePhotoRatio = (eventId: string, ratio: number) => {
     const timerKey = `ratio-${eventId}`
 
@@ -403,6 +457,33 @@ export default function AdminPage() {
       })
     } finally {
       setLoadingPreviews(prev => ({ ...prev, [eventId]: false }))
+    }
+  }
+
+  const generateOverlayPreview = async (event: Event) => {
+    const eventId = event._id
+    if (!event.logoUrl) return
+
+    setLoadingOverlayPreviews(prev => ({ ...prev, [eventId]: true }))
+
+    try {
+      const blob = await renderSingleWithLogoToCanvas(
+        '/sample-photo.jpg',
+        event.logoUrl,
+        100, // overlay mode: photo 100%
+        event.overlayLogoSettings || { position: 'bottom-center', size: 80 }
+      )
+
+      if (overlayPreviewUrls[eventId]) {
+        URL.revokeObjectURL(overlayPreviewUrls[eventId])
+      }
+
+      const url = URL.createObjectURL(blob)
+      setOverlayPreviewUrls(prev => ({ ...prev, [eventId]: url }))
+    } catch (err: any) {
+      console.error('Overlay preview error:', err)
+    } finally {
+      setLoadingOverlayPreviews(prev => ({ ...prev, [eventId]: false }))
     }
   }
 
@@ -784,6 +865,7 @@ export default function AdminPage() {
             {events.map((event) => {
               const photoRatio = event.photoAreaRatio ?? 85
               const logoSettings = event.logoSettings || { position: 'custom' as const, size: 80, x: 50, y: 50 }
+              const overlaySettings = event.overlayLogoSettings || { position: 'bottom-center' as const, size: 80 }
               const isEditingName = editingEventId === event._id && editingField === 'name'
               const isEditingPrinter = editingEventId === event._id && editingField === 'printer'
 
@@ -916,6 +998,80 @@ export default function AdminPage() {
                         </div>
                         <p className="text-xs text-gray-500 mt-1">
                           0원 = 결제 없이 바로 인쇄, 그 외 = 결제 후 인쇄
+                        </p>
+                      </div>
+
+                      {/* Available Layouts Selection */}
+                      <div className="border-t pt-4">
+                        <label className="block text-sm font-medium mb-2">
+                          노출할 레이아웃 선택:
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {(() => {
+                            const allLayoutTypes = [
+                              { type: 'single', name: '일반 1장 (4×6)' },
+                              { type: 'single-with-logo', name: '로고 포함 1장 (4×6)' },
+                              { type: 'single-with-logo-overlay', name: '로고 오버레이 1장 (4×6)' },
+                              { type: 'landscape-single', name: '가로 1장 (6×4)' },
+                              { type: 'landscape-two', name: '가로 2장 (6×4)' },
+                              { type: 'vertical-two', name: '세로 2장 (4×6)' },
+                              { type: 'one-plus-two', name: '1+2 레이아웃 (4×6)' },
+                              { type: 'four-cut', name: '1*4 네컷 (4×6)' },
+                              { type: 'two-by-two', name: '2×2 그리드 (4×6)' },
+                            ]
+
+                            return allLayoutTypes.map((layout) => {
+                              const availableLayouts = event.availableLayouts || []
+                              const isChecked = availableLayouts.length === 0 || availableLayouts.includes(layout.type)
+
+                              return (
+                                <label
+                                  key={layout.type}
+                                  className="flex items-center gap-2 p-2 border rounded hover:bg-gray-50 cursor-pointer"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={(e) => {
+                                      const currentLayouts = event.availableLayouts || []
+                                      let newLayouts: string[]
+
+                                      if (e.target.checked) {
+                                        // Add layout
+                                        if (currentLayouts.length === 0) {
+                                          // If currently showing all (empty array), just add this one
+                                          newLayouts = [layout.type]
+                                        } else {
+                                          // Add to existing array
+                                          newLayouts = [...currentLayouts.filter(l => l !== layout.type), layout.type]
+                                        }
+                                      } else {
+                                        // Remove layout
+                                        if (currentLayouts.length === 0) {
+                                          // If currently showing all, create array with all except this one
+                                          newLayouts = allLayoutTypes
+                                            .map(l => l.type)
+                                            .filter(t => t !== layout.type)
+                                        } else {
+                                          // Remove from existing array
+                                          newLayouts = currentLayouts.filter(l => l !== layout.type)
+                                        }
+                                      }
+
+                                      handleUpdateEvent(event._id, { availableLayouts: newLayouts })
+                                    }}
+                                    className="rounded"
+                                  />
+                                  <span className="text-sm">{layout.name}</span>
+                                </label>
+                              )
+                            })
+                          })()}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2">
+                          {event.availableLayouts && event.availableLayouts.length > 0
+                            ? `${event.availableLayouts.length}개 레이아웃 선택됨`
+                            : '모든 레이아웃 활성화됨'}
                         </p>
                       </div>
 
@@ -1163,78 +1319,191 @@ export default function AdminPage() {
                         </div>
                       )}
 
-                      {/* Available Layouts Selection */}
-                      <div className="border-t pt-4">
-                        <label className="block text-sm font-medium mb-2">
-                          노출할 레이아웃 선택:
-                        </label>
-                        <div className="grid grid-cols-2 gap-2">
-                          {(() => {
-                            const allLayoutTypes = [
-                              { type: 'single', name: '일반 1장 (4×6)' },
-                              { type: 'single-with-logo', name: '로고 포함 1장 (4×6)' },
-                              { type: 'landscape-single', name: '가로 1장 (6×4)' },
-                              { type: 'landscape-two', name: '가로 2장 (6×4)' },
-                              { type: 'vertical-two', name: '세로 2장 (4×6)' },
-                              { type: 'one-plus-two', name: '1+2 레이아웃 (4×6)' },
-                              { type: 'four-cut', name: '1*4 네컷 (4×6)' },
-                              { type: 'two-by-two', name: '2×2 그리드 (4×6)' },
-                            ]
-
-                            return allLayoutTypes.map((layout) => {
-                              const availableLayouts = event.availableLayouts || []
-                              const isChecked = availableLayouts.length === 0 || availableLayouts.includes(layout.type)
-
-                              return (
-                                <label
-                                  key={layout.type}
-                                  className="flex items-center gap-2 p-2 border rounded hover:bg-gray-50 cursor-pointer"
+                      {/* Overlay Logo Settings - separate from normal logo */}
+                      {event.logoUrl && (
+                        <div className="border-t pt-4">
+                          <h4 className="text-sm font-bold mb-3 text-purple-700">오버레이 로고 설정 (사진 위에 로고)</h4>
+                          <div className="grid grid-cols-2 gap-6">
+                            {/* Left: Overlay Preview */}
+                            <div>
+                              <div className="flex items-center justify-between mb-2">
+                                <p className="text-sm font-medium">Overlay Preview:</p>
+                                <button
+                                  onClick={() => generateOverlayPreview(event)}
+                                  disabled={loadingOverlayPreviews[event._id]}
+                                  className="text-xs px-3 py-1 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50"
                                 >
-                                  <input
-                                    type="checkbox"
-                                    checked={isChecked}
-                                    onChange={(e) => {
-                                      const currentLayouts = event.availableLayouts || []
-                                      let newLayouts: string[]
+                                  {loadingOverlayPreviews[event._id] ? 'Loading...' : 'Refresh'}
+                                </button>
+                              </div>
+                              <div className="relative w-3/4 mx-auto aspect-[1000/1500] bg-gray-100 border-2 border-purple-300 rounded shadow-lg overflow-hidden">
+                                {overlayPreviewUrls[event._id] ? (
+                                  <Image
+                                    key={overlayPreviewUrls[event._id]}
+                                    src={overlayPreviewUrls[event._id]}
+                                    alt="Overlay Preview"
+                                    fill
+                                    className="object-cover"
+                                    unoptimized
+                                  />
+                                ) : (
+                                  <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm px-4 text-center">
+                                    Click &quot;Refresh&quot; to see overlay preview
+                                  </div>
+                                )}
+                                {loadingOverlayPreviews[event._id] && (
+                                  <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+                                  </div>
+                                )}
 
-                                      if (e.target.checked) {
-                                        // Add layout
-                                        if (currentLayouts.length === 0) {
-                                          // If currently showing all (empty array), just add this one
-                                          newLayouts = [layout.type]
-                                        } else {
-                                          // Add to existing array
-                                          newLayouts = [...currentLayouts.filter(l => l !== layout.type), layout.type]
-                                        }
-                                      } else {
-                                        // Remove layout
-                                        if (currentLayouts.length === 0) {
-                                          // If currently showing all, create array with all except this one
-                                          newLayouts = allLayoutTypes
-                                            .map(l => l.type)
-                                            .filter(t => t !== layout.type)
-                                        } else {
-                                          // Remove from existing array
-                                          newLayouts = currentLayouts.filter(l => l !== layout.type)
-                                        }
+                                {/* Draggable overlay for custom position */}
+                                {overlaySettings.position === 'custom' && overlayPreviewUrls[event._id] && !loadingOverlayPreviews[event._id] && (
+                                  <div
+                                    className="absolute inset-0 cursor-move"
+                                    onMouseDown={(e) => {
+                                      e.preventDefault()
+                                      const container = e.currentTarget
+                                      const rect = container.getBoundingClientRect()
+
+                                      const handleMouseMove = (moveEvent: MouseEvent) => {
+                                        const percentX = Math.max(0, Math.min(100, ((moveEvent.clientX - rect.left) / rect.width) * 100))
+                                        const percentY = Math.max(0, Math.min(100, ((moveEvent.clientY - rect.top) / rect.height) * 100))
+
+                                        handleUpdateOverlayLogoSettings(event._id, {
+                                          ...overlaySettings,
+                                          x: Math.round(percentX * 10) / 10,
+                                          y: Math.round(percentY * 10) / 10
+                                        }, false)
                                       }
 
-                                      handleUpdateEvent(event._id, { availableLayouts: newLayouts })
+                                      const handleMouseUp = () => {
+                                        document.removeEventListener('mousemove', handleMouseMove)
+                                        document.removeEventListener('mouseup', handleMouseUp)
+                                        setTimeout(() => generateOverlayPreview(event), 100)
+                                      }
+
+                                      document.addEventListener('mousemove', handleMouseMove)
+                                      document.addEventListener('mouseup', handleMouseUp)
                                     }}
-                                    className="rounded"
-                                  />
-                                  <span className="text-sm">{layout.name}</span>
+                                  >
+                                    <div className="absolute inset-0 bg-purple-400 bg-opacity-0 hover:bg-opacity-10 transition-all">
+                                      <div className="absolute top-2 left-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded pointer-events-none">
+                                        Drag to position logo
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Right: Overlay Logo Controls */}
+                            <div className="space-y-4">
+                              <div>
+                                <label className="block text-sm font-medium mb-2">
+                                  Logo Position:
                                 </label>
-                              )
-                            })
-                          })()}
+                                <select
+                                  value={overlaySettings.position}
+                                  onChange={(e) => {
+                                    const newPosition = e.target.value as LogoSettings['position']
+                                    if (newPosition === 'custom') {
+                                      handleUpdateOverlayLogoSettings(event._id, {
+                                        ...overlaySettings,
+                                        position: 'custom',
+                                        x: 50,
+                                        y: 50
+                                      })
+                                    } else {
+                                      handleUpdateOverlayLogoSettings(event._id, {
+                                        ...overlaySettings,
+                                        position: newPosition
+                                      })
+                                    }
+                                  }}
+                                  className="w-full px-3 py-2 border rounded-lg text-sm"
+                                >
+                                  <option value="top-left">Top Left</option>
+                                  <option value="top-center">Top Center</option>
+                                  <option value="top-right">Top Right</option>
+                                  <option value="center-left">Center Left</option>
+                                  <option value="center">Center</option>
+                                  <option value="center-right">Center Right</option>
+                                  <option value="bottom-left">Bottom Left</option>
+                                  <option value="bottom-center">Bottom Center</option>
+                                  <option value="bottom-right">Bottom Right</option>
+                                  <option value="custom">Custom (Drag)</option>
+                                </select>
+                              </div>
+
+                              {overlaySettings.position === 'custom' && (
+                                <div className="space-y-3">
+                                  <div className="text-xs text-purple-600 bg-purple-50 p-2 rounded">
+                                    Drag logo in preview or enter values
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                      <label className="block text-xs font-medium mb-1">X Position (%):</label>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        step="1"
+                                        value={Math.round(overlaySettings.x ?? 50)}
+                                        onChange={(e) => debouncedUpdateOverlayLogoSettings(event._id, {
+                                          ...overlaySettings,
+                                          x: Number(e.target.value)
+                                        })}
+                                        className="w-full px-2 py-1 border rounded text-sm"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-xs font-medium mb-1">Y Position (%):</label>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        step="1"
+                                        value={Math.round(overlaySettings.y ?? 50)}
+                                        onChange={(e) => debouncedUpdateOverlayLogoSettings(event._id, {
+                                          ...overlaySettings,
+                                          y: Number(e.target.value)
+                                        })}
+                                        className="w-full px-2 py-1 border rounded text-sm"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
+                              <div>
+                                <label className="block text-sm font-medium mb-2">
+                                  Logo Size: {overlaySettings.size}%
+                                </label>
+                                <input
+                                  type="range"
+                                  min="5"
+                                  max="300"
+                                  step="1"
+                                  value={overlaySettings.size}
+                                  onChange={(e) => debouncedUpdateOverlayLogoSettings(event._id, {
+                                    ...overlaySettings,
+                                    size: Number(e.target.value)
+                                  })}
+                                  className="w-full"
+                                />
+                                <div className="flex justify-between text-xs text-gray-400 mt-1">
+                                  <span>5%</span>
+                                  <span>100%</span>
+                                  <span>200%</span>
+                                  <span>300%</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        <p className="text-xs text-gray-500 mt-2">
-                          {event.availableLayouts && event.availableLayouts.length > 0
-                            ? `${event.availableLayouts.length}개 레이아웃 선택됨`
-                            : '모든 레이아웃 활성화됨'}
-                        </p>
-                      </div>
+                      )}
+
                     </div>
 
                     <div className="flex flex-col gap-2">

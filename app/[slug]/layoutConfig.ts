@@ -25,6 +25,13 @@ export const LAYOUT_OPTIONS: LayoutOption[] = [
     photoCount: 1
   },
   {
+    type: 'single-with-logo-overlay',
+    name: '로고 오버레이 1장',
+    nameEn: 'Single with Logo Overlay',
+    description: '4×6 세로, 로고 위에',
+    photoCount: 1
+  },
+  {
     type: 'landscape-single',
     name: '가로 1장',
     nameEn: 'Landscape Single',
@@ -105,6 +112,9 @@ export function getCropAspectRatio(type: FrameType, hasLogo: boolean = false, ph
     // Single with logo: photo area uses photoAreaRatio
     const photoAreaHeight = Math.round(canvasHeight * (photoAreaRatio / 100))
     baseRatio = canvasWidth / photoAreaHeight
+  } else if (type === 'single-with-logo-overlay') {
+    // Single with logo overlay: full photo with logo on top
+    baseRatio = canvasWidth / canvasHeight
   } else if (type === 'landscape-single') {
     // Landscape single: full 6x4 canvas
     baseRatio = canvasWidth / canvasHeight  // 1800/1200 = 1.5

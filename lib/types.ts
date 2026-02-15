@@ -7,7 +7,7 @@ export interface LogoSettings {
   y?: number // Custom Y position in logo area (0-100 percent)
 }
 
-export type FrameType = 'single' | 'single-with-logo' | 'four-cut' | 'two-by-two' | 'vertical-two' | 'one-plus-two' | 'landscape-single' | 'landscape-two' | 'puzzle-2x2' | 'puzzle-3x3'
+export type FrameType = 'single' | 'single-with-logo' | 'single-with-logo-overlay' | 'four-cut' | 'two-by-two' | 'vertical-two' | 'one-plus-two' | 'landscape-single' | 'landscape-two' | 'puzzle-2x2' | 'puzzle-3x3'
 
 export interface Event {
   _id?: ObjectId
@@ -17,7 +17,8 @@ export interface Event {
   logoUrl?: string
   logoBase64?: string // Base64 encoded logo for Vercel (serverless) environment
   photoAreaRatio?: number // Percentage of photo area (default 85, range 0-100)
-  logoSettings?: LogoSettings // Logo position and size settings
+  logoSettings?: LogoSettings // Logo position and size settings (for single-with-logo)
+  overlayLogoSettings?: LogoSettings // Logo position and size settings (for single-with-logo-overlay)
   availableLayouts?: FrameType[] // Layouts available for this event (default: all)
   price?: number // Payment amount in KRW (default: 0 = free)
   createdAt: Date

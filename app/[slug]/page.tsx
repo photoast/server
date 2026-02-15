@@ -32,6 +32,7 @@ interface Event {
   photoAreaRatio?: number
   availableLayouts?: string[]
   logoSettings?: any
+  overlayLogoSettings?: any
   price?: number
 }
 
@@ -177,7 +178,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       updateFrameType(selectedLayout)
 
       // Move to appropriate next step based on layout type
-      const nextStep = (selectedLayout === 'single' || selectedLayout === 'single-with-logo')
+      const nextStep = (selectedLayout === 'single' || selectedLayout === 'single-with-logo' || selectedLayout === 'single-with-logo-overlay')
         ? 'fill-photos'
         : 'select-color'
       updateStep(nextStep)
@@ -533,18 +534,22 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       // 클라이언트에서 Canvas로 렌더링 (일반 레이아웃)
       let imageBlob: Blob
 
-      if (frameType === 'single-with-logo') {
+      if (frameType === 'single-with-logo' || frameType === 'single-with-logo-overlay') {
         // 로고 레이아웃은 공통 함수 사용
-        console.log('[handleProcess] Rendering single-with-logo with Canvas')
+        const isOverlay = frameType === 'single-with-logo-overlay'
+        console.log(`[handleProcess] Rendering ${frameType} with Canvas`)
         const photoSlot = photoSlots[0]
         if (!photoSlot?.croppedImageUrl) {
           throw new Error('사진을 선택하고 편집해주세요')
         }
+        const logoSettingsToUse = isOverlay
+          ? (event?.overlayLogoSettings || event?.logoSettings || { position: 'bottom-center', size: 80 })
+          : (event?.logoSettings || { position: 'bottom-center', size: 80 })
         imageBlob = await renderSingleWithLogoToCanvas(
           photoSlot.croppedImageUrl,
           event?.logoUrl,
-          event?.photoAreaRatio ?? 85,
-          event?.logoSettings || { position: 'bottom-center', size: 80 }
+          isOverlay ? 100 : (event?.photoAreaRatio ?? 85),
+          logoSettingsToUse
         )
       } else {
         // 다른 모든 레이아웃은 공통 함수 사용
@@ -1284,6 +1289,8 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         return <SinglePhotoPreview {...baseProps} />
       case 'single-with-logo':
         return <SingleWithLogoPreview {...baseProps} logoUrl={event?.logoUrl} logoSettings={event?.logoSettings} photoAreaRatio={event?.photoAreaRatio} />
+      case 'single-with-logo-overlay':
+        return <SingleWithLogoPreview {...baseProps} logoUrl={event?.logoUrl} logoSettings={event?.overlayLogoSettings || event?.logoSettings} photoAreaRatio={100} />
       case 'landscape-single':
         return <LandscapeSinglePreview {...baseProps} />
       case 'landscape-two':
@@ -1311,6 +1318,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     const gridStyles: Record<FrameType, string> = {
       'single': 'grid-cols-1 grid-rows-1',
       'single-with-logo': 'grid-cols-1 grid-rows-1',
+      'single-with-logo-overlay': 'grid-cols-1 grid-rows-1',
       'landscape-single': 'grid-cols-1 grid-rows-1',
       'landscape-two': 'grid-cols-2 grid-rows-1',
       'vertical-two': 'grid-cols-1 grid-rows-2',
@@ -1325,6 +1333,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       switch (type) {
         case 'single': return [{ colspan: 1, rowspan: 1 }]
         case 'single-with-logo': return [{ colspan: 1, rowspan: 1 }]
+        case 'single-with-logo-overlay': return [{ colspan: 1, rowspan: 1 }]
         case 'landscape-single': return [{ colspan: 1, rowspan: 1 }]
         case 'landscape-two': return [{}, {}]
         case 'vertical-two': return [{}, {}]
@@ -1345,7 +1354,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         {getCells().map((cell, i) => (
           <div
             key={i}
-            className={type === 'single-with-logo' && i === 0 ? 'bg-purple-400 border-b-2 border-yellow-400' : 'bg-purple-400'}
+            className={type === 'single-with-logo' && i === 0 ? 'bg-purple-400 border-b-2 border-yellow-400' : type === 'single-with-logo-overlay' && i === 0 ? 'bg-purple-400 relative overflow-hidden' : 'bg-purple-400'}
             style={{
               gridColumn: cell.colspan ? `span ${cell.colspan}` : undefined,
               gridRow: cell.rowspan ? `span ${cell.rowspan}` : undefined
@@ -1455,7 +1464,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
               </div>
 
               <button
-                onClick={() => updateStep((frameType === 'single' || frameType === 'single-with-logo') ? 'fill-photos' : 'select-color')}
+                onClick={() => updateStep((frameType === 'single' || frameType === 'single-with-logo' || frameType === 'single-with-logo-overlay') ? 'fill-photos' : 'select-color')}
                 className="w-full py-4 bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 text-white rounded-full font-bold text-lg hover:shadow-2xl transition-all shadow-lg"
               >
                 다음 단계로 💫
@@ -1735,7 +1744,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
                 <button
                   onClick={() => {
-                    updateStep(frameType === 'single' || frameType === 'single-with-logo' ? 'select-layout' : 'select-color')
+                    updateStep(frameType === 'single' || frameType === 'single-with-logo' || frameType === 'single-with-logo-overlay' ? 'select-layout' : 'select-color')
                     setPreviewUrl(null)
                   }}
                   disabled={printing}

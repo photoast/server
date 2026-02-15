@@ -39,7 +39,7 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const { name, printerUrl, logoUrl, photoAreaRatio, logoSettings, availableLayouts, price } = body
+    const { name, printerUrl, logoUrl, photoAreaRatio, logoSettings, overlayLogoSettings, availableLayouts, price } = body
 
     const updates: any = {}
     if (name) updates.name = name
@@ -47,6 +47,7 @@ export async function PATCH(
     if (logoUrl !== undefined) updates.logoUrl = logoUrl
     if (photoAreaRatio !== undefined) updates.photoAreaRatio = photoAreaRatio
     if (logoSettings !== undefined) updates.logoSettings = logoSettings
+    if (overlayLogoSettings !== undefined) updates.overlayLogoSettings = overlayLogoSettings
     if (availableLayouts !== undefined) updates.availableLayouts = availableLayouts
     if (price !== undefined) updates.price = price
 

@@ -96,6 +96,7 @@ export async function POST(request: NextRequest) {
     const photoCountMap: Record<FrameType, number> = {
       'single': 1,
       'single-with-logo': 1,
+      'single-with-logo-overlay': 1,
       'landscape-single': 1,
       'landscape-two': 2,
       'vertical-two': 2,
@@ -251,9 +252,15 @@ export async function POST(request: NextRequest) {
       isUsingBase64: finalLogoUrl?.startsWith('data:'),
       photoAreaRatio,
       logoSettings: event.logoSettings,
+      overlayLogoSettings: event.overlayLogoSettings,
       backgroundColor,
       rotation
     })
+
+    // Use overlayLogoSettings for single-with-logo-overlay, fallback to logoSettings
+    const effectiveLogoSettings = frameType === 'single-with-logo-overlay'
+      ? (event.overlayLogoSettings || event.logoSettings)
+      : event.logoSettings
 
     console.log('[API] Calling processImage...')
     const processedBuffer = await processImage(
@@ -261,7 +268,7 @@ export async function POST(request: NextRequest) {
       finalLogoUrl,
       cropArea,
       photoAreaRatio,
-      event.logoSettings,
+      effectiveLogoSettings,
       frameType,
       backgroundColor || undefined,
       rotation

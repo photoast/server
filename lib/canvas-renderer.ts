@@ -59,11 +59,19 @@ export async function renderSingleWithLogoToCanvas(
       let logoY = 0
 
       if (position === 'custom' && logoSettings.x !== undefined && logoSettings.y !== undefined) {
-        // Custom position - matching client CSS calculation
-        // Client CSS: left: ${logoX}%, top: ${photoAreaRatio + (logoY * logoAreaHeight / 100)}%, transform: translate(-50%, -50%)
-        // We need to convert % to pixels, then apply the same transform
+        // Custom position
         const leftPercent = logoSettings.x
-        const topPercent = photoAreaRatio + (logoSettings.y * (100 - photoAreaRatio) / 100)
+
+        let topPercent: number
+        if (photoAreaRatio === 100) {
+          // Overlay mode: logo positioned on full canvas
+          // x and y are direct percentages of the full canvas
+          topPercent = logoSettings.y
+        } else {
+          // Logo area mode: logo positioned within logo area
+          // Client CSS: left: ${logoX}%, top: ${photoAreaRatio + (logoY * logoAreaHeight / 100)}%, transform: translate(-50%, -50%)
+          topPercent = photoAreaRatio + (logoSettings.y * (100 - photoAreaRatio) / 100)
+        }
 
         // Convert % to pixels
         const leftPx = (leftPercent / 100) * CANVAS_WIDTH
@@ -76,6 +84,7 @@ export async function renderSingleWithLogoToCanvas(
         // Preset positions
         const [vertical, horizontal] = position.split('-')
         const PADDING = 8
+        const isOverlay = photoAreaRatio === 100
 
         // Horizontal
         if (horizontal === 'left') {
@@ -86,13 +95,25 @@ export async function renderSingleWithLogoToCanvas(
           logoX = CANVAS_WIDTH - logoWidth - PADDING
         }
 
-        // Vertical (within logo area)
-        if (vertical === 'top') {
-          logoY = photoHeight + PADDING
-        } else if (vertical === 'center') {
-          logoY = photoHeight + (logoAreaHeight - logoHeight) / 2
-        } else if (vertical === 'bottom') {
-          logoY = CANVAS_HEIGHT - logoHeight - PADDING
+        // Vertical
+        if (isOverlay) {
+          // Overlay mode: position relative to full canvas
+          if (vertical === 'top') {
+            logoY = PADDING
+          } else if (vertical === 'center') {
+            logoY = (CANVAS_HEIGHT - logoHeight) / 2
+          } else if (vertical === 'bottom') {
+            logoY = CANVAS_HEIGHT - logoHeight - PADDING
+          }
+        } else {
+          // Logo area mode: position within logo area below photo
+          if (vertical === 'top') {
+            logoY = photoHeight + PADDING
+          } else if (vertical === 'center') {
+            logoY = photoHeight + (logoAreaHeight - logoHeight) / 2
+          } else if (vertical === 'bottom') {
+            logoY = CANVAS_HEIGHT - logoHeight - PADDING
+          }
         }
       }
 

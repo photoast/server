@@ -124,84 +124,26 @@ export function SingleWithLogoPreview({ photoSlots, onSlotClick, logoUrl, logoSe
 
   // Calculate logo area height
   const logoAreaHeight = 100 - photoAreaRatio
+  const isOverlay = photoAreaRatio === 100
 
   return (
     <div className="relative w-full max-w-sm mx-auto" style={{ aspectRatio: '2/3' }}>
       <div className="absolute inset-0 bg-white shadow-2xl overflow-hidden">
-        {/* Logo area background - lowest layer */}
-        <div
-          className="absolute bottom-0 left-0 right-0 bg-white"
-          style={{ height: `${logoAreaHeight}%`, zIndex: 1 }}
-        >
-          {!logoUrl && (
-            <div className="h-full flex items-center justify-center text-gray-400 text-sm">로고 영역</div>
-          )}
-        </div>
-        {/* Logo - middle layer, visible in logo area but clipped by photo area */}
-        {logoUrl && (
-          logoPosition === 'custom' ? (
-            // Custom position - absolute positioning relative to the entire container
-            <div
-              className="absolute pointer-events-none"
-              style={{
-                width: `${logoSize}%`,
-                left: `${logoX}%`,
-                top: `${photoAreaRatio + (logoY * logoAreaHeight / 100)}%`,
-                transform: 'translate(-50%, -50%)',
-                zIndex: 5,
-              }}
-            >
-              <Image
-                src={logoUrl}
-                alt="Event Logo"
-                width={1000}
-                height={300}
-                className="object-contain w-full h-auto"
-                unoptimized
-              />
-            </div>
-          ) : (
-            // Preset positions - positioned in logo area using flexbox
-            (() => {
-              const [vertical, horizontal] = logoPosition.split('-')
-              let alignItems = 'center'
-              let justifyContent = 'center'
-
-              if (vertical === 'top') alignItems = 'flex-start'
-              else if (vertical === 'bottom') alignItems = 'flex-end'
-
-              if (horizontal === 'left') justifyContent = 'flex-start'
-              else if (horizontal === 'right') justifyContent = 'flex-end'
-
-              return (
-                <div
-                  className="absolute bottom-0 left-0 right-0 flex pointer-events-none p-2"
-                  style={{
-                    height: `${logoAreaHeight}%`,
-                    alignItems,
-                    justifyContent,
-                    zIndex: 5,
-                  }}
-                >
-                  <div style={{ width: `${logoSize}%` }}>
-                    <Image
-                      src={logoUrl}
-                      alt="Event Logo"
-                      width={1000}
-                      height={300}
-                      className="object-contain w-full h-auto"
-                      unoptimized
-                    />
-                  </div>
-                </div>
-              )
-            })()
-          )
+        {/* Logo area background - lowest layer (only for non-overlay mode) */}
+        {!isOverlay && (
+          <div
+            className="absolute bottom-0 left-0 right-0 bg-white"
+            style={{ height: `${logoAreaHeight}%`, zIndex: 1 }}
+          >
+            {!logoUrl && (
+              <div className="h-full flex items-center justify-center text-gray-400 text-sm">로고 영역</div>
+            )}
+          </div>
         )}
-        {/* Photo area - highest layer, clips logo if overlapping */}
+        {/* Photo area */}
         <div
           className="absolute inset-0"
-          style={{ height: `${photoAreaRatio}%`, zIndex: 10 }}
+          style={{ height: `${photoAreaRatio}%`, zIndex: isOverlay ? 1 : 10 }}
         >
           <PhotoSlot
             file={photoSlots[0]?.file}
@@ -212,6 +154,126 @@ export function SingleWithLogoPreview({ photoSlots, onSlotClick, logoUrl, logoSe
             size="large"
           />
         </div>
+        {/* Logo layer */}
+        {logoUrl && (
+          isOverlay ? (
+            // Overlay mode: logo on top of full-size photo
+            logoPosition === 'custom' ? (
+              <div
+                className="absolute pointer-events-none"
+                style={{
+                  width: `${logoSize}%`,
+                  left: `${logoX}%`,
+                  top: `${logoY}%`,
+                  transform: 'translate(-50%, -50%)',
+                  zIndex: 20,
+                }}
+              >
+                <Image
+                  src={logoUrl}
+                  alt="Event Logo"
+                  width={1000}
+                  height={300}
+                  className="object-contain w-full h-auto"
+                  unoptimized
+                />
+              </div>
+            ) : (
+              // Preset positions on full canvas
+              (() => {
+                const [vertical, horizontal] = logoPosition.split('-')
+                let alignItems = 'center'
+                let justifyContent = 'center'
+
+                if (vertical === 'top') alignItems = 'flex-start'
+                else if (vertical === 'bottom') alignItems = 'flex-end'
+
+                if (horizontal === 'left') justifyContent = 'flex-start'
+                else if (horizontal === 'right') justifyContent = 'flex-end'
+
+                return (
+                  <div
+                    className="absolute inset-0 flex pointer-events-none p-2"
+                    style={{
+                      alignItems,
+                      justifyContent,
+                      zIndex: 20,
+                    }}
+                  >
+                    <div style={{ width: `${logoSize}%` }}>
+                      <Image
+                        src={logoUrl}
+                        alt="Event Logo"
+                        width={1000}
+                        height={300}
+                        className="object-contain w-full h-auto"
+                        unoptimized
+                      />
+                    </div>
+                  </div>
+                )
+              })()
+            )
+          ) : (
+            // Normal mode: logo in logo area below photo
+            logoPosition === 'custom' ? (
+              <div
+                className="absolute pointer-events-none"
+                style={{
+                  width: `${logoSize}%`,
+                  left: `${logoX}%`,
+                  top: `${photoAreaRatio + (logoY * logoAreaHeight / 100)}%`,
+                  transform: 'translate(-50%, -50%)',
+                  zIndex: 5,
+                }}
+              >
+                <Image
+                  src={logoUrl}
+                  alt="Event Logo"
+                  width={1000}
+                  height={300}
+                  className="object-contain w-full h-auto"
+                  unoptimized
+                />
+              </div>
+            ) : (
+              (() => {
+                const [vertical, horizontal] = logoPosition.split('-')
+                let alignItems = 'center'
+                let justifyContent = 'center'
+
+                if (vertical === 'top') alignItems = 'flex-start'
+                else if (vertical === 'bottom') alignItems = 'flex-end'
+
+                if (horizontal === 'left') justifyContent = 'flex-start'
+                else if (horizontal === 'right') justifyContent = 'flex-end'
+
+                return (
+                  <div
+                    className="absolute bottom-0 left-0 right-0 flex pointer-events-none p-2"
+                    style={{
+                      height: `${logoAreaHeight}%`,
+                      alignItems,
+                      justifyContent,
+                      zIndex: 5,
+                    }}
+                  >
+                    <div style={{ width: `${logoSize}%` }}>
+                      <Image
+                        src={logoUrl}
+                        alt="Event Logo"
+                        width={1000}
+                        height={300}
+                        className="object-contain w-full h-auto"
+                        unoptimized
+                      />
+                    </div>
+                  </div>
+                )
+              })()
+            )
+          )
+        )}
       </div>
     </div>
   )
