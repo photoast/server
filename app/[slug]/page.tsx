@@ -165,6 +165,25 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     fetchEvent()
   }, [params.slug])
 
+  // Auto-select layout if only one is available
+  useEffect(() => {
+    if (!event || step !== 'select-layout') return
+
+    const availableLayouts = event.availableLayouts || []
+
+    // If only one layout is available, auto-select it and skip to next step
+    if (availableLayouts.length === 1) {
+      const selectedLayout = availableLayouts[0] as FrameType
+      updateFrameType(selectedLayout)
+
+      // Move to appropriate next step based on layout type
+      const nextStep = (selectedLayout === 'single' || selectedLayout === 'single-with-logo')
+        ? 'fill-photos'
+        : 'select-color'
+      updateStep(nextStep)
+    }
+  }, [event, step])
+
   // Auto-animate puzzle pieces (split/combine)
   useEffect(() => {
     if (puzzlePieceUrls.length > 0) {
