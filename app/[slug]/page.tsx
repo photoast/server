@@ -1735,7 +1735,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
                 <button
                   onClick={() => {
-                    updateStep(frameType === 'single' ? 'select-layout' : 'select-color')
+                    updateStep(frameType === 'single' || frameType === 'single-with-logo' ? 'select-layout' : 'select-color')
                     setPreviewUrl(null)
                   }}
                   disabled={printing}

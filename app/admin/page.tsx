@@ -382,7 +382,7 @@ export default function AdminPage() {
         '/sample-photo.jpg', // Sample photo from public folder
         event.logoUrl,
         event.photoAreaRatio ?? 85,
-        event.logoSettings || { position: 'bottom-center', size: 80 }
+        event.logoSettings || { position: 'custom', size: 80, x: 50, y: 50 }
       )
 
       // Revoke old URL if exists
@@ -783,7 +783,7 @@ export default function AdminPage() {
           <div className="space-y-4">
             {events.map((event) => {
               const photoRatio = event.photoAreaRatio ?? 85
-              const logoSettings = event.logoSettings || { position: 'bottom-center' as const, size: 80 }
+              const logoSettings = event.logoSettings || { position: 'custom' as const, size: 80, x: 50, y: 50 }
               const isEditingName = editingEventId === event._id && editingField === 'name'
               const isEditingPrinter = editingEventId === event._id && editingField === 'printer'
 
