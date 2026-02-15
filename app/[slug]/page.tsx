@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import FourCutCropEditor from '../components/FourCutCropEditor'
 import { loadTossPayments } from '@tosspayments/tosspayments-sdk'
@@ -70,13 +71,24 @@ const BACKGROUND_COLORS = [
 ]
 
 export default function GuestPage({ params }: { params: { slug: string } }) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+
   // Event and loading state
   const [event, setEvent] = useState<Event | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // Step and layout state
-  const [step, setStep] = useState<Step>('select-layout')
-  const [frameType, setFrameType] = useState<FrameType>('single')
+  // Step and layout state - initialize from URL
+  const [step, setStep] = useState<Step>(() => {
+    const urlStep = searchParams.get('step') as Step
+    return urlStep && ['select-layout', 'select-color', 'fill-photos', 'payment', 'success'].includes(urlStep)
+      ? urlStep
+      : 'select-layout'
+  })
+  const [frameType, setFrameType] = useState<FrameType>(() => {
+    const urlLayout = searchParams.get('layout') as FrameType
+    return urlLayout || 'single'
+  })
   const [backgroundColor, setBackgroundColor] = useState('#000000')
 
   // Photo management state
@@ -102,6 +114,25 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   const [paymentConfirming, setPaymentConfirming] = useState(false) // 결제 승인 처리 중
 
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Helper function to update URL with current step and layout
+  const updateURL = useCallback((newStep?: Step, newLayout?: FrameType) => {
+    const urlParams = new URLSearchParams(searchParams.toString())
+    if (newStep) urlParams.set('step', newStep)
+    if (newLayout) urlParams.set('layout', newLayout)
+    router.replace(`/${params.slug}?${urlParams.toString()}`, { scroll: false })
+  }, [router, params.slug, searchParams])
+
+  // Wrapper functions that update both state and URL
+  const updateStep = useCallback((newStep: Step) => {
+    setStep(newStep)
+    updateURL(newStep, frameType)
+  }, [updateURL, frameType])
+
+  const updateFrameType = useCallback((newFrameType: FrameType) => {
+    setFrameType(newFrameType)
+    updateURL(step, newFrameType)
+  }, [updateURL, step])
 
   // Initialize photo slots when frame type changes
   useEffect(() => {
@@ -999,7 +1030,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         }
 
         console.log(`[Print] All ${totalJobs} puzzle pieces sent successfully`)
-        setStep('success')
+        updateStep('success')
         return
       }
 
@@ -1019,7 +1050,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         throw new Error(data.error || 'Failed to print')
       }
 
-      setStep('success')
+      updateStep('success')
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to print'
       setError(errorMessage)
@@ -1046,7 +1077,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       return
     }
 
-    setStep('payment')
+    updateStep('payment')
     setError('')
     setPaymentReady(false)
 
@@ -1177,13 +1208,13 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
           // URL 파라미터 제거
           window.history.replaceState({}, '', window.location.pathname)
 
-          setStep('success')
+          updateStep('success')
 
         } catch (err: any) {
           console.error('Payment confirmation error:', err)
           setError(err.message || '결제 처리 중 오류가 발생했습니다')
           logClientError('Payment confirmation failed', err, params.slug)
-          setStep('fill-photos')
+          updateStep('fill-photos')
           window.history.replaceState({}, '', window.location.pathname)
         } finally {
           setPaymentConfirming(false)
@@ -1193,7 +1224,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       confirmPayment()
     } else if (paymentStatus === 'fail') {
       setError('결제가 실패했습니다. 다시 시도해주세요.')
-      setStep('fill-photos')
+      updateStep('fill-photos')
       window.history.replaceState({}, '', window.location.pathname)
     }
   }, [params.slug])
@@ -1209,8 +1240,8 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     // Clean up puzzle piece URLs
     puzzlePieceUrls.forEach(url => URL.revokeObjectURL(url))
 
-    setStep('select-layout')
-    setFrameType('single')
+    updateStep('select-layout')
+    updateFrameType('single')
     setBackgroundColor('#000000')
     setPhotoSlots([])
     setPreviewUrl(null)
@@ -1384,7 +1415,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                   .map((option) => (
                   <button
                     key={option.type}
-                    onClick={() => setFrameType(option.type)}
+                    onClick={() => updateFrameType(option.type)}
                     className={`p-4 rounded-3xl border-2 transition-all duration-300 ${
                       frameType === option.type
                         ? 'border-pink-400 bg-gradient-to-br from-pink-50 to-purple-50 shadow-xl'
@@ -1405,7 +1436,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
               </div>
 
               <button
-                onClick={() => setStep((frameType === 'single' || frameType === 'single-with-logo') ? 'fill-photos' : 'select-color')}
+                onClick={() => updateStep((frameType === 'single' || frameType === 'single-with-logo') ? 'fill-photos' : 'select-color')}
                 className="w-full py-4 bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 text-white rounded-full font-bold text-lg hover:shadow-2xl transition-all shadow-lg"
               >
                 다음 단계로 💫
@@ -1445,13 +1476,13 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
               <div className="flex gap-3">
                 <button
-                  onClick={() => setStep('select-layout')}
+                  onClick={() => updateStep('select-layout')}
                   className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-full font-bold text-base hover:bg-gray-200 transition-all"
                 >
                   ← 이전
                 </button>
                 <button
-                  onClick={() => setStep('fill-photos')}
+                  onClick={() => updateStep('fill-photos')}
                   className="flex-1 py-3 bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 text-white rounded-full font-bold text-base hover:shadow-2xl transition-all shadow-lg"
                 >
                   다음 단계로 💫
@@ -1685,7 +1716,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
                 <button
                   onClick={() => {
-                    setStep(frameType === 'single' ? 'select-layout' : 'select-color')
+                    updateStep(frameType === 'single' ? 'select-layout' : 'select-color')
                     setPreviewUrl(null)
                   }}
                   disabled={printing}
@@ -1809,7 +1840,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
                 <button
                   onClick={() => {
-                    setStep('fill-photos')
+                    updateStep('fill-photos')
                     setPaymentWidgets(null)
                     setPaymentReady(false)
                   }}

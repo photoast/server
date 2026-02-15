@@ -80,6 +80,7 @@ export default function AdminPage() {
   // Preview states
   const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({})
   const [loadingPreviews, setLoadingPreviews] = useState<Record<string, boolean>>({})
+  const [showGrid, setShowGrid] = useState<Record<string, boolean>>({})
 
   // Debounce timers
   const [debounceTimers, setDebounceTimers] = useState<Record<string, NodeJS.Timeout>>({})
@@ -925,13 +926,25 @@ export default function AdminPage() {
                           <div>
                             <div className="flex items-center justify-between mb-2">
                               <p className="text-sm font-medium">Preview (102×152mm):</p>
-                              <button
-                                onClick={() => generatePreview(event)}
-                                disabled={loadingPreviews[event._id]}
-                                className="text-xs px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-                              >
-                                {loadingPreviews[event._id] ? 'Loading...' : 'Refresh'}
-                              </button>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => setShowGrid(prev => ({ ...prev, [event._id]: !prev[event._id] }))}
+                                  className={`text-xs px-3 py-1 rounded transition-colors ${
+                                    showGrid[event._id]
+                                      ? 'bg-green-600 text-white hover:bg-green-700'
+                                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                  }`}
+                                >
+                                  {showGrid[event._id] ? '✓ Grid' : 'Grid'}
+                                </button>
+                                <button
+                                  onClick={() => generatePreview(event)}
+                                  disabled={loadingPreviews[event._id]}
+                                  className="text-xs px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                                >
+                                  {loadingPreviews[event._id] ? 'Loading...' : 'Refresh'}
+                                </button>
+                              </div>
                             </div>
                             <div className="relative w-3/4 mx-auto aspect-[1000/1500] bg-gray-100 border-2 border-gray-300 rounded shadow-lg overflow-hidden">
                               {previewUrls[event._id] ? (
@@ -996,6 +1009,26 @@ export default function AdminPage() {
                                     </div>
                                   </div>
                                 </div>
+                              )}
+
+                              {/* Grid overlay */}
+                              {showGrid[event._id] && (
+                                <svg
+                                  className="absolute inset-0 w-full h-full pointer-events-none"
+                                  style={{ zIndex: 100 }}
+                                >
+                                  <defs>
+                                    <pattern id={`grid-${event._id}`} width="10" height="10" patternUnits="userSpaceOnUse">
+                                      <path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(59, 130, 246, 0.6)" strokeWidth="0.5"/>
+                                    </pattern>
+                                  </defs>
+                                  <rect width="100%" height="100%" fill={`url(#grid-${event._id})`} />
+                                  {/* Center lines */}
+                                  <line x1="50%" y1="0" x2="50%" y2="100%" stroke="rgba(239, 68, 68, 0.8)" strokeWidth="1.5" strokeDasharray="4,4" />
+                                  <line x1="0" y1="50%" x2="100%" y2="50%" stroke="rgba(239, 68, 68, 0.8)" strokeWidth="1.5" strokeDasharray="4,4" />
+                                  {/* Photo area boundary */}
+                                  <line x1="0" y1={`${photoRatio}%`} x2="100%" y2={`${photoRatio}%`} stroke="rgba(34, 197, 94, 0.9)" strokeWidth="2.5" />
+                                </svg>
                               )}
                             </div>
                             <p className="text-xs text-gray-500 mt-1">
