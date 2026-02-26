@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "NODE_NO_WARNINGS=1 next dev",
+    "dev": "NODE_NO_WARNINGS=1 node server.js",
     "build": "next build",
-    "start": "next start",
+    "start": "NODE_ENV=production node server.js",
     "lint": "next lint"
   },
   "dependencies": {
@@ -21,7 +21,8 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-easy-crop": "^5.5.5",
-    "sharp": "^0.33.0"
+    "sharp": "^0.33.0",
+    "socket.io": "^4.8.3"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

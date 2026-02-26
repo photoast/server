@@ -1,8 +1,8 @@
 import path from 'path'
 import fs from 'fs/promises'
 
-import { printCalibration4x6 } from './pm'
 import { printViaEmail } from './email-printer'
+import { emitPrintJob } from './socket-server'
 
 
 
@@ -13,33 +13,31 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0' // ⚠️ 내부망 테스트 전
 /**
  * PUBLIC API — printImage()
  *
- * Supports two print methods:
- * 1. Email Print (Epson Email Print) - Default
- * 2. IPP Print (Direct network printing) - Legacy, currently disabled
+ * 환경변수 PRINT_METHOD 에 따라 인쇄 방식을 결정합니다:
+ *   PRINT_METHOD=email   → Epson Email Print (기본값)
+ *   PRINT_METHOD=socket  → phototoast 클라이언트 (Socket.IO)
  */
 export async function printImage(
   imageUrl: string,
-  printerUrl: string
+  printerUrl: string,
+  options?: { size?: string }
 ): Promise<{ success: boolean; error?: string; printedImageUrl?: string }> {
   try {
-    // Convert URL to file path
+    // URL → 파일 경로 변환
     let imagePath: string
 
     console.log(`\n====================================`)
     console.log(`Print Job Request`)
     console.log(`====================================`)
     console.log(`Image URL: ${imageUrl.substring(0, 100)}${imageUrl.length > 100 ? '...' : ''}`)
-    console.log(`Target Size: Auto-detected (4×6 or 6×4 inch, glossy, borderless)`)
 
-    // Handle data URL (base64) - Vercel environment
+    // data URL (base64) 처리 — Vercel 환경
     if (imageUrl.startsWith('data:')) {
       console.log(`Image Type: Data URL (base64), converting to temporary file`)
 
-      // Extract base64 data
       const base64Data = imageUrl.split(',')[1]
       const buffer = Buffer.from(base64Data, 'base64')
 
-      // Save to temporary file
       const timestamp = Date.now()
       const tempDir = '/tmp/uploads'
       await fs.mkdir(tempDir, { recursive: true })
@@ -52,37 +50,51 @@ export async function printImage(
       const filename = imageUrl.replace('/api/serve-image/', '')
       imagePath = path.join('/tmp/uploads', filename)
     } else if (imageUrl.startsWith('/uploads/')) {
-      // Local: /uploads/filename → public/uploads/filename
+      // 로컬: /uploads/filename → public/uploads/filename
       imagePath = path.join(process.cwd(), 'public', imageUrl)
     } else if (imageUrl.startsWith('/tmp')) {
-      // Legacy absolute path (Vercel)
+      // 절대 경로 (Vercel 레거시)
       imagePath = imageUrl
     } else {
-      // Relative path (local)
       imagePath = path.join(process.cwd(), 'public', imageUrl)
     }
 
     console.log(`Image Path: ${imagePath}`)
 
-    // Verify file exists
+    // 파일 존재 여부 확인
     await fs.access(imagePath)
 
-    // Use Email Print method (Epson Email Print)
-    console.log(`Print Method: Email Print (Epson Email Print)`)
-    const result = await printViaEmail(imagePath)
+    const printMethod = process.env.PRINT_METHOD || 'email'
 
-    // Legacy IPP method (currently disabled)
-    // const result = await printCalibration4x6(printerUrl, imagePath)
+    if (printMethod === 'socket') {
+      // ── Socket 방식: phototoast 클라이언트로 전송 ──
+      console.log(`Print Method: Socket (phototoast 클라이언트)`)
 
-    return {
-      success: result.success,
-      error: result.error,
-      printedImageUrl: result.printedImageBase64,
+      const result = await emitPrintJob({
+        imagePath,
+        size: options?.size || '4x6',
+        filename: path.basename(imagePath),
+      })
+
+      return {
+        success: result.success,
+        error: result.error,
+        printedImageUrl: undefined, // 클라이언트 측 인쇄이므로 URL 없음
+      }
+    } else {
+      // ── Email 방식: Epson Email Print (기본값) ──
+      console.log(`Print Method: Email Print (Epson Email Print)`)
+
+      const result = await printViaEmail(imagePath)
+
+      return {
+        success: result.success,
+        error: result.error,
+        printedImageUrl: result.printedImageBase64,
+      }
     }
   } catch (e: any) {
     console.error('Print error:', e)
     return { success: false, error: e.message }
   }
 }
-
-
