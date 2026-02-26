@@ -3,7 +3,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
+import dynamic from 'next/dynamic'
 import FourCutCropEditor from '../components/FourCutCropEditor'
+const FreeLayoutEditor = dynamic(() => import('../components/FreeLayoutEditor'), { ssr: false })
 import { UIButton, UIStatusBanner, UICounterControl, UISectionHeading, UIPageSpinner, UICardSpinner } from '../components/ui'
 import { loadTossPayments } from '@tosspayments/tosspayments-sdk'
 import type { TossPaymentsWidgets } from '@tosspayments/tosspayments-sdk'
@@ -649,6 +651,34 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       console.log('[handleProcess] Processing complete, processing=false')
     }
   }, [params.slug, frameType, photoSlots, backgroundColor])
+
+  // 자유 레이아웃 완료 처리
+  const handleFreeLayoutComplete = useCallback(async (blob: Blob) => {
+    setProcessing(true)
+    setError(null)
+    try {
+      const formData = new FormData()
+      formData.append('slug', params.slug)
+      formData.append('frameType', 'free-layout')
+      formData.append('preRenderedImage', blob, 'free-layout.jpg')
+      formData.append('applyPrinterCorrectionOnly', 'true')
+
+      const res = await fetch('/api/process-image', { method: 'POST', body: formData })
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || `미리보기 생성 실패: ${res.status}`)
+      }
+
+      const data = await res.json()
+      if (!data.url) throw new Error('미리보기 URL을 받지 못했습니다')
+      setPreviewUrl(data.url)
+    } catch (err: any) {
+      setError(err.message || '미리보기 생성에 실패했습니다')
+    } finally {
+      setProcessing(false)
+    }
+  }, [params.slug])
 
   // Auto-process image when all slots are filled AND cropped
   useEffect(() => {
@@ -1307,6 +1337,12 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       case 'puzzle-2x2':
       case 'puzzle-3x3':
         return <SinglePhotoPreview {...baseProps} />
+      case 'free-layout':
+        return previewUrl ? (
+          <div className="relative w-full rounded-2xl overflow-hidden shadow-lg" style={{ paddingBottom: '150%' }}>
+            <Image src={previewUrl} alt="자유 레이아웃 미리보기" fill className="object-contain" />
+          </div>
+        ) : null
       default:
         return null
     }
@@ -1327,7 +1363,8 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       'four-cut': 'grid-cols-1 grid-rows-4',
       'two-by-two': 'grid-cols-2 grid-rows-2',
       'puzzle-2x2': 'grid-cols-2 grid-rows-2',
-      'puzzle-3x3': 'grid-cols-3 grid-rows-3'
+      'puzzle-3x3': 'grid-cols-3 grid-rows-3',
+      'free-layout': 'grid-cols-1 grid-rows-1'
     }
 
     const getCells = (): { colspan?: number, rowspan?: number }[] => {
@@ -1343,6 +1380,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         case 'two-by-two': return [{}, {}, {}, {}]
         case 'puzzle-2x2': return [{}, {}, {}, {}]
         case 'puzzle-3x3': return [{}, {}, {}, {}, {}, {}, {}, {}, {}]
+        case 'free-layout': return [{ colspan: 1, rowspan: 1 }]
         default: return []
       }
     }
@@ -1452,7 +1490,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
               <UIButton
                 fullWidth
-                onClick={() => updateStep((frameType === 'single' || frameType === 'single-with-logo' || frameType === 'single-with-logo-overlay') ? 'fill-photos' : 'select-color')}
+                onClick={() => updateStep((frameType === 'single' || frameType === 'single-with-logo' || frameType === 'single-with-logo-overlay' || frameType === 'free-layout') ? 'fill-photos' : 'select-color')}
               >
                 다음 단계로 💫
               </UIButton>
@@ -1498,7 +1536,14 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
           )}
 
           {/* Step 3: Fill Photos */}
-          {step === 'fill-photos' && (
+          {step === 'fill-photos' && frameType === 'free-layout' && !previewUrl && (
+            <FreeLayoutEditor
+              onComplete={handleFreeLayoutComplete}
+              onBack={() => updateStep('select-layout')}
+            />
+          )}
+
+          {step === 'fill-photos' && (frameType !== 'free-layout' || previewUrl) && (
             <div className="space-y-6">
               {/* Header with layout info */}
               <div className="bg-gradient-to-r from-pink-100 via-purple-100 to-blue-100 rounded-3xl p-5 shadow-lg">
@@ -1511,12 +1556,14 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                       {LAYOUT_OPTIONS.find(l => l.type === frameType)?.description}
                     </p>
                   </div>
-                  <div className="text-right bg-white/80 backdrop-blur-sm rounded-2xl px-4 py-2">
-                    <div className="text-2xl font-bold bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text text-transparent">
-                      {photoSlots.filter(s => s.file).length}/{photoSlots.length}
+                  {frameType !== 'free-layout' && (
+                    <div className="text-right bg-white/80 backdrop-blur-sm rounded-2xl px-4 py-2">
+                      <div className="text-2xl font-bold bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text text-transparent">
+                        {photoSlots.filter(s => s.file).length}/{photoSlots.length}
+                      </div>
+                      <div className="text-xs text-gray-500 font-medium">완료됨 ✨</div>
                     </div>
-                    <div className="text-xs text-gray-500 font-medium">완료됨 ✨</div>
-                  </div>
+                  )}
                 </div>
               </div>
 
@@ -1541,7 +1588,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                 <div className="transition-all duration-300">
                   {renderLayoutPreview()}
                 </div>
-                <div className="bg-white rounded-xl p-4 shadow-md">
+                {frameType !== 'free-layout' && <div className="bg-white rounded-xl p-4 shadow-md">
                   <p className="text-center text-sm text-gray-600 font-medium mb-2">
                     사진을 탭하여 추가/변경/삭제
                   </p>
@@ -1560,7 +1607,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                       🧩 9조각으로 나눠져 인쇄됩니다 • 조립하면 3배 확대!
                     </p>
                   )}
-                </div>
+                </div>}
               </div>
 
               {/* Processing indicator */}
@@ -1677,8 +1724,13 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                   size="md"
                   fullWidth
                   onClick={() => {
-                    updateStep(frameType === 'single' || frameType === 'single-with-logo' || frameType === 'single-with-logo-overlay' ? 'select-layout' : 'select-color')
-                    setPreviewUrl(null)
+                    if (frameType === 'free-layout' && previewUrl) {
+                      // 자유 레이아웃: 미리보기 → 에디터로 돌아가기
+                      setPreviewUrl(null)
+                    } else {
+                      updateStep(frameType === 'single' || frameType === 'single-with-logo' || frameType === 'single-with-logo-overlay' || frameType === 'free-layout' ? 'select-layout' : 'select-color')
+                      setPreviewUrl(null)
+                    }
                   }}
                   disabled={printing}
                 >

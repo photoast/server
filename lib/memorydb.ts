@@ -1,4 +1,4 @@
-import { Event, PrintJob, Admin, ErrorLog } from './types'
+import { Event, PrintJob, Admin, ErrorLog, Sticker } from './types'
 import { ObjectId } from 'mongodb'
 
 // In-memory database for development without MongoDB
@@ -7,6 +7,7 @@ class MemoryDB {
   private printJobs: Map<string, PrintJob> = new Map()
   private admins: Map<string, Admin> = new Map()
   private errorLogs: Map<string, ErrorLog> = new Map()
+  private stickers: Map<string, Sticker> = new Map()
   private initialized: boolean = false
 
   constructor() {
@@ -140,6 +141,24 @@ class MemoryDB {
     return logs.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
   }
 
+  // Stickers
+  async createSticker(sticker: Omit<Sticker, '_id' | 'createdAt'>): Promise<Sticker> {
+    const id = new ObjectId()
+    const newSticker: Sticker = { _id: id, ...sticker, createdAt: new Date() }
+    this.stickers.set(id.toString(), newSticker)
+    return newSticker
+  }
+
+  async getAllStickers(): Promise<Sticker[]> {
+    return Array.from(this.stickers.values()).sort(
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+    )
+  }
+
+  async deleteSticker(id: string): Promise<boolean> {
+    return this.stickers.delete(id)
+  }
+
   // Debug
   clear() {
     this.events.clear()
@@ -154,7 +173,9 @@ declare global {
   var _memoryDB: MemoryDB | undefined
 }
 
-const memoryDB = global._memoryDB || new MemoryDB()
+const memoryDB = (global._memoryDB && typeof global._memoryDB.createSticker === 'function')
+  ? global._memoryDB
+  : new MemoryDB()
 
 if (process.env.NODE_ENV === 'development') {
   global._memoryDB = memoryDB

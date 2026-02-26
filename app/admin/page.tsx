@@ -88,6 +88,10 @@ export default function AdminPage() {
   // Debounce timers
   const [debounceTimers, setDebounceTimers] = useState<Record<string, NodeJS.Timeout>>({})
 
+  // Sticker management
+  const [stickers, setStickers] = useState<{ _id: string; url: string; filename: string }[]>([])
+  const [stickerUploading, setStickerUploading] = useState(false)
+
   useEffect(() => {
     checkAuth()
   }, [])
@@ -110,9 +114,43 @@ export default function AdminPage() {
       if (res.ok) {
         setAuthenticated(true)
         fetchEvents()
+        fetchStickers()
       }
     } catch (err) {
       // Not authenticated
+    }
+  }
+
+  const fetchStickers = async () => {
+    try {
+      const res = await fetch('/api/stickers')
+      if (res.ok) setStickers(await res.json())
+    } catch (err) {}
+  }
+
+  const handleUploadSticker = async (file: File) => {
+    setStickerUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch('/api/stickers', { method: 'POST', body: formData })
+      if (res.ok) {
+        const sticker = await res.json()
+        setStickers(prev => [sticker, ...prev])
+      }
+    } catch (err) {
+      console.error('Failed to upload sticker:', err)
+    } finally {
+      setStickerUploading(false)
+    }
+  }
+
+  const handleDeleteSticker = async (id: string) => {
+    try {
+      const res = await fetch(`/api/stickers/${id}`, { method: 'DELETE' })
+      if (res.ok) setStickers(prev => prev.filter(s => s._id !== id))
+    } catch (err) {
+      console.error('Failed to delete sticker:', err)
     }
   }
 
@@ -815,6 +853,48 @@ export default function AdminPage() {
             <p className="text-red-600">{error}</p>
           </div>
         )}
+
+        {/* Sticker Management */}
+        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-bold">스티커 관리</h2>
+            <label className={`px-4 py-2 rounded-lg text-white cursor-pointer ${stickerUploading ? 'bg-purple-400' : 'bg-purple-600 hover:bg-purple-700'}`}>
+              {stickerUploading ? '업로드 중...' : '+ 스티커 업로드'}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                disabled={stickerUploading}
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) handleUploadSticker(file)
+                  e.target.value = ''
+                }}
+              />
+            </label>
+          </div>
+          {stickers.length === 0 ? (
+            <p className="text-gray-400 text-sm">업로드된 스티커가 없습니다.</p>
+          ) : (
+            <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-3">
+              {stickers.map((s) => (
+                <div key={s._id} className="relative group aspect-square">
+                  <img
+                    src={s.url}
+                    alt={s.filename}
+                    className="w-full h-full object-contain rounded border bg-gray-50"
+                  />
+                  <button
+                    onClick={() => handleDeleteSticker(s._id)}
+                    className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
           <div className="flex justify-between items-center mb-4">

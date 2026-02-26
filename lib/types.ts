@@ -7,7 +7,14 @@ export interface LogoSettings {
   y?: number // Custom Y position in logo area (0-100 percent)
 }
 
-export type FrameType = 'single' | 'single-with-logo' | 'single-with-logo-overlay' | 'four-cut' | 'two-by-two' | 'vertical-two' | 'one-plus-two' | 'landscape-single' | 'landscape-two' | 'puzzle-2x2' | 'puzzle-3x3'
+export type FrameType = 'single' | 'single-with-logo' | 'single-with-logo-overlay' | 'four-cut' | 'two-by-two' | 'vertical-two' | 'one-plus-two' | 'landscape-single' | 'landscape-two' | 'puzzle-2x2' | 'puzzle-3x3' | 'free-layout'
+
+export interface Sticker {
+  _id?: ObjectId
+  url: string
+  filename: string
+  createdAt: Date
+}
 
 export interface Event {
   _id?: ObjectId

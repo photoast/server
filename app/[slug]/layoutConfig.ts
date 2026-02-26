@@ -86,6 +86,13 @@ export const LAYOUT_OPTIONS: LayoutOption[] = [
     nameEn: 'Puzzle 3×3',
     description: '1장 → 9조각 퍼즐',
     photoCount: 1
+  },
+  {
+    type: 'free-layout',
+    name: '✨ 자유 레이아웃',
+    nameEn: 'Free Layout',
+    description: '내 맘대로 꾸미기',
+    photoCount: 0
   }
 ]
 
@@ -94,6 +101,7 @@ export function getLayoutOption(type: FrameType): LayoutOption | undefined {
 }
 
 export function getPhotoCount(type: FrameType): number {
+  if (type === 'free-layout') return 0
   return getLayoutOption(type)?.photoCount || 1
 }
 
