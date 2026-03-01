@@ -28,6 +28,7 @@ import { logClientError, logClientInfo } from '@/lib/errorLogger'
 import { renderSingleWithLogoToCanvas } from '@/lib/canvas-renderer'
 
 interface Event {
+  _id: string
   name: string
   slug: string
   printerUrl: string
@@ -37,6 +38,14 @@ interface Event {
   logoSettings?: any
   overlayLogoSettings?: any
   price?: number
+}
+
+interface SwitLayoutOption {
+  _id: string
+  name: string
+  printSize: string
+  slots: { id: string }[]
+  frameUrl: string | null
 }
 
 interface CropArea {
@@ -124,6 +133,9 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   const [paymentProcessing, setPaymentProcessing] = useState(false)
   const [paymentConfirming, setPaymentConfirming] = useState(false) // 결제 승인 처리 중
 
+  // SWIT layout options
+  const [switLayouts, setSwitLayouts] = useState<SwitLayoutOption[]>([])
+
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Helper function to update URL with current step and layout
@@ -157,7 +169,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     setPreviewUrl(null)
   }, [frameType])
 
-  // Fetch event data
+  // Fetch event data + SWIT layouts
   useEffect(() => {
     const fetchEvent = async () => {
       try {
@@ -165,6 +177,14 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         if (!res.ok) throw new Error('Event not found')
         const data = await res.json()
         setEvent(data)
+
+        // Fetch SWIT layouts for this event
+        if (data._id) {
+          fetch(`/api/swit-layouts?eventId=${data._id}`)
+            .then(r => r.ok ? r.json() : [])
+            .then(layouts => setSwitLayouts(Array.isArray(layouts) ? layouts : []))
+            .catch(() => {})
+        }
       } catch (err: any) {
         const errorMessage = err.message || 'Failed to fetch event'
         setError(errorMessage)
@@ -1494,6 +1514,35 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                           {option.name}
                         </div>
                         <div className="text-xs text-gray-400 mt-0.5">{option.description}</div>
+                      </div>
+                    </div>
+                  </UISelectItem>
+                ))}
+
+                {/* SWIT Custom Layouts */}
+                {switLayouts.map((sl) => (
+                  <UISelectItem
+                    key={`swit-${sl._id}`}
+                    selected={false}
+                    onClick={() => router.push(`/${params.slug}/layout/${sl._id}`)}
+                  >
+                    <div className="flex flex-col items-center gap-2">
+                      {/* Frame thumbnail or placeholder */}
+                      {sl.frameUrl ? (
+                        <div className="h-16 w-10 rounded overflow-hidden border border-gray-200">
+                          <img src={sl.frameUrl} alt={sl.name} className="w-full h-full object-cover" />
+                        </div>
+                      ) : (
+                        <div className="h-16 w-10 rounded bg-gradient-to-br from-blue-100 to-blue-50 border border-blue-200 flex items-center justify-center">
+                          <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 9h.01M15 15l-3-3-4 4" />
+                          </svg>
+                        </div>
+                      )}
+                      <div className="text-center">
+                        <div className="font-semibold text-sm text-gray-700">{sl.name}</div>
+                        <div className="text-xs text-gray-400 mt-0.5">{sl.printSize} · {sl.slots.length}칸</div>
                       </div>
                     </div>
                   </UISelectItem>
