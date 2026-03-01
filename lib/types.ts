@@ -1,5 +1,38 @@
 import { ObjectId } from 'mongodb'
 
+// ============ SWIT Photo Layout Authoring ============
+
+export type PrintSize = '4x6' | '2x6' | '6x4'
+
+export const PRINT_SIZE_DIMENSIONS: Record<PrintSize, { width: number; height: number }> = {
+  '4x6': { width: 1200, height: 1800 },
+  '2x6': { width: 600, height: 1800 },
+  '6x4': { width: 1800, height: 1200 },
+}
+
+export interface SwitSlot {
+  id: string
+  x: number       // canvas pixels from left
+  y: number       // canvas pixels from top
+  width: number   // canvas pixels
+  height: number  // canvas pixels
+  aspectRatio: '1:1' | '2:3' | '3:4' | '3:2' | '4:3' | 'free'
+  order: number
+}
+
+export interface SwitLayout {
+  _id: string
+  eventId: string
+  name: string
+  printSize: PrintSize
+  canvasWidth: number   // 300dpi canonical size
+  canvasHeight: number
+  slots: SwitSlot[]
+  frameUrl: string | null  // Top layer: transparent PNG frame
+  createdAt: string
+  updatedAt: string
+}
+
 export interface LogoSettings {
   position: 'top-left' | 'top-center' | 'top-right' | 'center-left' | 'center' | 'center-right' | 'bottom-left' | 'bottom-center' | 'bottom-right' | 'custom'
   size: number // Percentage of logo area width (10-100)

@@ -1,4 +1,4 @@
-import { Event, PrintJob, Admin, ErrorLog, Sticker } from './types'
+import { Event, PrintJob, Admin, ErrorLog, Sticker, SwitLayout } from './types'
 import { ObjectId } from 'mongodb'
 
 // In-memory database for development without MongoDB
@@ -8,6 +8,7 @@ class MemoryDB {
   private admins: Map<string, Admin> = new Map()
   private errorLogs: Map<string, ErrorLog> = new Map()
   private stickers: Map<string, Sticker> = new Map()
+  private layouts: Map<string, SwitLayout> = new Map()
   private initialized: boolean = false
 
   constructor() {
@@ -159,6 +160,36 @@ class MemoryDB {
     return this.stickers.delete(id)
   }
 
+  // SwitLayouts
+  async createLayout(layout: Omit<SwitLayout, '_id' | 'createdAt' | 'updatedAt'>): Promise<SwitLayout> {
+    const id = new ObjectId()
+    const now = new Date().toISOString()
+    const newLayout: SwitLayout = { _id: id.toString(), ...layout, createdAt: now, updatedAt: now }
+    this.layouts.set(id.toString(), newLayout)
+    return newLayout
+  }
+
+  async getLayoutById(id: string): Promise<SwitLayout | null> {
+    return this.layouts.get(id) || null
+  }
+
+  async getLayoutsByEventId(eventId: string): Promise<SwitLayout[]> {
+    return Array.from(this.layouts.values())
+      .filter(l => l.eventId === eventId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  }
+
+  async updateLayout(id: string, updates: Partial<SwitLayout>): Promise<boolean> {
+    const layout = this.layouts.get(id)
+    if (!layout) return false
+    this.layouts.set(id, { ...layout, ...updates, updatedAt: new Date().toISOString() })
+    return true
+  }
+
+  async deleteLayout(id: string): Promise<boolean> {
+    return this.layouts.delete(id)
+  }
+
   // Debug
   clear() {
     this.events.clear()
@@ -173,7 +204,7 @@ declare global {
   var _memoryDB: MemoryDB | undefined
 }
 
-const memoryDB = (global._memoryDB && typeof global._memoryDB.createSticker === 'function')
+const memoryDB = (global._memoryDB && typeof global._memoryDB.createSticker === 'function' && typeof global._memoryDB.createLayout === 'function')
   ? global._memoryDB
   : new MemoryDB()
 

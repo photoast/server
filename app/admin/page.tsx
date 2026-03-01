@@ -1578,6 +1578,15 @@ export default function AdminPage() {
                         Link
                       </button>
                       <button
+                        onClick={() => {
+                          const url = `/admin/layouts?eventId=${event._id}&eventName=${encodeURIComponent(event.name)}`
+                          window.open(url, '_blank')
+                        }}
+                        className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm font-semibold"
+                      >
+                        레이아웃 편집
+                      </button>
+                      <button
                         onClick={() => viewPrintHistory(event)}
                         className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
                       >
