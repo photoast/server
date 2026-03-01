@@ -655,7 +655,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   // 자유 레이아웃 완료 처리
   const handleFreeLayoutComplete = useCallback(async (blob: Blob) => {
     setProcessing(true)
-    setError(null)
+    setError('')
     try {
       const formData = new FormData()
       formData.append('slug', params.slug)

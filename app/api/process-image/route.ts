@@ -105,6 +105,7 @@ export async function POST(request: NextRequest) {
       'two-by-two': 4,
       'puzzle-2x2': 1,
       'puzzle-3x3': 1,
+      'free-layout': 1,
     }
 
     const expectedCount = photoCountMap[frameType]
