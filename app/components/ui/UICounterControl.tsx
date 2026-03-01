@@ -20,35 +20,35 @@ export default function UICounterControl({
   hint,
 }: UICounterControlProps) {
   return (
-    <div className="bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-200 rounded-2xl p-4">
+    <div className="bg-white border border-gray-100 rounded-2xl px-4 py-3">
       <div className="flex items-center justify-between">
         {label && (
-          <span className="text-gray-700 font-semibold">{label}</span>
+          <span className="text-sm font-semibold text-gray-700">{label}</span>
         )}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           <button
             type="button"
             onClick={() => onChange(Math.max(min, value - 1))}
             disabled={disabled || value <= min}
-            className="w-10 h-10 rounded-full bg-white border-2 border-purple-300 text-purple-600 font-bold text-xl hover:bg-purple-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-9 h-9 rounded-xl bg-gray-100 text-gray-700 font-bold text-lg hover:bg-gray-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center"
           >
             −
           </button>
-          <span className="text-2xl font-bold text-purple-600 min-w-[3rem] text-center">
+          <span className="text-xl font-bold text-gray-900 min-w-[2rem] text-center tabular-nums">
             {value}
           </span>
           <button
             type="button"
             onClick={() => onChange(Math.min(max, value + 1))}
             disabled={disabled || value >= max}
-            className="w-10 h-10 rounded-full bg-white border-2 border-purple-300 text-purple-600 font-bold text-xl hover:bg-purple-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-9 h-9 rounded-xl bg-gray-100 text-gray-700 font-bold text-lg hover:bg-gray-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center"
           >
             +
           </button>
         </div>
       </div>
       {hint && (
-        <p className="text-xs text-gray-500 text-center mt-2">{hint}</p>
+        <p className="text-xs text-gray-400 mt-2">{hint}</p>
       )}
     </div>
   )

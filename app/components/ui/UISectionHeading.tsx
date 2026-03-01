@@ -6,9 +6,9 @@ interface UISectionHeadingProps {
 
 export default function UISectionHeading({ title, subtitle, className = '' }: UISectionHeadingProps) {
   return (
-    <div className={`text-center ${className}`}>
-      <h2 className="text-2xl font-bold text-gray-800 mb-2">{title}</h2>
-      {subtitle && <p className="text-sm text-gray-500">{subtitle}</p>}
+    <div className={className}>
+      <h2 className="text-xl font-bold text-gray-900">{title}</h2>
+      {subtitle && <p className="text-sm text-gray-500 mt-1">{subtitle}</p>}
     </div>
   )
 }

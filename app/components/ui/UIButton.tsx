@@ -13,21 +13,21 @@ interface UIButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses: Record<Variant, string> = {
   primary:
-    'bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 text-white hover:shadow-2xl shadow-lg disabled:opacity-50',
+    'bg-blue-500 text-white hover:bg-blue-600 active:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400',
   secondary:
-    'bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50',
+    'bg-gray-100 text-gray-700 hover:bg-gray-150 active:bg-gray-200 disabled:opacity-40',
   download:
-    'bg-gradient-to-r from-blue-400 to-purple-400 text-white hover:shadow-2xl shadow-lg disabled:opacity-50',
+    'bg-gray-800 text-white hover:bg-gray-900 active:bg-black disabled:opacity-40',
   danger:
-    'bg-gradient-to-r from-red-500 to-rose-500 text-white hover:shadow-lg shadow-md disabled:opacity-50',
+    'bg-red-500 text-white hover:bg-red-600 active:bg-red-700 disabled:opacity-40',
   ghost:
-    'bg-white border-2 border-gray-200 text-gray-700 hover:border-pink-300 hover:shadow-lg disabled:opacity-50',
+    'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 active:bg-gray-100 disabled:opacity-40',
 }
 
 const sizeClasses: Record<Size, string> = {
   sm: 'py-2 px-4 text-sm',
-  md: 'py-3 px-5 text-base',
-  lg: 'py-4 px-6 text-lg',
+  md: 'py-2.5 px-5 text-sm',
+  lg: 'py-3.5 px-6 text-base',
 }
 
 export default function UIButton({
@@ -44,7 +44,7 @@ export default function UIButton({
     <button
       disabled={disabled || loading}
       className={[
-        'rounded-full font-bold transition-all flex items-center justify-center gap-2',
+        'rounded-2xl font-semibold transition-colors flex items-center justify-center gap-2',
         variantClasses[variant],
         sizeClasses[size],
         fullWidth ? 'w-full' : '',
@@ -56,8 +56,8 @@ export default function UIButton({
     >
       {loading ? (
         <>
-          <span className="animate-spin rounded-full h-5 w-5 border-t-2 border-current" />
-          처리 중...
+          <span className="animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent" />
+          처리 중
         </>
       ) : (
         children

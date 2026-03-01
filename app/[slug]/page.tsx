@@ -1436,24 +1436,20 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   // ============ Main Render ============
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 py-6 px-4">
+    <div className="min-h-screen bg-gray-50 py-6 px-4">
       <div className="max-w-2xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-6">
-          <div className="inline-block bg-white/80 backdrop-blur-sm rounded-full px-6 py-3 shadow-lg mb-4">
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 bg-clip-text text-transparent">
-              ✨ {event.name} ✨
-            </h1>
-          </div>
-          <p className="text-gray-600 text-sm font-medium">나만의 특별한 순간을 담아요 💕</p>
+        <div className="mb-5 px-1">
+          <h1 className="text-xl font-bold text-gray-900">{event.name}</h1>
+          <p className="text-sm text-gray-400 mt-0.5">사진을 선택해 인쇄해보세요</p>
         </div>
 
         {/* Main Content */}
-        <div className="bg-white rounded-3xl shadow-2xl p-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
           {/* Step 1: Select Layout */}
           {step === 'select-layout' && (
             <div className="space-y-6">
-              <UISectionHeading title="어떤 스타일로 만들까요? 🎨" subtitle="마음에 드는 레이아웃을 골라보세요!" />
+              <UISectionHeading title="레이아웃 선택" subtitle="원하는 스타일을 골라보세요" />
 
               <div className="grid grid-cols-2 gap-3">
                 {LAYOUT_OPTIONS
@@ -1469,19 +1465,19 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                   <button
                     key={option.type}
                     onClick={() => updateFrameType(option.type)}
-                    className={`p-4 rounded-3xl border-2 transition-all duration-300 ${
+                    className={`p-3 rounded-2xl border transition-all ${
                       frameType === option.type
-                        ? 'border-pink-400 bg-gradient-to-br from-pink-50 to-purple-50 shadow-xl'
-                        : 'border-gray-200 hover:border-pink-300 hover:shadow-lg bg-white'
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-100 hover:border-gray-200 bg-white'
                     }`}
                   >
                     <div className="flex flex-col items-center gap-2">
                       {renderLayoutOptionPreview(option.type)}
                       <div className="text-center">
-                        <div className={`font-bold text-sm ${frameType === option.type ? 'text-pink-600' : 'text-gray-800'}`}>
+                        <div className={`font-semibold text-sm ${frameType === option.type ? 'text-blue-600' : 'text-gray-700'}`}>
                           {option.name}
                         </div>
-                        <div className="text-xs text-gray-500 mt-1">{option.description}</div>
+                        <div className="text-xs text-gray-400 mt-0.5">{option.description}</div>
                       </div>
                     </div>
                   </button>
@@ -1492,44 +1488,44 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                 fullWidth
                 onClick={() => updateStep((frameType === 'single' || frameType === 'single-with-logo' || frameType === 'single-with-logo-overlay' || frameType === 'free-layout') ? 'fill-photos' : 'select-color')}
               >
-                다음 단계로 💫
+                다음으로
               </UIButton>
             </div>
           )}
 
           {/* Step 2: Select Color (skip for single photo) */}
           {step === 'select-color' && (
-            <div className="space-y-6">
-              <UISectionHeading title="어떤 색이 좋아요? 🎨" subtitle="배경색으로 분위기를 바꿔보세요!" />
+            <div className="space-y-5">
+              <UISectionHeading title="배경 색상" subtitle="배경색을 선택해주세요" />
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 gap-2">
                 {BACKGROUND_COLORS.map((color) => (
                   <button
                     key={color.value}
                     onClick={() => setBackgroundColor(color.value)}
-                    className={`p-3 rounded-3xl border-2 transition-all duration-300 ${
+                    className={`p-3 rounded-xl border transition-all ${
                       backgroundColor === color.value
-                        ? 'border-pink-400 shadow-2xl'
-                        : 'border-gray-200 hover:border-pink-300 hover:shadow-lg'
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-100 hover:border-gray-200 bg-white'
                     }`}
                   >
                     <div
-                      className="w-full h-16 rounded-2xl mb-2 shadow-md ring-2 ring-white"
+                      className="w-full h-12 rounded-lg mb-2"
                       style={{ backgroundColor: color.value }}
                     />
-                    <div className={`text-sm font-bold ${backgroundColor === color.value ? 'text-pink-600' : 'text-gray-700'}`}>
+                    <div className={`text-xs font-semibold ${backgroundColor === color.value ? 'text-blue-600' : 'text-gray-600'}`}>
                       {color.name}
                     </div>
                   </button>
                 ))}
               </div>
 
-              <div className="flex gap-3">
+              <div className="flex gap-2">
                 <UIButton variant="secondary" size="md" className="flex-1" onClick={() => updateStep('select-layout')}>
-                  ← 이전
+                  이전
                 </UIButton>
                 <UIButton size="md" className="flex-1" onClick={() => updateStep('fill-photos')}>
-                  다음 단계로 💫
+                  다음으로
                 </UIButton>
               </div>
             </div>
@@ -1546,65 +1542,57 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
           {step === 'fill-photos' && (frameType !== 'free-layout' || previewUrl) && (
             <div className="space-y-6">
               {/* Header with layout info */}
-              <div className="bg-gradient-to-r from-pink-100 via-purple-100 to-blue-100 rounded-3xl p-5 shadow-lg">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-xl font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
-                      {LAYOUT_OPTIONS.find(l => l.type === frameType)?.name}
-                    </h2>
-                    <p className="text-sm text-gray-600 mt-1 font-medium">
-                      {LAYOUT_OPTIONS.find(l => l.type === frameType)?.description}
-                    </p>
-                  </div>
-                  {frameType !== 'free-layout' && (
-                    <div className="text-right bg-white/80 backdrop-blur-sm rounded-2xl px-4 py-2">
-                      <div className="text-2xl font-bold bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text text-transparent">
-                        {photoSlots.filter(s => s.file).length}/{photoSlots.length}
-                      </div>
-                      <div className="text-xs text-gray-500 font-medium">완료됨 ✨</div>
-                    </div>
-                  )}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-base font-bold text-gray-900">
+                    {LAYOUT_OPTIONS.find(l => l.type === frameType)?.name}
+                  </h2>
+                  <p className="text-sm text-gray-400 mt-0.5">
+                    {LAYOUT_OPTIONS.find(l => l.type === frameType)?.description}
+                  </p>
                 </div>
+                {frameType !== 'free-layout' && (
+                  <div className="text-right">
+                    <div className="text-xl font-bold text-gray-900 tabular-nums">
+                      {photoSlots.filter(s => s.file).length}/{photoSlots.length}
+                    </div>
+                    <div className="text-xs text-gray-400">사진 완료</div>
+                  </div>
+                )}
               </div>
-
 
               {/* Status Banner */}
               {allSlotsFilled ? (
-                <UIStatusBanner type="success" message="완벽해요! 이제 출력할 수 있어요!" className="rounded-3xl shadow-lg" />
+                <UIStatusBanner type="success" message="준비됐어요. 아래 버튼으로 프린트할 수 있어요." />
               ) : (
-                <UIStatusBanner type="info" message="영역을 탭해서 예쁜 사진을 올려보세요!" className="rounded-3xl shadow-md" />
+                <UIStatusBanner type="info" message="사진 영역을 탭해서 추가해주세요." />
               )}
 
               {/* Layout Preview */}
               <div className="space-y-4">
-                <div className="flex items-center justify-between px-2">
-                  <h3 className="font-semibold text-gray-800">출력 미리보기</h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-gray-700">미리보기</h3>
                   {allSlotsFilled && (
-                    <span className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full font-medium">
-                      ✓ 준비완료
+                    <span className="text-xs bg-green-50 text-green-600 px-2.5 py-1 rounded-full font-medium">
+                      준비 완료
                     </span>
                   )}
                 </div>
                 <div className="transition-all duration-300">
                   {renderLayoutPreview()}
                 </div>
-                {frameType !== 'free-layout' && <div className="bg-white rounded-xl p-4 shadow-md">
-                  <p className="text-center text-sm text-gray-600 font-medium mb-2">
-                    사진을 탭하여 추가/변경/삭제
+                {frameType !== 'free-layout' && <div className="bg-gray-50 rounded-xl p-3">
+                  <p className="text-center text-sm text-gray-500">
+                    사진을 탭해 추가하거나 변경할 수 있어요
                   </p>
                   {frameType === 'four-cut' && (
-                    <p className="text-center text-xs text-purple-600 mt-2">
-                      ✂️ 중앙을 세로로 자르면 2개의 동일한 스트립
+                    <p className="text-center text-xs text-gray-400 mt-1">
+                      중앙을 세로로 자르면 동일한 스트립 2개가 나와요
                     </p>
                   )}
-                  {frameType === 'puzzle-2x2' && (
-                    <p className="text-center text-xs text-purple-600 mt-2">
-                      🧩 4조각으로 나눠져 인쇄됩니다 • 조립하면 2배 확대!
-                    </p>
-                  )}
-                  {frameType === 'puzzle-3x3' && (
-                    <p className="text-center text-xs text-purple-600 mt-2">
-                      🧩 9조각으로 나눠져 인쇄됩니다 • 조립하면 3배 확대!
+                  {(frameType === 'puzzle-2x2' || frameType === 'puzzle-3x3') && (
+                    <p className="text-center text-xs text-gray-400 mt-1">
+                      {frameType === 'puzzle-2x2' ? '4조각' : '9조각'}으로 나눠져 인쇄돼요 · 조립하면 하나의 큰 사진이 돼요
                     </p>
                   )}
                 </div>}
@@ -1617,9 +1605,9 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
               {/* Puzzle Pieces Preview with Animation */}
               {(frameType === 'puzzle-2x2' || frameType === 'puzzle-3x3') && puzzlePieceUrls.length > 0 && (
-                <div className="bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200 rounded-2xl p-4">
-                  <h4 className="text-sm font-semibold text-gray-800 mb-3 text-center">
-                    🧩 인쇄될 퍼즐 조각들 (총 {puzzlePieceUrls.length}조각)
+                <div className="bg-gray-50 border border-gray-100 rounded-xl p-4">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3 text-center">
+                    인쇄될 퍼즐 조각 (총 {puzzlePieceUrls.length}조각)
                   </h4>
                   <div className="relative w-full" style={{ paddingBottom: '150%' }}>
                     {puzzlePieceUrls.map((url, index) => {
@@ -1665,7 +1653,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                                 alt={`퍼즐 조각 ${index + 1}`}
                                 className="w-full h-full object-cover"
                               />
-                              <div className="absolute top-1 right-1 bg-purple-600 text-white text-xs font-bold px-2 py-1 rounded-full shadow-md">
+                              <div className="absolute top-1 right-1 bg-gray-800 text-white text-xs font-bold px-1.5 py-0.5 rounded-md">
                                 {index + 1}
                               </div>
                             </div>
@@ -1674,8 +1662,8 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                       )
                     })}
                   </div>
-                  <p className="text-xs text-gray-500 text-center mt-3">
-                    {puzzleAnimationSplit ? '📤 각 조각이 개별 인쇄됩니다' : '🧩 조립하면 하나의 큰 사진!'}
+                  <p className="text-xs text-gray-400 text-center mt-3">
+                    {puzzleAnimationSplit ? '각 조각이 개별 인쇄됩니다' : '조립하면 하나의 큰 사진이 돼요'}
                   </p>
                 </div>
               )}
@@ -1734,7 +1722,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                   }}
                   disabled={printing}
                 >
-                  ← 이전 단계로
+                  이전으로
                 </UIButton>
               </div>
 
@@ -1753,9 +1741,9 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
           {step === 'payment' && (
             <div className="space-y-6">
               <UISectionHeading
-                title={(event?.price ?? 0) === 0 ? '무료 프린트 🎉' : '결제하기 💳'}
+                title={(event?.price ?? 0) === 0 ? '무료 프린트' : '결제'}
                 subtitle={(event?.price ?? 0) === 0
-                  ? `${printQuantity}매 무료로 프린트 하실 수 있습니다`
+                  ? `${printQuantity}매 무료로 프린트하실 수 있어요`
                   : `${printQuantity}매 프린트 비용을 결제해주세요`
                 }
               />
@@ -1775,32 +1763,27 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
               )}
 
               {/* 결제 금액 */}
-              <div className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-2xl p-4">
+              <div className="bg-gray-50 rounded-xl p-4">
                 {(event?.price ?? 0) === 0 ? (
-                  <div className="text-center">
-                    <p className="text-sm text-gray-600 mb-1">프린트 비용</p>
-                    <p className="text-3xl font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
-                      무료
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">{printQuantity}매</p>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-500">프린트 비용</span>
+                    <span className="text-xl font-bold text-gray-900">무료 · {printQuantity}매</span>
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    <div className="flex justify-between items-center text-sm text-gray-600">
-                      <span>단가</span>
-                      <span>{event?.price}원</span>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-gray-500">단가</span>
+                      <span className="text-gray-700">{event?.price?.toLocaleString()}원</span>
                     </div>
-                    <div className="flex justify-between items-center text-sm text-gray-600">
-                      <span>수량</span>
-                      <span>{printQuantity}매</span>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-gray-500">수량</span>
+                      <span className="text-gray-700">{printQuantity}매</span>
                     </div>
-                    <div className="border-t border-purple-200 pt-2 mt-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">총 결제 금액</span>
-                        <p className="text-2xl font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
-                          {(event?.price ?? 0) * printQuantity}원
-                        </p>
-                      </div>
+                    <div className="border-t border-gray-200 pt-2 mt-2 flex justify-between items-center">
+                      <span className="text-sm font-semibold text-gray-700">총 결제 금액</span>
+                      <span className="text-xl font-bold text-gray-900">
+                        {((event?.price ?? 0) * printQuantity).toLocaleString()}원
+                      </span>
                     </div>
                   </div>
                 )}
@@ -1811,7 +1794,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                 <div id="payment-method" className="min-h-[200px]">
                   {!paymentReady && (
                     <div className="flex items-center justify-center h-[200px]">
-                      <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-purple-600"></div>
+                      <div className="animate-spin rounded-full h-7 w-7 border-2 border-gray-200 border-t-blue-500"></div>
                     </div>
                   )}
                 </div>
@@ -1845,7 +1828,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                   }}
                   disabled={paymentProcessing || printing}
                 >
-                  ← 이전 단계로
+                  이전으로
                 </UIButton>
               </div>
             </div>
@@ -1853,69 +1836,53 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
           {/* Step 5: Success */}
           {step === 'success' && (
-            <div className="space-y-6">
-              <div className="bg-gradient-to-br from-pink-50 to-purple-50 rounded-3xl p-8 shadow-2xl text-center">
-                <div className="text-6xl mb-4 animate-bounce">🎉</div>
-                <h2 className="text-3xl font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent mb-3">
-                  완성되었어요!
-                </h2>
-                <p className="text-gray-600 mb-6 font-medium">
-                  소중한 추억 {printQuantity}매가 프린터로 전송되었어요 💕<br />
-                  <span className="text-sm">곧 멋진 사진을 받아보실 수 있어요!</span>
+            <div className="space-y-5">
+              <div className="bg-green-50 rounded-2xl p-8 text-center">
+                <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-7 h-7 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <h2 className="text-xl font-bold text-gray-900 mb-2">프린트 전송 완료</h2>
+                <p className="text-sm text-gray-500">
+                  {printQuantity}매가 프린터로 전송되었어요.<br />잠시 후 출력됩니다.
                 </p>
-                <UIButton onClick={handleReset} size="md" className="px-8">
-                  새로운 사진 만들기 ✨
-                </UIButton>
               </div>
+              <UIButton fullWidth onClick={handleReset}>
+                새로운 사진 만들기
+              </UIButton>
             </div>
           )}
         </div>
 
         {/* Action Modal */}
         {showActionModal && currentEditingSlot !== null && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-            <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 space-y-4 animate-in zoom-in duration-300">
-              <div className="text-center mb-2">
-                <div className="inline-block bg-gradient-to-r from-pink-100 to-purple-100 rounded-full px-4 py-2">
-                  <h3 className="text-lg font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
-                    사진 {currentEditingSlot + 1} 💕
-                  </h3>
-                </div>
-              </div>
+          <div className="fixed inset-0 bg-black/40 z-50 flex items-end justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-2">
+              <p className="text-xs font-semibold text-gray-400 mb-3">사진 {currentEditingSlot! + 1}</p>
 
-              <div className="space-y-3">
-                <UIButton fullWidth onClick={handleEditPhoto}>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                  사진 편집하기 ✨
-                </UIButton>
+              <UIButton fullWidth onClick={handleEditPhoto}>
+                사진 편집
+              </UIButton>
 
-                <UIButton fullWidth variant="download" onClick={handleReplacePhoto}>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  다른 사진으로 바꾸기 🔄
-                </UIButton>
+              <UIButton fullWidth variant="secondary" onClick={handleReplacePhoto}>
+                다른 사진으로 변경
+              </UIButton>
 
-                <UIButton fullWidth variant="danger" onClick={handleDeletePhoto}>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                  사진 삭제하기 🗑️
-                </UIButton>
+              <UIButton fullWidth variant="danger" onClick={handleDeletePhoto}>
+                사진 삭제
+              </UIButton>
 
-                <UIButton
-                  fullWidth
-                  variant="secondary"
-                  onClick={() => {
-                    setShowActionModal(false)
-                    setCurrentEditingSlot(null)
-                  }}
-                >
-                  닫기
-                </UIButton>
-              </div>
+              <UIButton
+                fullWidth
+                variant="ghost"
+                onClick={() => {
+                  setShowActionModal(false)
+                  setCurrentEditingSlot(null)
+                }}
+              >
+                닫기
+              </UIButton>
             </div>
           </div>
         )}
