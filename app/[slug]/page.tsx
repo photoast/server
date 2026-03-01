@@ -6,7 +6,7 @@ import Image from 'next/image'
 import dynamic from 'next/dynamic'
 import FourCutCropEditor from '../components/FourCutCropEditor'
 const FreeLayoutEditor = dynamic(() => import('../components/FreeLayoutEditor'), { ssr: false })
-import { UIButton, UIStatusBanner, UICounterControl, UISectionHeading, UIPageSpinner, UICardSpinner } from '../components/ui'
+import { UIButton, UIStatusBanner, UICounterControl, UISectionHeading, UIPageSpinner, UICardSpinner, UIStepBar, UISelectItem, UIBottomSheet } from '../components/ui'
 import { loadTossPayments } from '@tosspayments/tosspayments-sdk'
 import type { TossPaymentsWidgets } from '@tosspayments/tosspayments-sdk'
 
@@ -72,6 +72,13 @@ const BACKGROUND_COLORS = [
   { name: '블루', value: '#87CEEB' },
   { name: '그린', value: '#90EE90' },
   { name: '퍼플', value: '#DDA0DD' }
+]
+
+const STEP_BAR_STEPS = [
+  { id: 'select-layout', label: '레이아웃' },
+  { id: 'select-color', label: '색상' },
+  { id: 'fill-photos', label: '사진' },
+  { id: 'payment', label: '완료' },
 ]
 
 export default function GuestPage({ params }: { params: { slug: string } }) {
@@ -1439,10 +1446,23 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     <div className="min-h-screen bg-gray-50 py-6 px-4">
       <div className="max-w-2xl mx-auto">
         {/* Header */}
-        <div className="mb-5 px-1">
+        <div className="mb-4 px-1">
           <h1 className="text-xl font-bold text-gray-900">{event.name}</h1>
           <p className="text-sm text-gray-400 mt-0.5">사진을 선택해 인쇄해보세요</p>
         </div>
+
+        {/* Step Bar */}
+        {step !== 'success' && (
+          <div className="bg-white rounded-2xl border border-gray-100 px-5 py-4 mb-4">
+            <UIStepBar
+              steps={STEP_BAR_STEPS.filter(s => {
+                if (s.id === 'select-color' && (frameType === 'single' || frameType === 'single-with-logo' || frameType === 'single-with-logo-overlay' || frameType === 'free-layout')) return false
+                return true
+              })}
+              currentStep={step}
+            />
+          </div>
+        )}
 
         {/* Main Content */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
@@ -1462,14 +1482,10 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                     return event.availableLayouts.includes(option.type)
                   })
                   .map((option) => (
-                  <button
+                  <UISelectItem
                     key={option.type}
+                    selected={frameType === option.type}
                     onClick={() => updateFrameType(option.type)}
-                    className={`p-3 rounded-2xl border transition-all ${
-                      frameType === option.type
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-100 hover:border-gray-200 bg-white'
-                    }`}
                   >
                     <div className="flex flex-col items-center gap-2">
                       {renderLayoutOptionPreview(option.type)}
@@ -1480,7 +1496,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                         <div className="text-xs text-gray-400 mt-0.5">{option.description}</div>
                       </div>
                     </div>
-                  </button>
+                  </UISelectItem>
                 ))}
               </div>
 
@@ -1500,23 +1516,20 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
               <div className="grid grid-cols-3 gap-2">
                 {BACKGROUND_COLORS.map((color) => (
-                  <button
+                  <UISelectItem
                     key={color.value}
+                    selected={backgroundColor === color.value}
                     onClick={() => setBackgroundColor(color.value)}
-                    className={`p-3 rounded-xl border transition-all ${
-                      backgroundColor === color.value
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-100 hover:border-gray-200 bg-white'
-                    }`}
+                    className="text-center"
                   >
                     <div
-                      className="w-full h-12 rounded-lg mb-2"
+                      className="w-full h-12 rounded-lg mb-2 border border-gray-100"
                       style={{ backgroundColor: color.value }}
                     />
                     <div className={`text-xs font-semibold ${backgroundColor === color.value ? 'text-blue-600' : 'text-gray-600'}`}>
                       {color.name}
                     </div>
-                  </button>
+                  </UISelectItem>
                 ))}
               </div>
 
@@ -1856,36 +1869,15 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         </div>
 
         {/* Action Modal */}
-        {showActionModal && currentEditingSlot !== null && (
-          <div className="fixed inset-0 bg-black/40 z-50 flex items-end justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-2">
-              <p className="text-xs font-semibold text-gray-400 mb-3">사진 {currentEditingSlot! + 1}</p>
-
-              <UIButton fullWidth onClick={handleEditPhoto}>
-                사진 편집
-              </UIButton>
-
-              <UIButton fullWidth variant="secondary" onClick={handleReplacePhoto}>
-                다른 사진으로 변경
-              </UIButton>
-
-              <UIButton fullWidth variant="danger" onClick={handleDeletePhoto}>
-                사진 삭제
-              </UIButton>
-
-              <UIButton
-                fullWidth
-                variant="ghost"
-                onClick={() => {
-                  setShowActionModal(false)
-                  setCurrentEditingSlot(null)
-                }}
-              >
-                닫기
-              </UIButton>
-            </div>
-          </div>
-        )}
+        <UIBottomSheet
+          open={showActionModal && currentEditingSlot !== null}
+          onClose={() => { setShowActionModal(false); setCurrentEditingSlot(null) }}
+          title={currentEditingSlot !== null ? `사진 ${currentEditingSlot + 1}` : undefined}
+        >
+          <UIButton fullWidth onClick={handleEditPhoto}>사진 편집</UIButton>
+          <UIButton fullWidth variant="secondary" onClick={handleReplacePhoto}>다른 사진으로 변경</UIButton>
+          <UIButton fullWidth variant="danger" onClick={handleDeletePhoto}>사진 삭제</UIButton>
+        </UIBottomSheet>
 
         {/* Crop Editor Modal */}
         {showCropEditor && currentEditingSlot !== null && photoSlots[currentEditingSlot]?.file && (

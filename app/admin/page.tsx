@@ -5,6 +5,7 @@ import Image from 'next/image'
 import QRCode from 'qrcode'
 import { logClientError } from '@/lib/errorLogger'
 import { renderSingleWithLogoToCanvas } from '@/lib/canvas-renderer'
+import { UIButton, UICard, UIFormField, UITextInput, UIStatusBanner } from '@/app/components/ui'
 
 interface LogoSettings {
   position: 'top-left' | 'top-center' | 'top-right' | 'center-left' | 'center' | 'center-right' | 'bottom-left' | 'bottom-center' | 'bottom-right' | 'custom'
@@ -791,74 +792,55 @@ export default function AdminPage() {
 
   if (!authenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="bg-white p-8 rounded-lg shadow-lg w-96">
-          <h1 className="text-2xl font-bold mb-6 text-center">Admin Login</h1>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+        <UICard className="w-full max-w-sm" padding="lg">
+          <h1 className="text-2xl font-bold mb-6 text-gray-900">Admin Login</h1>
           <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Username</label>
-              <input
+            <UIFormField label="Username">
+              <UITextInput
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg"
+                placeholder="admin"
                 required
               />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Password</label>
-              <input
+            </UIFormField>
+            <UIFormField label="Password">
+              <UITextInput
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg"
+                placeholder="••••••••"
                 required
               />
-            </div>
-            {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
-                {error}
-              </div>
-            )}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-            >
+            </UIFormField>
+            {error && <UIStatusBanner type="error" message={error} />}
+            <UIButton type="submit" fullWidth loading={loading} disabled={loading}>
               {loading ? 'Logging in...' : 'Login'}
-            </button>
+            </UIButton>
           </form>
-        </div>
+        </UICard>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 py-8 px-4">
+    <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-6xl mx-auto">
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+        <UICard className="mb-6">
           <div className="flex justify-between items-center">
-            <h1 className="text-3xl font-bold">Photo Toast Admin</h1>
-            <button
-              onClick={handleLogout}
-              className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
-            >
-              Logout
-            </button>
+            <h1 className="text-2xl font-bold text-gray-900">Photo Toast Admin</h1>
+            <UIButton variant="secondary" size="sm" onClick={handleLogout}>Logout</UIButton>
           </div>
-        </div>
+        </UICard>
 
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-            <p className="text-red-600">{error}</p>
-          </div>
-        )}
+        {error && <div className="mb-6"><UIStatusBanner type="error" message={error} /></div>}
 
         {/* Sticker Management */}
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+        <UICard className="mb-6">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold">스티커 관리</h2>
-            <label className={`px-4 py-2 rounded-lg text-white cursor-pointer ${stickerUploading ? 'bg-purple-400' : 'bg-purple-600 hover:bg-purple-700'}`}>
+            <h2 className="text-lg font-bold text-gray-900">스티커 관리</h2>
+            <label className={`inline-flex items-center px-4 py-2 rounded-xl text-sm font-semibold text-white cursor-pointer transition-colors ${stickerUploading ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600'}`}>
               {stickerUploading ? '업로드 중...' : '+ 스티커 업로드'}
               <input
                 type="file"
@@ -882,7 +864,7 @@ export default function AdminPage() {
                   <img
                     src={s.url}
                     alt={s.filename}
-                    className="w-full h-full object-contain rounded border bg-gray-50"
+                    className="w-full h-full object-contain rounded-xl border border-gray-100 bg-gray-50"
                   />
                   <button
                     onClick={() => handleDeleteSticker(s._id)}
@@ -894,50 +876,43 @@ export default function AdminPage() {
               ))}
             </div>
           )}
-        </div>
+        </UICard>
 
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+        <UICard className="mb-6">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold">Events</h2>
-            <button
+            <h2 className="text-lg font-bold text-gray-900">Events</h2>
+            <UIButton
+              variant={showCreateForm ? 'secondary' : 'primary'}
+              size="sm"
               onClick={() => setShowCreateForm(!showCreateForm)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
               {showCreateForm ? 'Cancel' : 'Create Event'}
-            </button>
+            </UIButton>
           </div>
 
           {showCreateForm && (
-            <form onSubmit={handleCreateEvent} className="mb-6 p-4 bg-gray-50 rounded-lg space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Event Name</label>
-                <input
+            <form onSubmit={handleCreateEvent} className="mb-6 p-4 bg-gray-50 rounded-xl space-y-4">
+              <UIFormField label="Event Name">
+                <UITextInput
                   type="text"
                   value={newEventName}
                   onChange={(e) => setNewEventName(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg"
                   placeholder="Birthday Party 2024"
                   required
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Printer IPP URL</label>
-                <input
+              </UIFormField>
+              <UIFormField label="Printer IPP URL">
+                <UITextInput
                   type="text"
                   value={newEventPrinter}
                   onChange={(e) => setNewEventPrinter(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg"
                   placeholder="ipp://192.168.1.100:631/printers/printer1"
                   required
                 />
-              </div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-              >
+              </UIFormField>
+              <UIButton type="submit" disabled={loading} loading={loading}>
                 {loading ? 'Creating...' : 'Create Event'}
-              </button>
+              </UIButton>
             </form>
           )}
 
@@ -1629,7 +1604,7 @@ export default function AdminPage() {
               <p className="text-center text-gray-500 py-8">No events yet. Create one to get started!</p>
             )}
           </div>
-        </div>
+        </UICard>
 
         {qrCodeUrl && selectedEvent && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto" onClick={() => {
