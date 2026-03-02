@@ -61,17 +61,27 @@ export async function printImage(
     // 파일 존재 여부 확인
     await fs.access(imagePath)
 
-    // SEND_PRINTER=false이면 파일 생성까지만 하고 실제 인쇄 요청은 스킵
-    const sendPrinterEnabled = process.env.SEND_PRINTER !== 'false'
-    if (!sendPrinterEnabled) {
-      console.log(`SEND_PRINTER=false → 파일 준비 완료, 인쇄 요청 스킵`)
-      console.log(`====================================\n`)
-      return { success: true }
-    }
-
     if (printMethod === 'socket') {
       // ── Socket 방식: phototoast 클라이언트로 전송 ──
       console.log(`Print Method: Socket (phototoast 클라이언트)`)
+
+      // output 폴더에 원본 저장 (로컬 확인용)
+      const isVercel = process.env.VERCEL === '1'
+      const outputDir = isVercel ? '/tmp/output' : path.join(process.cwd(), 'output')
+      await fs.mkdir(outputDir, { recursive: true })
+      const timestamp = Date.now()
+      const imageBuffer = await fs.readFile(imagePath)
+      const outputPath = path.join(outputDir, `socket-original-${timestamp}.jpg`)
+      await fs.writeFile(outputPath, imageBuffer)
+      console.log(`Output 저장: ${outputPath}`)
+
+      // SEND_PRINTER=false이면 소켓 전송 스킵
+      const sendPrinterEnabled = process.env.SEND_PRINTER !== 'false'
+      if (!sendPrinterEnabled) {
+        console.log(`SEND_PRINTER=false → 파일 준비 완료, 소켓 전송 스킵`)
+        console.log(`====================================\n`)
+        return { success: true }
+      }
 
       const result = await emitPrintJob({
         imagePath,
