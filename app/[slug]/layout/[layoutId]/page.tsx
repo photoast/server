@@ -23,6 +23,7 @@ interface Event {
   name: string
   slug: string
   printerUrl: string
+  supportedSizes?: string[]
   price?: number
   puzzleEnabled?: boolean
   backgroundColors?: string[]
@@ -101,6 +102,9 @@ export default function SwitLayoutPage({
   // Layout picker
   const [allLayouts, setAllLayouts] = useState<SwitLayout[]>([])
   const [showLayoutPicker, setShowLayoutPicker] = useState(false)
+  const filteredLayouts = event?.supportedSizes
+    ? allLayouts.filter(sl => event.supportedSizes!.includes(sl.printSize))
+    : allLayouts
 
   // Payment state
   const [paymentWidgets, setPaymentWidgets] = useState<TossPaymentsWidgets | null>(null)
@@ -572,7 +576,7 @@ export default function SwitLayoutPage({
               onComplete={handleComplete}
               onPhotosReady={handlePhotosReady}
               onBack={() => router.push(`/${params.slug}`)}
-              onLayoutChange={allLayouts.length > 1 ? () => setShowLayoutPicker(true) : undefined}
+              onLayoutChange={filteredLayouts.length > 1 ? () => setShowLayoutPicker(true) : undefined}
             />
           )}
 
@@ -879,7 +883,7 @@ export default function SwitLayoutPage({
         {/* Layout picker bottom sheet */}
         <UIBottomSheet open={showLayoutPicker} onClose={() => setShowLayoutPicker(false)} title="레이아웃 변경">
           <div className="grid grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto pb-3">
-            {allLayouts.map((sl) => {
+            {filteredLayouts.map((sl) => {
               const isCurrent = sl._id === layout._id
               const isLandscape = sl.canvasWidth > sl.canvasHeight
 

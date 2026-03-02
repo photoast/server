@@ -13,6 +13,7 @@ interface Printer {
   name: string
   printMethod: PrintMethod
   email?: string
+  supportedSizes: string[]
   borderCorrectionEnabled: boolean
   shrinkPercent: number
   verticalOffsetPx: number
@@ -67,6 +68,7 @@ export default function AdminPage() {
   const [newPrinterName, setNewPrinterName] = useState('')
   const [newPrinterMethod, setNewPrinterMethod] = useState<PrintMethod>('email')
   const [newPrinterEmail, setNewPrinterEmail] = useState('')
+  const [newPrinterSupportedSizes, setNewPrinterSupportedSizes] = useState<string[]>(['4x6', '6x4'])
   const [editingPrinter, setEditingPrinter] = useState<Printer | null>(null)
 
   // Create event form
@@ -176,6 +178,7 @@ export default function AdminPage() {
           name: newPrinterName,
           printMethod: newPrinterMethod,
           email: newPrinterMethod === 'email' ? newPrinterEmail : undefined,
+          supportedSizes: newPrinterSupportedSizes,
           borderCorrectionEnabled: true,
           shrinkPercent: 97.5,
           verticalOffsetPx: 0,
@@ -188,6 +191,7 @@ export default function AdminPage() {
       setNewPrinterName('')
       setNewPrinterEmail('')
       setNewPrinterMethod('email')
+      setNewPrinterSupportedSizes(['4x6', '6x4'])
       setShowPrinterForm(false)
       fetchPrinters()
     } catch (err: any) {
@@ -593,6 +597,8 @@ export default function AdminPage() {
     const event = detailEvent
     const isEditingName = editingEventId === event._id && editingField === 'name'
     const layouts = eventLayouts[event._id] || []
+    const eventPrinter = printers.find(p => p._id === event.printerId)
+    const printerSupportedSizes = eventPrinter?.supportedSizes
 
     return (
       <div className="min-h-screen bg-gray-50 py-8 px-4">
@@ -842,6 +848,9 @@ export default function AdminPage() {
                       <span className="ml-1.5 text-[10px] font-semibold text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded">프리셋</span>
                     )}
                     <span className="text-xs text-gray-400 ml-2">{layout.printSize} · {layout.slots.length}칸</span>
+                    {printerSupportedSizes && !printerSupportedSizes.includes(layout.printSize) && (
+                      <span className="ml-1.5 text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">프린터 미지원</span>
+                    )}
                   </div>
                   <button
                     onClick={async () => {
@@ -1128,6 +1137,24 @@ export default function AdminPage() {
                   />
                 </UIFormField>
               )}
+              <UIFormField label="지원 규격">
+                <div className="flex gap-2">
+                  {['4x6', '2x6', '6x4'].map(size => (
+                    <label key={size} className="flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={newPrinterSupportedSizes.includes(size)}
+                        onChange={e => {
+                          if (e.target.checked) setNewPrinterSupportedSizes(prev => [...prev, size])
+                          else setNewPrinterSupportedSizes(prev => prev.filter(s => s !== size))
+                        }}
+                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-700">{size}</span>
+                    </label>
+                  ))}
+                </div>
+              </UIFormField>
               <UIButton type="submit" size="sm">프린터 등록</UIButton>
             </form>
           )}
@@ -1169,6 +1196,28 @@ export default function AdminPage() {
                   />
                 </UIFormField>
               )}
+
+              <UIFormField label="지원 규격">
+                <div className="flex gap-2">
+                  {['4x6', '2x6', '6x4'].map(size => (
+                    <label key={size} className="flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={(editingPrinter.supportedSizes || []).includes(size)}
+                        onChange={e => {
+                          const current = editingPrinter.supportedSizes || []
+                          const updated = e.target.checked
+                            ? [...current, size]
+                            : current.filter(s => s !== size)
+                          handleUpdatePrinter(editingPrinter._id, { supportedSizes: updated } as any)
+                        }}
+                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-700">{size}</span>
+                    </label>
+                  ))}
+                </div>
+              </UIFormField>
 
               <UIFormField label="테두리 보정">
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -1251,6 +1300,7 @@ export default function AdminPage() {
                     </UIBadge>
                   </div>
                   {printer.email && <p className="text-xs text-gray-400 mt-0.5">{printer.email}</p>}
+                  {printer.supportedSizes && <p className="text-xs text-gray-400 mt-0.5">지원: {printer.supportedSizes.join(', ')}</p>}
                 </div>
                 <button
                   onClick={() => setEditingPrinter(editingPrinter?._id === printer._id ? null : printer)}

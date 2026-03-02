@@ -29,6 +29,7 @@ interface Event {
   slug: string
   printerUrl: string
   availableLayouts?: string[]
+  supportedSizes?: string[]
   price?: number
 }
 
@@ -187,16 +188,21 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     fetchEvent()
   }, [params.slug])
 
+  // Filter layouts by printer's supported sizes
+  const filteredSwitLayouts = event?.supportedSizes
+    ? switLayouts.filter(sl => event.supportedSizes!.includes(sl.printSize))
+    : switLayouts
+
   // Auto-select layout if only one SwitLayout is available (and no special layouts)
   useEffect(() => {
     if (!event || step !== 'select-layout') return
 
     const availableLayouts = event.availableLayouts || []
     // If exactly one SwitLayout, auto-redirect
-    if (switLayouts.length === 1) {
-      router.push(`/${params.slug}/layout/${switLayouts[0]._id}`)
+    if (filteredSwitLayouts.length === 1) {
+      router.push(`/${params.slug}/layout/${filteredSwitLayouts[0]._id}`)
     }
-  }, [event, step, switLayouts, router, params.slug])
+  }, [event, step, filteredSwitLayouts, router, params.slug])
 
   // ============ Event Handlers ============
 
@@ -1197,7 +1203,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
               {/* SwitLayout 기반 레이아웃 그리드 (통합) */}
               <div className="grid grid-cols-2 gap-3">
-                {switLayouts.map((sl) => {
+                {filteredSwitLayouts.map((sl) => {
                   const isLandscape = sl.canvasWidth > sl.canvasHeight
 
                   return (

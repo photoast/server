@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { findEventBySlug } from '@/lib/models'
+import { findEventBySlug, findPrinterById } from '@/lib/models'
 
 // GET event by slug (public endpoint for guests)
 export async function GET(
@@ -13,7 +13,16 @@ export async function GET(
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
     }
 
-    return NextResponse.json(event)
+    // Resolve printer's supported sizes for client-side layout filtering
+    let supportedSizes: string[] | undefined
+    if (event.printerId) {
+      const printer = await findPrinterById(event.printerId)
+      if (printer?.supportedSizes) {
+        supportedSizes = printer.supportedSizes
+      }
+    }
+
+    return NextResponse.json({ ...event, supportedSizes })
   } catch (error) {
     console.error('Error fetching event:', error)
     return NextResponse.json(

@@ -93,6 +93,7 @@ export interface Printer {
   name: string              // e.g. "사무실 Epson L3150"
   printMethod: PrintMethod  // 'email' | 'polling'
   email?: string            // Epson Connect 이메일 주소 (email 방식일 때 필수)
+  supportedSizes: PrintSize[] // e.g. ['4x6', '6x4'] — 프린터가 지원하는 인쇄 규격
   borderCorrectionEnabled: boolean
   shrinkPercent: number     // default: 97.5
   verticalOffsetPx: number  // default: 0
