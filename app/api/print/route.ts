@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
 
       try {
         // Send print job
-        const result = await printImage(imageUrl, event.printMethod || 'email', {
+        const result = await printImage(imageUrl, {
           borderCorrection: event.borderCorrectionEnabled,
           shrinkPercent: event.shrinkPercent,
           verticalOffsetPx: event.verticalOffsetPx,

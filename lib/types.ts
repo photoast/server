@@ -86,13 +86,13 @@ export interface Sticker {
   createdAt: Date
 }
 
-export type PrintMethod = 'email' | 'socket'
+export type PrintMethod = 'email' | 'polling'
 
 export interface Event {
   _id?: ObjectId
   name: string
   slug: string
-  printMethod: PrintMethod // 'email' = Epson Email Print, 'socket' = phototoast 클라이언트
+  printMethod: PrintMethod // 'email' = Epson Email Print, 'polling' = DB 폴링 방식
   printerUrl?: string // deprecated, kept for backward compat
   availableLayouts?: FrameType[] // Layouts available for this event (default: all)
   puzzleEnabled?: boolean // Enable puzzle mode for SWIT layouts (default: false)

@@ -6,7 +6,7 @@ import QRCode from 'qrcode'
 import { logClientError } from '@/lib/errorLogger'
 import { UIButton, UICard, UIFormField, UITextInput, UIStatusBanner, UIBadge, UISectionHeading } from '@/app/components/ui'
 
-type PrintMethod = 'email' | 'socket'
+type PrintMethod = 'email' | 'polling'
 
 interface Event {
   _id: string
@@ -57,7 +57,6 @@ export default function AdminPage() {
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [newEventName, setNewEventName] = useState('')
   const [newEventPrintMethod, setNewEventPrintMethod] = useState<PrintMethod>('email')
-
   // Detail view
   const [detailEvent, setDetailEvent] = useState<Event | null>(null)
 
@@ -446,7 +445,7 @@ export default function AdminPage() {
       alert(`인쇄 실패: ${errorMessage}`)
       logClientError('Failed to print promotional image', err, selectedEvent.slug, {
         eventId: selectedEvent._id,
-        printMethod: selectedEvent.printMethod
+        printMethod: selectedEvent.printMethod,
       })
     } finally {
       setLoading(false)
@@ -575,7 +574,7 @@ export default function AdminPage() {
           <UICard>
             <UIFormField label="인쇄 방식">
               <div className="flex gap-2">
-                {(['email', 'socket'] as const).map(method => (
+                {(['email', 'polling'] as const).map(method => (
                   <button
                     key={method}
                     onClick={() => handleUpdateEvent(event._id, { printMethod: method })}
@@ -585,7 +584,7 @@ export default function AdminPage() {
                         : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
                     }`}
                   >
-                    {method === 'email' ? '이메일 프린트' : '소켓 연결'}
+                    {method === 'email' ? '이메일 프린트' : 'DB 폴링'}
                   </button>
                 ))}
               </div>
@@ -1096,7 +1095,7 @@ export default function AdminPage() {
               </UIFormField>
               <UIFormField label="인쇄 방식">
                 <div className="flex gap-2">
-                  {(['email', 'socket'] as const).map(method => (
+                  {(['email', 'polling'] as const).map(method => (
                     <button
                       key={method}
                       type="button"
@@ -1107,7 +1106,7 @@ export default function AdminPage() {
                           : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
                       }`}
                     >
-                      {method === 'email' ? '이메일 프린트' : '소켓 연결'}
+                      {method === 'email' ? '이메일 프린트' : 'DB 폴링'}
                     </button>
                   ))}
                 </div>
@@ -1131,8 +1130,8 @@ export default function AdminPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <h3 className="text-sm font-semibold text-gray-900 truncate">{event.name}</h3>
-                      <UIBadge variant={event.printMethod === 'socket' ? 'info' : 'default'}>
-                        {event.printMethod === 'socket' ? '소켓' : '이메일'}
+                      <UIBadge variant={event.printMethod === 'polling' ? 'info' : 'default'}>
+                        {event.printMethod === 'polling' ? '폴링' : '이메일'}
                       </UIBadge>
                       {(event.price ?? 0) > 0 && (
                         <UIBadge variant="warning">{event.price!.toLocaleString()}원</UIBadge>

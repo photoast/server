@@ -38,15 +38,11 @@ export async function POST(
     await fs.writeFile(tempPath, calibrationBuffer)
 
     // 프린터로 전송
-    const result = await printImage(
-      tempPath,
-      event.printMethod || 'email',
-      {
-        borderCorrection: event.borderCorrectionEnabled,
-        shrinkPercent,
-        verticalOffsetPx,
-      }
-    )
+    const result = await printImage(tempPath, {
+      borderCorrection: event.borderCorrectionEnabled,
+      shrinkPercent,
+      verticalOffsetPx,
+    })
 
     return NextResponse.json({
       success: result.success,

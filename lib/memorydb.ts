@@ -52,23 +52,23 @@ class MemoryDB {
       })
     }
 
-    // Create second default event (socket method)
-    const socketEventId = new ObjectId()
-    const socketEvent: Event = {
-      _id: socketEventId,
-      name: 'Photo Toast Socket',
-      slug: 'phost-socket',
-      printMethod: 'socket',
-      borderCorrectionEnabled: false,
+    // Create second default event (polling method)
+    const pollingEventId = new ObjectId()
+    const pollingEvent: Event = {
+      _id: pollingEventId,
+      name: 'Photo Toast Polling',
+      slug: 'phost-polling',
+      printMethod: 'polling',
+      borderCorrectionEnabled: true,
       createdAt: new Date(),
     }
-    const socketEvId = socketEventId.toString()
-    this.events.set(socketEvId, socketEvent)
+    const pollingEvId = pollingEventId.toString()
+    this.events.set(pollingEvId, pollingEvent)
 
     for (let idx = 0; idx < DEFAULT_LAYOUT_TEMPLATES.length; idx++) {
       const template = DEFAULT_LAYOUT_TEMPLATES[idx]
       this.createLayout({
-        eventId: socketEvId,
+        eventId: pollingEvId,
         name: template.name,
         printSize: template.printSize,
         canvasWidth: template.canvasWidth,
