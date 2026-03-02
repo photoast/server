@@ -3,24 +3,21 @@ import fs from 'fs/promises'
 
 import { printViaEmail } from './email-printer'
 import { emitPrintJob } from './socket-server'
-
-
+import type { PrintMethod } from './types'
 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0' // ⚠️ 내부망 테스트 전용
-
-
 
 /**
  * PUBLIC API — printImage()
  *
- * 환경변수 PRINT_METHOD 에 따라 인쇄 방식을 결정합니다:
- *   PRINT_METHOD=email   → Epson Email Print (기본값)
- *   PRINT_METHOD=socket  → phototoast 클라이언트 (Socket.IO)
+ * 이벤트별 printMethod에 따라 인쇄 방식을 결정합니다:
+ *   'email'  → Epson Email Print (기본값)
+ *   'socket' → phototoast 클라이언트 (Socket.IO)
  */
 export async function printImage(
   imageUrl: string,
-  printerUrl: string,
-  options?: { size?: string }
+  printMethod: PrintMethod = 'email',
+  options?: { size?: string; borderCorrection?: boolean }
 ): Promise<{ success: boolean; error?: string; printedImageUrl?: string }> {
   try {
     // URL → 파일 경로 변환
@@ -64,7 +61,13 @@ export async function printImage(
     // 파일 존재 여부 확인
     await fs.access(imagePath)
 
-    const printMethod = process.env.PRINT_METHOD || 'email'
+    // SEND_PRINTER=false이면 파일 생성까지만 하고 실제 인쇄 요청은 스킵
+    const sendPrinterEnabled = process.env.SEND_PRINTER !== 'false'
+    if (!sendPrinterEnabled) {
+      console.log(`SEND_PRINTER=false → 파일 준비 완료, 인쇄 요청 스킵`)
+      console.log(`====================================\n`)
+      return { success: true }
+    }
 
     if (printMethod === 'socket') {
       // ── Socket 방식: phototoast 클라이언트로 전송 ──
@@ -85,7 +88,7 @@ export async function printImage(
       // ── Email 방식: Epson Email Print (기본값) ──
       console.log(`Print Method: Email Print (Epson Email Print)`)
 
-      const result = await printViaEmail(imagePath)
+      const result = await printViaEmail(imagePath, { borderCorrection: options?.borderCorrection })
 
       return {
         success: result.success,

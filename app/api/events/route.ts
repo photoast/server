@@ -30,11 +30,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, printerUrl } = body
+    const { name, printMethod = 'email' } = body
 
-    if (!name || !printerUrl) {
+    if (!name) {
       return NextResponse.json(
-        { error: 'Name and printer URL are required' },
+        { error: 'Name is required' },
         { status: 400 }
       )
     }
@@ -49,7 +49,8 @@ export async function POST(request: NextRequest) {
     const event = await createEvent({
       name,
       slug,
-      printerUrl,
+      printMethod,
+      borderCorrectionEnabled: printMethod === 'email',
     })
 
     // 기본 레이아웃 템플릿 자동 생성

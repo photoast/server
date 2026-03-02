@@ -26,7 +26,8 @@ class MemoryDB {
       _id: defaultEventId,
       name: 'Photo Toast',
       slug: 'phost-default',
-      printerUrl: 'https://192.168.219.105/ipp/print',
+      printMethod: 'email',
+      borderCorrectionEnabled: true,
       createdAt: new Date(),
     }
     const eventId = defaultEventId.toString()
@@ -37,6 +38,37 @@ class MemoryDB {
       const template = DEFAULT_LAYOUT_TEMPLATES[idx]
       this.createLayout({
         eventId,
+        name: template.name,
+        printSize: template.printSize,
+        canvasWidth: template.canvasWidth,
+        canvasHeight: template.canvasHeight,
+        slots: template.slots.map((s, i) => ({ ...s, id: `slot-${i}`, order: i, zIndex: 10 + i, rotation: 0 })),
+        frameLayers: template.frameLayers || [],
+        frameUrl: null,
+        backgroundColor: template.backgroundColor,
+        backgroundColorCustomizable: template.backgroundColorCustomizable,
+        isPreset: true,
+        order: idx,
+      })
+    }
+
+    // Create second default event (socket method)
+    const socketEventId = new ObjectId()
+    const socketEvent: Event = {
+      _id: socketEventId,
+      name: 'Photo Toast Socket',
+      slug: 'phost-socket',
+      printMethod: 'socket',
+      borderCorrectionEnabled: false,
+      createdAt: new Date(),
+    }
+    const socketEvId = socketEventId.toString()
+    this.events.set(socketEvId, socketEvent)
+
+    for (let idx = 0; idx < DEFAULT_LAYOUT_TEMPLATES.length; idx++) {
+      const template = DEFAULT_LAYOUT_TEMPLATES[idx]
+      this.createLayout({
+        eventId: socketEvId,
         name: template.name,
         printSize: template.printSize,
         canvasWidth: template.canvasWidth,

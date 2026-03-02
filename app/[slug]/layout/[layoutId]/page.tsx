@@ -266,26 +266,85 @@ export default function SwitLayoutPage({
     setMerging(true)
     setError('')
     try {
-      const fd = new FormData()
-      fd.append('layoutId', layout._id)
-      fd.append('backgroundColor', bgColor)
+      const { canvasWidth, canvasHeight, slots, frameLayers } = layout
 
-      for (const data of slotData) {
-        fd.append(`slot_${data.slotId}_photo`, data.file)
-        fd.append(`slot_${data.slotId}_cropX`, String(data.cropArea.x))
-        fd.append(`slot_${data.slotId}_cropY`, String(data.cropArea.y))
-        fd.append(`slot_${data.slotId}_cropW`, String(data.cropArea.width))
-        fd.append(`slot_${data.slotId}_cropH`, String(data.cropArea.height))
+      // Build unified items sorted by zIndex
+      type Item =
+        | { type: 'slot'; slotId: string; zIndex: number }
+        | { type: 'frame'; layer: (typeof frameLayers)[number]; zIndex: number }
+      const items: Item[] = []
+      for (const slot of slots) items.push({ type: 'slot', slotId: slot.id, zIndex: slot.zIndex ?? 10 })
+      for (const layer of frameLayers || []) {
+        if (layer.visible !== false) items.push({ type: 'frame', layer, zIndex: layer.zIndex })
+      }
+      items.sort((a, b) => a.zIndex - b.zIndex)
+
+      // Create canvas
+      const canvas = document.createElement('canvas')
+      canvas.width = canvasWidth
+      canvas.height = canvasHeight
+      const ctx = canvas.getContext('2d')!
+
+      // Background
+      ctx.fillStyle = bgColor
+      ctx.fillRect(0, 0, canvasWidth, canvasHeight)
+
+      // Helper: load image from URL or File
+      const loadImg = (src: string | File): Promise<HTMLImageElement> =>
+        new Promise((resolve, reject) => {
+          const img = new window.Image()
+          img.crossOrigin = 'anonymous'
+          img.onload = () => resolve(img)
+          img.onerror = reject
+          img.src = src instanceof File ? URL.createObjectURL(src) : src
+        })
+
+      // Draw each item in z-order
+      for (const item of items) {
+        if (item.type === 'slot') {
+          const slot = slots.find(s => s.id === item.slotId)!
+          const data = slotData.find(d => d.slotId === slot.id)
+          if (!data) continue
+          const img = await loadImg(data.file)
+          const { x: cropX, y: cropY, width: cropW, height: cropH } = data.cropArea
+          const rotation = slot.rotation ?? 0
+          ctx.save()
+          if (rotation !== 0) {
+            ctx.translate(slot.x + slot.width / 2, slot.y + slot.height / 2)
+            ctx.rotate((rotation * Math.PI) / 180)
+            ctx.drawImage(img, cropX, cropY, cropW, cropH, -slot.width / 2, -slot.height / 2, slot.width, slot.height)
+          } else {
+            ctx.drawImage(img, cropX, cropY, cropW, cropH, slot.x, slot.y, slot.width, slot.height)
+          }
+          ctx.restore()
+          URL.revokeObjectURL(img.src)
+        } else {
+          const layer = item.layer
+          try {
+            const img = await loadImg(layer.imageUrl)
+            const lx = layer.x ?? 0
+            const ly = layer.y ?? 0
+            const lw = layer.width ?? canvasWidth
+            const lh = layer.height ?? canvasHeight
+            const rotation = layer.rotation ?? 0
+            ctx.save()
+            ctx.globalAlpha = layer.opacity ?? 1
+            if (rotation !== 0) {
+              ctx.translate(lx + lw / 2, ly + lh / 2)
+              ctx.rotate((rotation * Math.PI) / 180)
+              ctx.drawImage(img, -lw / 2, -lh / 2, lw, lh)
+            } else {
+              ctx.drawImage(img, lx, ly, lw, lh)
+            }
+            ctx.restore()
+          } catch {
+            console.warn(`Failed to load frame layer ${layer.id}, skipping`)
+          }
+        }
       }
 
-      const res = await fetch('/api/swit-layouts/merge', { method: 'POST', body: fd })
-      if (!res.ok) {
-        const d = await res.json().catch(() => ({}))
-        throw new Error(d.error || '합성 실패')
-      }
-      const result = await res.json()
-      if (!result.url) throw new Error('이미지 URL을 받지 못했습니다')
-      setMergedUrl(result.url)
+      const mergedDataUrl = canvas.toDataURL('image/jpeg', 0.95)
+      setMergedUrl(mergedDataUrl)
       setStep('fill-photos')
     } catch (err: any) {
       setError(err.message || '처리에 실패했습니다')

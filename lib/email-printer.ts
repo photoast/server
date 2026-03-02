@@ -13,11 +13,12 @@ const EPSON_PRINT_EMAIL = 'msx7208cwudwu4@print.epsonconnect.com'
  * @returns Success status, error message if any, and the printed image as base64
  */
 export async function printViaEmail(
-  imagePath: string
+  imagePath: string,
+  options?: { borderCorrection?: boolean }
 ): Promise<{ success: boolean; error?: string; printedImageBase64?: string }> {
   try {
-    // Check if SEND_MAIL is disabled (for local testing)
-    const sendMailEnabled = process.env.SEND_MAIL !== 'false'
+    // Check if SEND_PRINTER is disabled (for local testing)
+    const sendMailEnabled = process.env.SEND_PRINTER !== 'false'
 
     // Validate image file exists
     if (!fs.existsSync(imagePath)) {
@@ -25,7 +26,7 @@ export async function printViaEmail(
     }
 
     console.log('\n====================================')
-    console.log(sendMailEnabled ? 'Email Print Job Request' : 'Email Print SKIPPED (SEND_MAIL=false)')
+    console.log(sendMailEnabled ? 'Email Print Job Request' : 'Email Print SKIPPED (SEND_PRINTER=false)')
     console.log('====================================')
     console.log(`Image: ${imagePath}`)
     if (sendMailEnabled) {
@@ -91,28 +92,32 @@ export async function printViaEmail(
       console.log(`회전된 이미지 저장: ${rotatedPath} (1800×1200 → 1200×1800)`)
     }
 
-    // Step 2: Apply printer correction (shrink + vertical offset)
-    // This compensates for physical printer characteristics
-    // After rotation, all images are 1200×1800 (portrait)
-    console.log('\nStep 2: Applying printer correction (for physical print only)')
-    const correctedBuffer = await applyPrinterCorrection(imageBuffer, {
-      canvasWidth: 1200,
-      canvasHeight: 1800,
-    })
+    // Step 2: Apply printer correction (shrink + vertical offset) — optional
+    const applyCorrection = options?.borderCorrection !== false
+    let finalBuffer: Buffer
 
-    // Save corrected version for debugging
-    const correctedPath = path.join(outputDir, `email-corrected-${timestamp}.jpg`)
-    fs.writeFileSync(correctedPath, correctedBuffer)
-    console.log(`보정 이미지 저장: ${correctedPath}`)
-    console.log(`주의: 다운로드는 원본, 프린트는 보정된 이미지 사용`)
+    if (applyCorrection) {
+      console.log('\nStep 2: Applying printer border correction')
+      const correctedBuffer = await applyPrinterCorrection(imageBuffer, {
+        canvasWidth: 1200,
+        canvasHeight: 1800,
+      })
+      const correctedPath = path.join(outputDir, `email-corrected-${timestamp}.jpg`)
+      fs.writeFileSync(correctedPath, correctedBuffer)
+      console.log(`보정 이미지 저장: ${correctedPath}`)
+      finalBuffer = correctedBuffer
+    } else {
+      console.log('\nStep 2: Border correction SKIPPED (disabled for this event)')
+      finalBuffer = imageBuffer
+    }
 
-    // Return the corrected image as base64 for print history
-    const printedImageBase64 = `data:image/jpeg;base64,${correctedBuffer.toString('base64')}`
+    // Return the final image as base64 for print history
+    const printedImageBase64 = `data:image/jpeg;base64,${finalBuffer.toString('base64')}`
 
     // Skip email sending if SEND_MAIL is disabled
     if (!sendMailEnabled) {
       console.log('\n이미지 처리 완료 (output 저장됨)')
-      console.log('SEND_MAIL=false이므로 실제 프린트는 건너뜁니다')
+      console.log('SEND_PRINTER=false이므로 실제 프린트는 건너뜁니다')
       console.log('====================================\n')
       return { success: true, printedImageBase64 }
     }
@@ -143,7 +148,7 @@ export async function printViaEmail(
       attachments: [
         {
           filename: filename,
-          content: correctedBuffer,
+          content: finalBuffer,
         },
       ],
     })

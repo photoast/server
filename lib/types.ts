@@ -86,15 +86,19 @@ export interface Sticker {
   createdAt: Date
 }
 
+export type PrintMethod = 'email' | 'socket'
+
 export interface Event {
   _id?: ObjectId
   name: string
   slug: string
-  printerUrl: string
+  printMethod: PrintMethod // 'email' = Epson Email Print, 'socket' = phototoast 클라이언트
+  printerUrl?: string // deprecated, kept for backward compat
   availableLayouts?: FrameType[] // Layouts available for this event (default: all)
   puzzleEnabled?: boolean // Enable puzzle mode for SWIT layouts (default: false)
   price?: number // Payment amount in KRW (default: 0 = free)
   backgroundColors?: string[] // Available background colors for user selection (default: ['#FFFFFF'])
+  borderCorrectionEnabled?: boolean // Apply printer border correction before printing (default: true for email, false for socket)
   createdAt: Date
 }
 

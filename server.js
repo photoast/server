@@ -67,7 +67,7 @@ app.prepare().then(() => {
     if (err) throw err
     console.log(`\n> Ready on http://${hostname}:${port}`)
     console.log(`> Mode: ${dev ? 'development' : 'production'}`)
-    console.log(`> Print method: ${process.env.PRINT_METHOD || 'email'} (PRINT_METHOD 환경변수로 변경)`)
+    console.log(`> SEND_PRINTER: ${process.env.SEND_PRINTER !== 'false' ? 'ON' : 'OFF (스킵)'}`)
     console.log(`> Socket.IO: 프린터 클라이언트 연결 대기 중...\n`)
   })
 })
