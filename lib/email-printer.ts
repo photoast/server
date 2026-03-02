@@ -4,9 +4,6 @@ import fs from 'fs'
 import sharp from 'sharp'
 import { applyPrinterCorrection } from './image-correction'
 
-// Epson Email Print address
-const EPSON_PRINT_EMAIL = 'msx7208cwudwu4@print.epsonconnect.com'
-
 /**
  * Send image to Epson Email Print service
  * @param imagePath - Local file path to the image
@@ -14,11 +11,17 @@ const EPSON_PRINT_EMAIL = 'msx7208cwudwu4@print.epsonconnect.com'
  */
 export async function printViaEmail(
   imagePath: string,
-  options?: { borderCorrection?: boolean; shrinkPercent?: number; verticalOffsetPx?: number }
+  options?: { borderCorrection?: boolean; shrinkPercent?: number; verticalOffsetPx?: number; printerEmail?: string }
 ): Promise<{ success: boolean; error?: string; printedImageBase64?: string }> {
   try {
     // Check if SEND_PRINTER is disabled (for local testing)
     const sendMailEnabled = process.env.SEND_PRINTER !== 'false'
+
+    // Determine printer email: explicit > env var
+    const targetEmail = options?.printerEmail || process.env.PRINTER_EMAIL
+    if (sendMailEnabled && !targetEmail) {
+      throw new Error('No printer email configured. Set printerEmail on the Printer or PRINTER_EMAIL in .env')
+    }
 
     // Validate image file exists
     if (!fs.existsSync(imagePath)) {
@@ -30,7 +33,7 @@ export async function printViaEmail(
     console.log('====================================')
     console.log(`Image: ${imagePath}`)
     if (sendMailEnabled) {
-      console.log(`Printer Email: ${EPSON_PRINT_EMAIL}`)
+      console.log(`Printer Email: ${targetEmail}`)
     }
 
     // Get SMTP configuration from environment variables (only if sending email)
@@ -144,7 +147,7 @@ export async function printViaEmail(
     const filename = `corrected-${path.basename(imagePath)}`
     const info = await transporter.sendMail({
       from: smtpFrom,
-      to: EPSON_PRINT_EMAIL,
+      to: targetEmail,
       subject: 'Print Photo',
       text: 'Please print the attached photo.',
       attachments: [

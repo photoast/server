@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { findEventById } from '@/lib/models'
+import { findEventById, findPrinterById } from '@/lib/models'
 import { checkAuth } from '@/lib/middleware'
 import { generateCalibrationImage } from '@/lib/calibration'
 import { printImage } from '@/lib/printer'
@@ -21,8 +21,12 @@ export async function POST(
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
     }
 
-    const shrinkPercent = event.shrinkPercent ?? 97.5
-    const verticalOffsetPx = event.verticalOffsetPx ?? 0
+    const printer = event.printerId ? await findPrinterById(event.printerId) : null
+    if (!printer) {
+      return NextResponse.json({ error: '이벤트에 프린터가 설정되지 않았습니다' }, { status: 400 })
+    }
+
+    const { shrinkPercent, verticalOffsetPx } = printer
 
     // 캘리브레이션 이미지 생성
     const calibrationBuffer = await generateCalibrationImage({
@@ -39,9 +43,10 @@ export async function POST(
 
     // 프린터로 전송
     const result = await printImage(tempPath, {
-      borderCorrection: event.borderCorrectionEnabled,
+      borderCorrection: printer.borderCorrectionEnabled,
       shrinkPercent,
       verticalOffsetPx,
+      printerEmail: printer.email,
     })
 
     return NextResponse.json({
@@ -76,9 +81,14 @@ export async function GET(
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
     }
 
+    const printer = event.printerId ? await findPrinterById(event.printerId) : null
+    if (!printer) {
+      return NextResponse.json({ error: '이벤트에 프린터가 설정되지 않았습니다' }, { status: 400 })
+    }
+
     const calibrationBuffer = await generateCalibrationImage({
-      shrinkPercent: event.shrinkPercent ?? 97.5,
-      verticalOffsetPx: event.verticalOffsetPx ?? 0,
+      shrinkPercent: printer.shrinkPercent,
+      verticalOffsetPx: printer.verticalOffsetPx,
     })
 
     return new NextResponse(new Uint8Array(calibrationBuffer), {

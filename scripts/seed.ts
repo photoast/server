@@ -40,8 +40,8 @@ async function seed() {
 
   // 기본 이벤트 생성
   const events = [
-    { name: 'Photo Toast', slug: 'phost-default', printMethod: 'email', borderCorrectionEnabled: true },
-    { name: 'Photo Toast Polling', slug: 'phost-polling', printMethod: 'polling', borderCorrectionEnabled: true },
+    { name: 'Photo Toast', slug: 'phost-default' },
+    { name: 'Photo Toast Polling', slug: 'phost-polling' },
   ]
 
   for (const eventData of events) {

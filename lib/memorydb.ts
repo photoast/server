@@ -26,8 +26,6 @@ class MemoryDB {
       _id: defaultEventId,
       name: 'Photo Toast',
       slug: 'phost-default',
-      printMethod: 'email',
-      borderCorrectionEnabled: true,
       createdAt: new Date(),
     }
     const eventId = defaultEventId.toString()
@@ -58,8 +56,6 @@ class MemoryDB {
       _id: pollingEventId,
       name: 'Photo Toast Polling',
       slug: 'phost-polling',
-      printMethod: 'polling',
-      borderCorrectionEnabled: true,
       createdAt: new Date(),
     }
     const pollingEvId = pollingEventId.toString()

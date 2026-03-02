@@ -10,7 +10,7 @@ import { printViaEmail } from './email-printer'
  */
 export async function printImage(
   imageUrl: string,
-  options?: { size?: string; borderCorrection?: boolean; shrinkPercent?: number; verticalOffsetPx?: number }
+  options?: { size?: string; borderCorrection?: boolean; shrinkPercent?: number; verticalOffsetPx?: number; printerEmail?: string }
 ): Promise<{ success: boolean; error?: string; printedImageUrl?: string }> {
   try {
     // URL → 파일 경로 변환
@@ -60,6 +60,7 @@ export async function printImage(
       borderCorrection: options?.borderCorrection,
       shrinkPercent: options?.shrinkPercent,
       verticalOffsetPx: options?.verticalOffsetPx,
+      printerEmail: options?.printerEmail,
     })
 
     return {

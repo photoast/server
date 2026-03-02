@@ -39,18 +39,15 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const { name, printMethod, availableLayouts, price, puzzleEnabled, backgroundColors, borderCorrectionEnabled, shrinkPercent, verticalOffsetPx } = body
+    const { name, printerId, availableLayouts, price, puzzleEnabled, backgroundColors } = body
 
     const updates: any = {}
     if (name) updates.name = name
-    if (printMethod) updates.printMethod = printMethod
+    if (printerId !== undefined) updates.printerId = printerId
     if (availableLayouts !== undefined) updates.availableLayouts = availableLayouts
     if (price !== undefined) updates.price = price
     if (puzzleEnabled !== undefined) updates.puzzleEnabled = puzzleEnabled
     if (backgroundColors !== undefined) updates.backgroundColors = backgroundColors
-    if (borderCorrectionEnabled !== undefined) updates.borderCorrectionEnabled = borderCorrectionEnabled
-    if (shrinkPercent !== undefined) updates.shrinkPercent = shrinkPercent
-    if (verticalOffsetPx !== undefined) updates.verticalOffsetPx = verticalOffsetPx
 
     const success = await updateEvent(params.id, updates)
 

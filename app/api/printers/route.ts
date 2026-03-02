@@ -1,0 +1,54 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { getAllPrinters, createPrinter } from '@/lib/models'
+import { checkAuth } from '@/lib/middleware'
+
+export async function GET(request: NextRequest) {
+  try {
+    if (!checkAuth(request)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    const printers = await getAllPrinters()
+    return NextResponse.json(printers)
+  } catch (error) {
+    console.error('Error fetching printers:', error)
+    return NextResponse.json({ error: 'Failed to fetch printers' }, { status: 500 })
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    if (!checkAuth(request)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    const body = await request.json()
+    const {
+      name,
+      printMethod = 'email',
+      email,
+      borderCorrectionEnabled = true,
+      shrinkPercent = 97.5,
+      verticalOffsetPx = 0,
+    } = body
+
+    if (!name) {
+      return NextResponse.json({ error: 'Name is required' }, { status: 400 })
+    }
+    if (printMethod === 'email' && !email) {
+      return NextResponse.json({ error: 'Email is required for email print method' }, { status: 400 })
+    }
+
+    const printer = await createPrinter({
+      name,
+      printMethod,
+      email: printMethod === 'email' ? email : undefined,
+      borderCorrectionEnabled,
+      shrinkPercent,
+      verticalOffsetPx,
+    })
+
+    return NextResponse.json(printer, { status: 201 })
+  } catch (error) {
+    console.error('Error creating printer:', error)
+    return NextResponse.json({ error: 'Failed to create printer' }, { status: 500 })
+  }
+}

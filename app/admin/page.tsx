@@ -8,18 +8,26 @@ import { UIButton, UICard, UIFormField, UITextInput, UIStatusBanner, UIBadge, UI
 
 type PrintMethod = 'email' | 'polling'
 
+interface Printer {
+  _id: string
+  name: string
+  printMethod: PrintMethod
+  email?: string
+  borderCorrectionEnabled: boolean
+  shrinkPercent: number
+  verticalOffsetPx: number
+  createdAt: string
+}
+
 interface Event {
   _id: string
   name: string
   slug: string
-  printMethod: PrintMethod
+  printerId?: string
   availableLayouts?: string[]
   puzzleEnabled?: boolean
   price?: number
   backgroundColors?: string[]
-  borderCorrectionEnabled?: boolean
-  shrinkPercent?: number
-  verticalOffsetPx?: number
   createdAt: string
 }
 
@@ -53,10 +61,18 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  // Printers
+  const [printers, setPrinters] = useState<Printer[]>([])
+  const [showPrinterForm, setShowPrinterForm] = useState(false)
+  const [newPrinterName, setNewPrinterName] = useState('')
+  const [newPrinterMethod, setNewPrinterMethod] = useState<PrintMethod>('email')
+  const [newPrinterEmail, setNewPrinterEmail] = useState('')
+  const [editingPrinter, setEditingPrinter] = useState<Printer | null>(null)
+
   // Create event form
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [newEventName, setNewEventName] = useState('')
-  const [newEventPrintMethod, setNewEventPrintMethod] = useState<PrintMethod>('email')
+  const [newEventPrinterId, setNewEventPrinterId] = useState('')
   // Detail view
   const [detailEvent, setDetailEvent] = useState<Event | null>(null)
 
@@ -103,6 +119,7 @@ export default function AdminPage() {
         setAuthenticated(true)
         fetchEvents()
         fetchStickers()
+        fetchPrinters()
       }
     } catch (err) {
       // Not authenticated
@@ -142,6 +159,72 @@ export default function AdminPage() {
     }
   }
 
+  const fetchPrinters = async () => {
+    try {
+      const res = await fetch('/api/printers')
+      if (res.ok) setPrinters(await res.json())
+    } catch (err) {}
+  }
+
+  const handleCreatePrinter = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      const res = await fetch('/api/printers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newPrinterName,
+          printMethod: newPrinterMethod,
+          email: newPrinterMethod === 'email' ? newPrinterEmail : undefined,
+          borderCorrectionEnabled: true,
+          shrinkPercent: 97.5,
+          verticalOffsetPx: 0,
+        }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to create printer')
+      }
+      setNewPrinterName('')
+      setNewPrinterEmail('')
+      setNewPrinterMethod('email')
+      setShowPrinterForm(false)
+      fetchPrinters()
+    } catch (err: any) {
+      setError(err.message)
+    }
+  }
+
+  const handleUpdatePrinter = async (printerId: string, updates: Partial<Printer>) => {
+    try {
+      const res = await fetch(`/api/printers/${printerId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      })
+      if (!res.ok) throw new Error('Failed to update printer')
+      fetchPrinters()
+      if (editingPrinter && editingPrinter._id === printerId) {
+        const updated = await res.json()
+        setEditingPrinter(updated)
+      }
+    } catch (err: any) {
+      setError(err.message)
+    }
+  }
+
+  const handleDeletePrinter = async (printerId: string) => {
+    if (!confirm('이 프린터를 삭제하시겠어요?')) return
+    try {
+      const res = await fetch(`/api/printers/${printerId}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('Failed to delete printer')
+      fetchPrinters()
+      if (editingPrinter?._id === printerId) setEditingPrinter(null)
+    } catch (err: any) {
+      setError(err.message)
+    }
+  }
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -160,6 +243,7 @@ export default function AdminPage() {
 
       setAuthenticated(true)
       fetchEvents()
+      fetchPrinters()
     } catch (err: any) {
       const errorMessage = err.message || 'Invalid credentials'
       setError(errorMessage)
@@ -216,14 +300,14 @@ export default function AdminPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: newEventName,
-          printMethod: newEventPrintMethod,
+          printerId: newEventPrinterId || undefined,
         }),
       })
 
       if (!res.ok) throw new Error('Failed to create event')
 
       setNewEventName('')
-      setNewEventPrintMethod('email')
+      setNewEventPrinterId('')
       setShowCreateForm(false)
       fetchEvents()
     } catch (err: any) {
@@ -231,14 +315,14 @@ export default function AdminPage() {
       setError(errorMessage)
       logClientError('Failed to create event', err, undefined, {
         eventName: newEventName,
-        printMethod: newEventPrintMethod,
+        printerId: newEventPrinterId,
       })
     } finally {
       setLoading(false)
     }
   }
 
-  const handleUpdateEvent = async (eventId: string, updates: { name?: string; printMethod?: PrintMethod; availableLayouts?: string[]; price?: number; puzzleEnabled?: boolean; backgroundColors?: string[]; borderCorrectionEnabled?: boolean; shrinkPercent?: number; verticalOffsetPx?: number }) => {
+  const handleUpdateEvent = async (eventId: string, updates: { name?: string; printerId?: string; availableLayouts?: string[]; price?: number; puzzleEnabled?: boolean; backgroundColors?: string[] }) => {
     try {
       const updateRes = await fetch(`/api/events/${eventId}`, {
         method: 'PATCH',
@@ -445,7 +529,6 @@ export default function AdminPage() {
       alert(`인쇄 실패: ${errorMessage}`)
       logClientError('Failed to print promotional image', err, selectedEvent.slug, {
         eventId: selectedEvent._id,
-        printMethod: selectedEvent.printMethod,
       })
     } finally {
       setLoading(false)
@@ -570,116 +653,40 @@ export default function AdminPage() {
             <UIButton size="sm" variant="secondary" onClick={() => viewPrintHistory(event)}>인쇄 기록</UIButton>
           </div>
 
-          {/* Print Method */}
+          {/* Printer Selection */}
           <UICard>
-            <UIFormField label="인쇄 방식">
-              <div className="flex gap-2">
-                {(['email', 'polling'] as const).map(method => (
-                  <button
-                    key={method}
-                    onClick={() => handleUpdateEvent(event._id, { printMethod: method })}
-                    className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
-                      (event.printMethod || 'email') === method
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    {method === 'email' ? '이메일 프린트' : 'DB 폴링'}
-                  </button>
+            <UIFormField label="프린터" hint="이벤트에서 사용할 프린터를 선택하세요">
+              <select
+                value={event.printerId || ''}
+                onChange={e => handleUpdateEvent(event._id, { printerId: e.target.value })}
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">프린터 선택...</option>
+                {printers.map(p => (
+                  <option key={p._id} value={p._id}>
+                    {p.name} ({p.printMethod === 'email' ? '이메일' : '폴링'})
+                  </option>
                 ))}
-              </div>
+              </select>
             </UIFormField>
-          </UICard>
-
-          {/* Border Correction */}
-          <UICard>
-            <UIFormField label="테두리 보정" hint="인쇄 시 잘림 방지를 위해 이미지를 축소·오프셋 보정합니다">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={event.borderCorrectionEnabled ?? true}
-                  onChange={e => handleUpdateEvent(event._id, { borderCorrectionEnabled: e.target.checked })}
-                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-700">테두리 보정 적용</span>
-              </label>
-            </UIFormField>
-
-            {(event.borderCorrectionEnabled ?? true) && (
-              <div className="mt-4 space-y-4 pt-4 border-t border-gray-100">
-                {/* Shrink Percent */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-sm font-medium text-gray-700">축소 비율</label>
-                    <span className="text-sm font-mono text-blue-600">{event.shrinkPercent ?? 97.5}%</span>
+            {event.printerId && (() => {
+              const printer = printers.find(p => p._id === event.printerId)
+              if (!printer) return <p className="text-xs text-gray-400 mt-2">프린터를 찾을 수 없습니다</p>
+              return (
+                <div className="mt-3 p-3 bg-gray-50 rounded-xl space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-800">{printer.name}</span>
+                    <UIBadge variant={printer.printMethod === 'email' ? 'default' : 'info'}>
+                      {printer.printMethod === 'email' ? '이메일' : '폴링'}
+                    </UIBadge>
                   </div>
-                  <input
-                    type="range"
-                    min={85}
-                    max={100}
-                    step={0.25}
-                    value={event.shrinkPercent ?? 97.5}
-                    onChange={e => handleUpdateEvent(event._id, { shrinkPercent: parseFloat(e.target.value) })}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                  />
-                  <div className="flex justify-between text-xs text-gray-400 mt-0.5">
-                    <span>85%</span>
-                    <span>100% (보정 없음)</span>
-                  </div>
+                  {printer.email && <p className="text-xs text-gray-500">{printer.email}</p>}
+                  <p className="text-xs text-gray-400">
+                    보정: {printer.borderCorrectionEnabled ? `축소 ${printer.shrinkPercent}% / 오프셋 ${printer.verticalOffsetPx}px` : '비활성'}
+                  </p>
                 </div>
-
-                {/* Vertical Offset */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-sm font-medium text-gray-700">세로 오프셋</label>
-                    <span className="text-sm font-mono text-blue-600">{event.verticalOffsetPx ?? 0}px</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={-30}
-                    max={30}
-                    step={1}
-                    value={event.verticalOffsetPx ?? 0}
-                    onChange={e => handleUpdateEvent(event._id, { verticalOffsetPx: parseInt(e.target.value) })}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                  />
-                  <div className="flex justify-between text-xs text-gray-400 mt-0.5">
-                    <span>-30px (위로)</span>
-                    <span>+30px (아래로)</span>
-                  </div>
-                </div>
-
-                {/* Reset + Test Print */}
-                <div className="flex gap-2">
-                  <UIButton
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => handleUpdateEvent(event._id, { shrinkPercent: 97.5, verticalOffsetPx: 0 })}
-                  >
-                    기본값 복원
-                  </UIButton>
-                  <UIButton
-                    variant="primary"
-                    size="sm"
-                    onClick={async () => {
-                      try {
-                        const res = await fetch(`/api/events/${event._id}/test-print`, { method: 'POST' })
-                        const data = await res.json()
-                        if (data.success) {
-                          alert(`테스트 패턴 인쇄 완료!\n\nshrink: ${data.settings.shrinkPercent}%\noffset: ${data.settings.verticalOffsetPx}px\n\n인쇄 결과를 확인하고 보정값을 조정하세요.`)
-                        } else {
-                          alert(`인쇄 실패: ${data.error || data.message}`)
-                        }
-                      } catch (err: any) {
-                        alert(`오류: ${err.message}`)
-                      }
-                    }}
-                  >
-                    테스트 패턴 인쇄
-                  </UIButton>
-                </div>
-              </div>
-            )}
+              )
+            })()}
           </UICard>
 
           {/* Payment */}
@@ -1069,6 +1076,202 @@ export default function AdminPage() {
           )}
         </UICard>
 
+        {/* Printer Management */}
+        <UICard className="mb-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-bold text-gray-900">프린터 관리</h2>
+            <UIButton
+              variant={showPrinterForm ? 'secondary' : 'primary'}
+              size="sm"
+              onClick={() => { setShowPrinterForm(!showPrinterForm); setEditingPrinter(null) }}
+            >
+              {showPrinterForm ? '취소' : '프린터 추가'}
+            </UIButton>
+          </div>
+
+          {showPrinterForm && (
+            <form onSubmit={handleCreatePrinter} className="mb-4 p-4 bg-gray-50 rounded-xl space-y-3">
+              <UIFormField label="프린터 이름">
+                <UITextInput
+                  value={newPrinterName}
+                  onChange={e => setNewPrinterName(e.target.value)}
+                  placeholder="사무실 Epson L3150"
+                  required
+                />
+              </UIFormField>
+              <UIFormField label="인쇄 방식">
+                <div className="flex gap-2">
+                  {(['email', 'polling'] as const).map(method => (
+                    <button
+                      key={method}
+                      type="button"
+                      onClick={() => setNewPrinterMethod(method)}
+                      className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                        newPrinterMethod === method
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      {method === 'email' ? '이메일 프린트' : 'DB 폴링'}
+                    </button>
+                  ))}
+                </div>
+              </UIFormField>
+              {newPrinterMethod === 'email' && (
+                <UIFormField label="프린터 이메일" hint="Epson Connect 이메일 주소">
+                  <UITextInput
+                    type="email"
+                    value={newPrinterEmail}
+                    onChange={e => setNewPrinterEmail(e.target.value)}
+                    placeholder="abc123@print.epsonconnect.com"
+                    required
+                  />
+                </UIFormField>
+              )}
+              <UIButton type="submit" size="sm">프린터 등록</UIButton>
+            </form>
+          )}
+
+          {/* Printer Editing View */}
+          {editingPrinter && (
+            <div className="mb-4 p-4 bg-blue-50 rounded-xl space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-gray-800">{editingPrinter.name} 설정</h3>
+                <button onClick={() => setEditingPrinter(null)} className="text-xs text-gray-400 hover:text-gray-600">닫기</button>
+              </div>
+
+              <UIFormField label="인쇄 방식">
+                <div className="flex gap-2">
+                  {(['email', 'polling'] as const).map(method => (
+                    <button
+                      key={method}
+                      type="button"
+                      onClick={() => handleUpdatePrinter(editingPrinter._id, { printMethod: method })}
+                      className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                        editingPrinter.printMethod === method
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      {method === 'email' ? '이메일 프린트' : 'DB 폴링'}
+                    </button>
+                  ))}
+                </div>
+              </UIFormField>
+
+              {editingPrinter.printMethod === 'email' && (
+                <UIFormField label="프린터 이메일">
+                  <UITextInput
+                    type="email"
+                    value={editingPrinter.email || ''}
+                    onChange={e => handleUpdatePrinter(editingPrinter._id, { email: e.target.value })}
+                    placeholder="abc123@print.epsonconnect.com"
+                  />
+                </UIFormField>
+              )}
+
+              <UIFormField label="테두리 보정">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={editingPrinter.borderCorrectionEnabled}
+                    onChange={e => handleUpdatePrinter(editingPrinter._id, { borderCorrectionEnabled: e.target.checked })}
+                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">테두리 보정 적용</span>
+                </label>
+              </UIFormField>
+
+              {editingPrinter.borderCorrectionEnabled && (
+                <div className="space-y-4 pt-2">
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-sm font-medium text-gray-700">축소 비율</label>
+                      <span className="text-sm font-mono text-blue-600">{editingPrinter.shrinkPercent}%</span>
+                    </div>
+                    <input
+                      type="range" min={85} max={100} step={0.25}
+                      value={editingPrinter.shrinkPercent}
+                      onChange={e => handleUpdatePrinter(editingPrinter._id, { shrinkPercent: parseFloat(e.target.value) })}
+                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                    />
+                    <div className="flex justify-between text-xs text-gray-400 mt-0.5">
+                      <span>85%</span><span>100% (보정 없음)</span>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-sm font-medium text-gray-700">세로 오프셋</label>
+                      <span className="text-sm font-mono text-blue-600">{editingPrinter.verticalOffsetPx}px</span>
+                    </div>
+                    <input
+                      type="range" min={-30} max={30} step={1}
+                      value={editingPrinter.verticalOffsetPx}
+                      onChange={e => handleUpdatePrinter(editingPrinter._id, { verticalOffsetPx: parseInt(e.target.value) })}
+                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                    />
+                    <div className="flex justify-between text-xs text-gray-400 mt-0.5">
+                      <span>-30px (위로)</span><span>+30px (아래로)</span>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <UIButton variant="secondary" size="sm"
+                      onClick={() => handleUpdatePrinter(editingPrinter._id, { shrinkPercent: 97.5, verticalOffsetPx: 0 })}
+                    >기본값 복원</UIButton>
+                    <UIButton variant="primary" size="sm"
+                      onClick={async () => {
+                        try {
+                          const res = await fetch(`/api/printers/${editingPrinter._id}/test-print`, { method: 'POST' })
+                          const data = await res.json()
+                          if (data.success) {
+                            alert(`테스트 패턴 인쇄 완료!\n\nshrink: ${data.settings.shrinkPercent}%\noffset: ${data.settings.verticalOffsetPx}px`)
+                          } else {
+                            alert(`인쇄 실패: ${data.error || data.message}`)
+                          }
+                        } catch (err: any) {
+                          alert(`오류: ${err.message}`)
+                        }
+                      }}
+                    >테스트 패턴 인쇄</UIButton>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Printer List */}
+          <div className="divide-y divide-gray-100">
+            {printers.map(printer => (
+              <div key={printer._id} className="flex items-center gap-3 py-3 px-1">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-gray-900">{printer.name}</span>
+                    <UIBadge variant={printer.printMethod === 'polling' ? 'info' : 'default'}>
+                      {printer.printMethod === 'email' ? '이메일' : '폴링'}
+                    </UIBadge>
+                  </div>
+                  {printer.email && <p className="text-xs text-gray-400 mt-0.5">{printer.email}</p>}
+                </div>
+                <button
+                  onClick={() => setEditingPrinter(editingPrinter?._id === printer._id ? null : printer)}
+                  className="text-xs text-blue-500 hover:text-blue-700 px-2 py-1"
+                >
+                  {editingPrinter?._id === printer._id ? '접기' : '설정'}
+                </button>
+                <button
+                  onClick={() => handleDeletePrinter(printer._id)}
+                  className="text-xs text-red-400 hover:text-red-600 px-2 py-1"
+                >
+                  삭제
+                </button>
+              </div>
+            ))}
+            {printers.length === 0 && (
+              <p className="text-sm text-gray-400 py-4 text-center">등록된 프린터가 없습니다</p>
+            )}
+          </div>
+        </UICard>
+
         {/* Events Section */}
         <UICard>
           <div className="flex justify-between items-center mb-4">
@@ -1093,23 +1296,19 @@ export default function AdminPage() {
                   required
                 />
               </UIFormField>
-              <UIFormField label="인쇄 방식">
-                <div className="flex gap-2">
-                  {(['email', 'polling'] as const).map(method => (
-                    <button
-                      key={method}
-                      type="button"
-                      onClick={() => setNewEventPrintMethod(method)}
-                      className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
-                        newEventPrintMethod === method
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-                      }`}
-                    >
-                      {method === 'email' ? '이메일 프린트' : 'DB 폴링'}
-                    </button>
+              <UIFormField label="프린터">
+                <select
+                  value={newEventPrinterId}
+                  onChange={e => setNewEventPrinterId(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">나중에 설정</option>
+                  {printers.map(p => (
+                    <option key={p._id} value={p._id}>
+                      {p.name} ({p.printMethod === 'email' ? '이메일' : '폴링'})
+                    </option>
                   ))}
-                </div>
+                </select>
               </UIFormField>
               <UIButton type="submit" disabled={loading} loading={loading}>
                 {loading ? 'Creating...' : 'Create Event'}
@@ -1130,9 +1329,12 @@ export default function AdminPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <h3 className="text-sm font-semibold text-gray-900 truncate">{event.name}</h3>
-                      <UIBadge variant={event.printMethod === 'polling' ? 'info' : 'default'}>
-                        {event.printMethod === 'polling' ? '폴링' : '이메일'}
-                      </UIBadge>
+                      {(() => {
+                        const printer = printers.find(p => p._id === event.printerId)
+                        return printer
+                          ? <UIBadge variant={printer.printMethod === 'polling' ? 'info' : 'default'}>{printer.name}</UIBadge>
+                          : <UIBadge variant="error">프린터 없음</UIBadge>
+                      })()}
                       {(event.price ?? 0) > 0 && (
                         <UIBadge variant="warning">{event.price!.toLocaleString()}원</UIBadge>
                       )}

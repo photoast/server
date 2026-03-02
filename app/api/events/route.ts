@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, printMethod = 'email' } = body
+    const { name, printerId } = body
 
     if (!name) {
       return NextResponse.json(
@@ -48,8 +48,7 @@ export async function POST(request: NextRequest) {
     const event = await createEvent({
       name,
       slug,
-      printMethod,
-      borderCorrectionEnabled: true,
+      ...(printerId ? { printerId } : {}),
     })
 
     // 기본 레이아웃 템플릿 자동 생성

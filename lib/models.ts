@@ -1,5 +1,5 @@
 import { ObjectId } from 'mongodb'
-import { Event, PrintJob, Admin, ErrorLog, Sticker, SwitLayout, normalizeLayout } from './types'
+import { Event, PrintJob, Admin, ErrorLog, Sticker, SwitLayout, normalizeLayout, Printer } from './types'
 import { getDb, ensureIndexes, COLLECTIONS } from './mongodb'
 
 // Ensure indexes on first import
@@ -195,4 +195,39 @@ export async function duplicateLayout(id: string): Promise<SwitLayout | null> {
     isPreset: false,
     order: Date.now(),
   })
+}
+
+// ==================== Printers ====================
+
+export async function createPrinter(printer: Omit<Printer, '_id' | 'createdAt'>): Promise<Printer> {
+  const db = await getDb()
+  const doc = { ...printer, createdAt: new Date() }
+  const result = await db.collection(COLLECTIONS.printers).insertOne(doc)
+  return { _id: result.insertedId, ...doc } as Printer
+}
+
+export async function findPrinterById(id: string): Promise<Printer | null> {
+  const db = await getDb()
+  return db.collection<Printer>(COLLECTIONS.printers).findOne({ _id: new ObjectId(id) })
+}
+
+export async function getAllPrinters(): Promise<Printer[]> {
+  const db = await getDb()
+  return db.collection<Printer>(COLLECTIONS.printers).find().sort({ createdAt: -1 }).toArray()
+}
+
+export async function updatePrinter(id: string, updates: Partial<Printer>): Promise<boolean> {
+  const db = await getDb()
+  const { _id, ...safeUpdates } = updates as any
+  const result = await db.collection(COLLECTIONS.printers).updateOne(
+    { _id: new ObjectId(id) },
+    { $set: safeUpdates }
+  )
+  return result.matchedCount > 0
+}
+
+export async function deletePrinter(id: string): Promise<boolean> {
+  const db = await getDb()
+  const result = await db.collection(COLLECTIONS.printers).deleteOne({ _id: new ObjectId(id) })
+  return result.deletedCount > 0
 }

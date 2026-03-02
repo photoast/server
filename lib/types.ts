@@ -88,19 +88,26 @@ export interface Sticker {
 
 export type PrintMethod = 'email' | 'polling'
 
+export interface Printer {
+  _id?: ObjectId
+  name: string              // e.g. "사무실 Epson L3150"
+  printMethod: PrintMethod  // 'email' | 'polling'
+  email?: string            // Epson Connect 이메일 주소 (email 방식일 때 필수)
+  borderCorrectionEnabled: boolean
+  shrinkPercent: number     // default: 97.5
+  verticalOffsetPx: number  // default: 0
+  createdAt: Date
+}
+
 export interface Event {
   _id?: ObjectId
   name: string
   slug: string
-  printMethod: PrintMethod // 'email' = Epson Email Print, 'polling' = DB 폴링 방식
-  printerUrl?: string // deprecated, kept for backward compat
-  availableLayouts?: FrameType[] // Layouts available for this event (default: all)
-  puzzleEnabled?: boolean // Enable puzzle mode for SWIT layouts (default: false)
-  price?: number // Payment amount in KRW (default: 0 = free)
-  backgroundColors?: string[] // Available background colors for user selection (default: ['#FFFFFF'])
-  borderCorrectionEnabled?: boolean // Apply printer border correction before printing (default: true)
-  shrinkPercent?: number // Printer correction: shrink scale % (default: 97.5)
-  verticalOffsetPx?: number // Printer correction: vertical offset in px (default: 0)
+  printerId?: string // References Printer._id
+  availableLayouts?: FrameType[]
+  puzzleEnabled?: boolean
+  price?: number
+  backgroundColors?: string[]
   createdAt: Date
 }
 

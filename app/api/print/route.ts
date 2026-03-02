@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { findEventBySlug, createPrintJob } from '@/lib/models'
+import { findEventBySlug, findPrinterById, createPrintJob } from '@/lib/models'
 import { printImage } from '@/lib/printer'
 import { DeviceInfo } from '@/lib/types'
 
@@ -40,7 +40,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
     }
 
-    console.log(`[Print API] Processing ${printQuantity} copy(ies) of image`)
+    // Resolve printer from event
+    const printer = event.printerId ? await findPrinterById(event.printerId) : null
+    if (!printer) {
+      return NextResponse.json(
+        { error: '이벤트에 프린터가 설정되지 않았습니다' },
+        { status: 400 }
+      )
+    }
+
+    console.log(`[Print API] Processing ${printQuantity} copy(ies) via printer "${printer.name}"`)
 
     // Collect device information
     const deviceInfo: DeviceInfo | undefined = clientDeviceInfo
@@ -60,9 +69,10 @@ export async function POST(request: NextRequest) {
       try {
         // Send print job
         const result = await printImage(imageUrl, {
-          borderCorrection: event.borderCorrectionEnabled,
-          shrinkPercent: event.shrinkPercent,
-          verticalOffsetPx: event.verticalOffsetPx,
+          borderCorrection: printer.borderCorrectionEnabled,
+          shrinkPercent: printer.shrinkPercent,
+          verticalOffsetPx: printer.verticalOffsetPx,
+          printerEmail: printer.email,
         })
 
         // Record print job
