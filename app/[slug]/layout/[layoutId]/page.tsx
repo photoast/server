@@ -91,6 +91,8 @@ export default function SwitLayoutPage({
   const [merging, setMerging] = useState(false)
   const [printing, setPrinting] = useState(false)
   const [printQuantity, setPrintQuantity] = useState(1)
+  const [printJobIds, setPrintJobIds] = useState<string[]>([])
+  const [printJobStatuses, setPrintJobStatuses] = useState<{ jobId: string; status: string; queuePosition?: number; errorMessage?: string }[]>([])
 
   // Puzzle state
   const [puzzleMode, setPuzzleMode] = useState(false)
@@ -180,6 +182,8 @@ export default function SwitLayoutPage({
             const data = await printRes.json()
             throw new Error(data.error || '프린트에 실패했습니다')
           }
+          const printData = await printRes.json()
+          if (printData.jobIds) setPrintJobIds(printData.jobIds)
 
           localStorage.removeItem('pendingPrintUrl')
           window.history.replaceState({}, '', window.location.pathname)
@@ -362,6 +366,7 @@ export default function SwitLayoutPage({
     setPrinting(true)
     setError('')
     try {
+      const collectedJobIds: string[] = []
       if (puzzleMode && puzzlePieces.length > 0) {
         // Print each puzzle piece individually
         for (let copy = 0; copy < printQuantity; copy++) {
@@ -380,6 +385,8 @@ export default function SwitLayoutPage({
               const data = await res.json().catch(() => ({}))
               throw new Error(data.error || `퍼즐 조각 ${i + 1} 프린트 실패`)
             }
+            const data = await res.json()
+            if (data.jobIds) collectedJobIds.push(...data.jobIds)
           }
         }
       } else {
@@ -392,7 +399,10 @@ export default function SwitLayoutPage({
           const data = await res.json().catch(() => ({}))
           throw new Error(data.error || '프린트 실패')
         }
+        const data = await res.json()
+        if (data.jobIds) collectedJobIds.push(...data.jobIds)
       }
+      setPrintJobIds(collectedJobIds)
       setStep('success')
     } catch (err: any) {
       setError(err.message)
@@ -502,8 +512,32 @@ export default function SwitLayoutPage({
     setPuzzlePieceUrls([])
     setCompletedSlotData(null)
     setSelectedColor(layout?.backgroundColor || '#FFFFFF')
+    setPrintJobIds([])
+    setPrintJobStatuses([])
     setStep('fill-photos')
   }
+
+  // Poll print job status when on success screen
+  const allJobsSettled = printJobStatuses.length > 0 &&
+    printJobStatuses.every(j => j.status === 'DONE' || j.status === 'FAILED')
+
+  useEffect(() => {
+    if (step !== 'success' || printJobIds.length === 0 || allJobsSettled) return
+
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/print-jobs/status?jobIds=${printJobIds.join(',')}`)
+        if (res.ok) {
+          const data = await res.json()
+          setPrintJobStatuses(data.jobs || [])
+        }
+      } catch {}
+    }
+
+    poll()
+    const interval = setInterval(poll, 3000)
+    return () => clearInterval(interval)
+  }, [step, printJobIds, allJobsSettled])
 
   if (loading || paymentConfirming) return <UIPageSpinner />
 
@@ -515,19 +549,79 @@ export default function SwitLayoutPage({
     )
   }
 
-  // ---- Success screen ----
+  // ---- Success screen with status tracking ----
   if (step === 'success') {
+    const hasPending = printJobStatuses.some(j => j.status === 'PENDING')
+    const hasFailed = printJobStatuses.some(j => j.status === 'FAILED')
+    const allDone = allJobsSettled && !hasFailed
+    const allFailed = allJobsSettled && printJobStatuses.every(j => j.status === 'FAILED')
+    const maxQueue = Math.max(...printJobStatuses.filter(j => j.status === 'PENDING').map(j => j.queuePosition || 0), 0)
+
+    // Determine display state
+    let statusBg = 'bg-yellow-50'
+    let iconBg = 'bg-yellow-100'
+    let iconColor = 'text-yellow-600'
+    let title = '인쇄 대기 중'
+    let subtitle = maxQueue > 1 ? `대기 ${maxQueue}번째` : '곧 인쇄가 시작됩니다'
+    let icon = (
+      <svg className={`w-7 h-7 ${iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    )
+
+    if (allDone) {
+      statusBg = 'bg-green-50'
+      iconBg = 'bg-green-100'
+      iconColor = 'text-green-600'
+      title = '인쇄 완료'
+      subtitle = '출력이 완료되었습니다'
+      icon = (
+        <svg className="w-7 h-7 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+        </svg>
+      )
+    } else if (allFailed) {
+      statusBg = 'bg-red-50'
+      iconBg = 'bg-red-100'
+      iconColor = 'text-red-600'
+      title = '인쇄 실패'
+      subtitle = '관리자에게 문의해 주세요'
+      icon = (
+        <svg className="w-7 h-7 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      )
+    } else if (!hasPending && printJobStatuses.length === 0) {
+      // No polling data yet or email printer (immediate DONE)
+      statusBg = 'bg-green-50'
+      iconBg = 'bg-green-100'
+      title = '프린트 전송 완료'
+      subtitle = '잠시 후 출력됩니다'
+      icon = (
+        <svg className="w-7 h-7 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+        </svg>
+      )
+    }
+
     return (
       <div className="min-h-dvh bg-gray-50 flex items-center justify-center px-4">
         <div className="w-full max-w-sm space-y-5">
-          <div className="bg-green-50 rounded-2xl p-8 text-center">
-            <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-7 h-7 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-              </svg>
+          <div className={`${statusBg} rounded-2xl p-8 text-center`}>
+            <div className={`w-14 h-14 ${iconBg} rounded-full flex items-center justify-center mx-auto mb-4`}>
+              {icon}
             </div>
-            <h2 className="text-xl font-bold text-gray-900 mb-2">프린트 전송 완료</h2>
-            <p className="text-sm text-gray-500">잠시 후 출력됩니다.</p>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">{title}</h2>
+            <p className="text-sm text-gray-500">{subtitle}</p>
+            {hasPending && (
+              <div className="mt-4 flex items-center justify-center gap-2">
+                <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
+                <span className="text-xs text-gray-400">상태 확인 중...</span>
+              </div>
+            )}
+            {hasFailed && !allFailed && (
+              <p className="mt-3 text-xs text-red-500">일부 인쇄가 실패했습니다. 관리자에게 문의해 주세요.</p>
+            )}
           </div>
           <UIButton fullWidth onClick={handleReset}>새로운 사진 만들기</UIButton>
         </div>

@@ -92,6 +92,22 @@ export async function updatePrintJobStatus(
   return result.matchedCount > 0
 }
 
+export async function findPrintJobsByIds(jobIds: string[]): Promise<PrintJob[]> {
+  const db = await getDb()
+  return db.collection<PrintJob>(COLLECTIONS.printJobs)
+    .find({ _id: { $in: jobIds.map(id => new ObjectId(id)) } })
+    .toArray()
+}
+
+export async function countPendingJobsBefore(printerId: string, createdAt: Date): Promise<number> {
+  const db = await getDb()
+  return db.collection(COLLECTIONS.printJobs).countDocuments({
+    printerId,
+    status: 'PENDING',
+    createdAt: { $lt: createdAt },
+  })
+}
+
 // ==================== Admins ====================
 
 export async function findAdminByUsername(username: string): Promise<Admin | null> {

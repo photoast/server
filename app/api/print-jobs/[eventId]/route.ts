@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getPrintJobsByEventId } from '@/lib/models'
+import { getPrintJobsByEventId, getAllPrinters } from '@/lib/models'
 import { checkAuth } from '@/lib/middleware'
 
 export async function GET(
@@ -11,8 +11,19 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const printJobs = await getPrintJobsByEventId(params.eventId)
-    return NextResponse.json(printJobs)
+    const [printJobs, printers] = await Promise.all([
+      getPrintJobsByEventId(params.eventId),
+      getAllPrinters(),
+    ])
+
+    const printerMap = new Map(printers.map(p => [p._id!.toString(), p.name]))
+
+    const enriched = printJobs.map(job => ({
+      ...job,
+      printerName: job.printerId ? printerMap.get(job.printerId) || null : null,
+    }))
+
+    return NextResponse.json(enriched)
   } catch (error) {
     console.error('Error fetching print jobs:', error)
     return NextResponse.json(

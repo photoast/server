@@ -47,6 +47,8 @@ interface DeviceInfo {
 interface PrintJob {
   _id: string
   eventId: string
+  printerId?: string
+  printerName?: string | null
   imageUrl: string
   printedImageUrl?: string
   createdAt: string
@@ -89,6 +91,7 @@ export default function AdminPage() {
   const [showPrintHistory, setShowPrintHistory] = useState(false)
   const [printJobs, setPrintJobs] = useState<PrintJob[]>([])
   const [selectedEventForHistory, setSelectedEventForHistory] = useState<Event | null>(null)
+  const [recentPrintJobs, setRecentPrintJobs] = useState<PrintJob[]>([])
   const [selectedImageForPreview, setSelectedImageForPreview] = useState<string | null>(null)
 
   // Event editing states
@@ -114,6 +117,18 @@ export default function AdminPage() {
       if (updated) setDetailEvent(updated)
     }
   }, [events])
+
+  // Fetch recent print jobs for detail event
+  useEffect(() => {
+    if (!detailEvent) { setRecentPrintJobs([]); return }
+    const fetchRecent = async () => {
+      try {
+        const res = await fetch(`/api/print-jobs/${detailEvent._id}`)
+        if (res.ok) setRecentPrintJobs(await res.json())
+      } catch {}
+    }
+    fetchRecent()
+  }, [detailEvent?._id])
 
   const checkAuth = async () => {
     try {
@@ -880,6 +895,47 @@ export default function AdminPage() {
             </div>
             <p className="text-xs text-gray-500 mt-2">{layouts.length}개 레이아웃</p>
           </UICard>
+
+          {/* Recent Print Jobs */}
+          <UICard>
+            <div className="flex items-center justify-between mb-3">
+              <UISectionHeading title="최근 인쇄" subtitle={`총 ${recentPrintJobs.length}건`} />
+              {recentPrintJobs.length > 0 && (
+                <UIButton variant="secondary" size="sm" onClick={() => viewPrintHistory(event)}>
+                  전체 보기
+                </UIButton>
+              )}
+            </div>
+            {recentPrintJobs.length === 0 ? (
+              <p className="text-xs text-gray-400 py-2">인쇄 기록이 없습니다</p>
+            ) : (
+              <div className="space-y-2">
+                {recentPrintJobs.slice(0, 5).map(job => (
+                  <div key={job._id} className="flex items-center gap-3 p-2 border rounded-lg">
+                    <div
+                      className="relative w-10 h-14 bg-gray-100 rounded flex-shrink-0 cursor-pointer overflow-hidden"
+                      onClick={() => setSelectedImageForPreview(job.imageUrl)}
+                    >
+                      <Image src={job.imageUrl} alt="" fill className="object-cover" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <UIBadge variant={job.status === 'DONE' ? 'success' : job.status === 'PENDING' ? 'info' : 'error'}>
+                          {job.status === 'DONE' ? '완료' : job.status === 'PENDING' ? '대기' : '실패'}
+                        </UIBadge>
+                        {job.printerName && (
+                          <span className="text-[10px] text-gray-400">{job.printerName}</span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-gray-400 mt-0.5">
+                        {new Date(job.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </UICard>
         </div>
 
         {/* ===== Modals (QR, Print History, Image Preview) ===== */}
@@ -967,10 +1023,13 @@ export default function AdminPage() {
                       </div>
                     )}
                     <div className="flex-1 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <UIBadge variant={job.status === 'DONE' ? 'success' : 'error'}>
-                          {job.status === 'DONE' ? '완료' : '실패'}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <UIBadge variant={job.status === 'DONE' ? 'success' : job.status === 'PENDING' ? 'info' : 'error'}>
+                          {job.status === 'DONE' ? '완료' : job.status === 'PENDING' ? '대기' : '실패'}
                         </UIBadge>
+                        {job.printerName && (
+                          <span className="text-xs text-gray-400">{job.printerName}</span>
+                        )}
                         <span className="text-sm text-gray-600">
                           {new Date(job.createdAt).toLocaleString()}
                         </span>
