@@ -18,6 +18,8 @@ interface Event {
   price?: number
   backgroundColors?: string[]
   borderCorrectionEnabled?: boolean
+  shrinkPercent?: number
+  verticalOffsetPx?: number
   createdAt: string
 }
 
@@ -237,7 +239,7 @@ export default function AdminPage() {
     }
   }
 
-  const handleUpdateEvent = async (eventId: string, updates: { name?: string; printMethod?: PrintMethod; availableLayouts?: string[]; price?: number; puzzleEnabled?: boolean; backgroundColors?: string[]; borderCorrectionEnabled?: boolean }) => {
+  const handleUpdateEvent = async (eventId: string, updates: { name?: string; printMethod?: PrintMethod; availableLayouts?: string[]; price?: number; puzzleEnabled?: boolean; backgroundColors?: string[]; borderCorrectionEnabled?: boolean; shrinkPercent?: number; verticalOffsetPx?: number }) => {
     try {
       const updateRes = await fetch(`/api/events/${eventId}`, {
         method: 'PATCH',
@@ -596,13 +598,89 @@ export default function AdminPage() {
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={event.borderCorrectionEnabled ?? (event.printMethod === 'email')}
+                  checked={event.borderCorrectionEnabled ?? true}
                   onChange={e => handleUpdateEvent(event._id, { borderCorrectionEnabled: e.target.checked })}
                   className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
                 <span className="text-sm text-gray-700">테두리 보정 적용</span>
               </label>
             </UIFormField>
+
+            {(event.borderCorrectionEnabled ?? true) && (
+              <div className="mt-4 space-y-4 pt-4 border-t border-gray-100">
+                {/* Shrink Percent */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-sm font-medium text-gray-700">축소 비율</label>
+                    <span className="text-sm font-mono text-blue-600">{event.shrinkPercent ?? 97.5}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={85}
+                    max={100}
+                    step={0.25}
+                    value={event.shrinkPercent ?? 97.5}
+                    onChange={e => handleUpdateEvent(event._id, { shrinkPercent: parseFloat(e.target.value) })}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                  />
+                  <div className="flex justify-between text-xs text-gray-400 mt-0.5">
+                    <span>85%</span>
+                    <span>100% (보정 없음)</span>
+                  </div>
+                </div>
+
+                {/* Vertical Offset */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-sm font-medium text-gray-700">세로 오프셋</label>
+                    <span className="text-sm font-mono text-blue-600">{event.verticalOffsetPx ?? 0}px</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={-30}
+                    max={30}
+                    step={1}
+                    value={event.verticalOffsetPx ?? 0}
+                    onChange={e => handleUpdateEvent(event._id, { verticalOffsetPx: parseInt(e.target.value) })}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                  />
+                  <div className="flex justify-between text-xs text-gray-400 mt-0.5">
+                    <span>-30px (위로)</span>
+                    <span>+30px (아래로)</span>
+                  </div>
+                </div>
+
+                {/* Reset + Test Print */}
+                <div className="flex gap-2">
+                  <UIButton
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => handleUpdateEvent(event._id, { shrinkPercent: 97.5, verticalOffsetPx: 0 })}
+                  >
+                    기본값 복원
+                  </UIButton>
+                  <UIButton
+                    variant="primary"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        const res = await fetch(`/api/events/${event._id}/test-print`, { method: 'POST' })
+                        const data = await res.json()
+                        if (data.success) {
+                          alert(`테스트 패턴 인쇄 완료!\n\nshrink: ${data.settings.shrinkPercent}%\noffset: ${data.settings.verticalOffsetPx}px\n\n인쇄 결과를 확인하고 보정값을 조정하세요.`)
+                        } else {
+                          alert(`인쇄 실패: ${data.error || data.message}`)
+                        }
+                      } catch (err: any) {
+                        alert(`오류: ${err.message}`)
+                      }
+                    }}
+                  >
+                    테스트 패턴 인쇄
+                  </UIButton>
+                </div>
+              </div>
+            )}
           </UICard>
 
           {/* Payment */}

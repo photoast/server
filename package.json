@@ -6,7 +6,8 @@
     "dev": "NODE_NO_WARNINGS=1 node server.js",
     "build": "next build",
     "start": "NODE_ENV=production node server.js",
-    "lint": "next lint"
+    "lint": "next lint",
+    "seed": "npx tsx scripts/seed.ts"
   },
   "dependencies": {
     "@tosspayments/tosspayments-sdk": "^2.4.1",

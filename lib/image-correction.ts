@@ -6,8 +6,8 @@ import sharp from "sharp"
  * SHRINK_PERCENT: Compensates for printer's borderless expansion
  * VERTICAL_OFFSET_PX: Adjusts vertical position to compensate for printer offset
  */
-const DEFAULT_SHRINK_PERCENT = Number(process.env.SHRINK_PERCENT || "95.25")
-const DEFAULT_VERTICAL_OFFSET_PX = Number(process.env.VERTICAL_OFFSET_PX || "-5")
+const DEFAULT_SHRINK_PERCENT = Number(process.env.SHRINK_PERCENT || "97.5")
+const DEFAULT_VERTICAL_OFFSET_PX = Number(process.env.VERTICAL_OFFSET_PX || "0")
 
 export interface CorrectionOptions {
   shrinkPercent?: number

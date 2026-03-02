@@ -1,8 +1,5 @@
 import { MongoClient, Db } from 'mongodb'
 
-// MongoDB connection - optional for development
-// Currently using in-memory DB, but you can switch to MongoDB by setting MONGODB_URI in .env
-
 declare global {
   var _mongoClientPromise: Promise<MongoClient> | undefined
 }
@@ -27,12 +24,42 @@ if (process.env.MONGODB_URI) {
   }
 }
 
+// Collection name constants
+export const COLLECTIONS = {
+  events: 'events',
+  printJobs: 'printJobs',
+  admins: 'admins',
+  errorLogs: 'errorLogs',
+  stickers: 'stickers',
+  layouts: 'layouts',
+} as const
+
 export async function getDb(): Promise<Db> {
   if (!clientPromise) {
-    throw new Error('MongoDB not configured. Using in-memory database instead.')
+    throw new Error('MongoDB not configured. Set MONGODB_URI in .env')
   }
   const client = await clientPromise
   return client.db('photoast')
+}
+
+// One-time index setup
+let indexesCreated = false
+export async function ensureIndexes(): Promise<void> {
+  if (indexesCreated) return
+  try {
+    const db = await getDb()
+    await Promise.all([
+      db.collection(COLLECTIONS.events).createIndex({ slug: 1 }, { unique: true }),
+      db.collection(COLLECTIONS.layouts).createIndex({ eventId: 1 }),
+      db.collection(COLLECTIONS.printJobs).createIndex({ eventId: 1 }),
+      db.collection(COLLECTIONS.errorLogs).createIndex({ eventSlug: 1 }),
+      db.collection(COLLECTIONS.admins).createIndex({ username: 1 }, { unique: true }),
+    ])
+    indexesCreated = true
+    console.log('[MongoDB] Indexes ensured')
+  } catch (err) {
+    console.error('[MongoDB] Failed to create indexes:', err)
+  }
 }
 
 export default clientPromise

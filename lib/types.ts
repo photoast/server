@@ -98,7 +98,9 @@ export interface Event {
   puzzleEnabled?: boolean // Enable puzzle mode for SWIT layouts (default: false)
   price?: number // Payment amount in KRW (default: 0 = free)
   backgroundColors?: string[] // Available background colors for user selection (default: ['#FFFFFF'])
-  borderCorrectionEnabled?: boolean // Apply printer border correction before printing (default: true for email, false for socket)
+  borderCorrectionEnabled?: boolean // Apply printer border correction before printing (default: true)
+  shrinkPercent?: number // Printer correction: shrink scale % (default: 97.5)
+  verticalOffsetPx?: number // Printer correction: vertical offset in px (default: 0)
   createdAt: Date
 }
 

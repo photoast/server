@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import memoryDB from '@/lib/memorydb'
+import { getLayoutById, updateLayout } from '@/lib/models'
 import { saveUploadedFile } from '@/lib/image'
 import type { SwitFrameLayer } from '@/lib/types'
 
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const layout = await memoryDB.getLayoutById(params.id)
+    const layout = await getLayoutById(params.id)
     if (!layout) return NextResponse.json({ error: 'Layout not found' }, { status: 404 })
 
     const formData = await request.formData()
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     }
 
     const frameLayers = [...(layout.frameLayers || []), newLayer]
-    await memoryDB.updateLayout(params.id, { frameLayers })
+    await updateLayout(params.id, { frameLayers })
 
     return NextResponse.json({ layer: newLayer, frameLayers })
   } catch (err) {
@@ -53,11 +53,11 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const { layerId } = await request.json()
-    const layout = await memoryDB.getLayoutById(params.id)
+    const layout = await getLayoutById(params.id)
     if (!layout) return NextResponse.json({ error: 'Layout not found' }, { status: 404 })
 
     const frameLayers = (layout.frameLayers || []).filter(l => l.id !== layerId)
-    await memoryDB.updateLayout(params.id, { frameLayers })
+    await updateLayout(params.id, { frameLayers })
 
     return NextResponse.json({ frameLayers })
   } catch (err) {

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createEvent, getAllEvents } from '@/lib/models'
+import { createEvent, getAllEvents, createLayout } from '@/lib/models'
 import { checkAuth } from '@/lib/middleware'
-import memoryDB from '@/lib/memorydb'
 import { DEFAULT_LAYOUT_TEMPLATES } from '@/lib/defaultLayoutTemplates'
 
 // GET all events
@@ -50,14 +49,14 @@ export async function POST(request: NextRequest) {
       name,
       slug,
       printMethod,
-      borderCorrectionEnabled: printMethod === 'email',
+      borderCorrectionEnabled: true,
     })
 
     // 기본 레이아웃 템플릿 자동 생성
     const eventId = String(event._id)
     for (let idx = 0; idx < DEFAULT_LAYOUT_TEMPLATES.length; idx++) {
       const template = DEFAULT_LAYOUT_TEMPLATES[idx]
-      await memoryDB.createLayout({
+      await createLayout({
         eventId,
         name: template.name,
         printSize: template.printSize,

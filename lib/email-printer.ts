@@ -14,7 +14,7 @@ const EPSON_PRINT_EMAIL = 'msx7208cwudwu4@print.epsonconnect.com'
  */
 export async function printViaEmail(
   imagePath: string,
-  options?: { borderCorrection?: boolean }
+  options?: { borderCorrection?: boolean; shrinkPercent?: number; verticalOffsetPx?: number }
 ): Promise<{ success: boolean; error?: string; printedImageBase64?: string }> {
   try {
     // Check if SEND_PRINTER is disabled (for local testing)
@@ -97,10 +97,12 @@ export async function printViaEmail(
     let finalBuffer: Buffer
 
     if (applyCorrection) {
-      console.log('\nStep 2: Applying printer border correction')
+      console.log(`\nStep 2: Applying printer border correction (shrink: ${options?.shrinkPercent ?? 'default'}%, offset: ${options?.verticalOffsetPx ?? 'default'}px)`)
       const correctedBuffer = await applyPrinterCorrection(imageBuffer, {
         canvasWidth: 1200,
         canvasHeight: 1800,
+        shrinkPercent: options?.shrinkPercent ?? 95.25,
+        verticalOffsetPx: options?.verticalOffsetPx ?? -5,
       })
       const correctedPath = path.join(outputDir, `email-corrected-${timestamp}.jpg`)
       fs.writeFileSync(correctedPath, correctedBuffer)

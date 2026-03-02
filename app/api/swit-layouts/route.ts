@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import memoryDB from '@/lib/memorydb'
+import { getLayoutsByEventId, createLayout } from '@/lib/models'
 import { PRINT_SIZE_DIMENSIONS, PrintSize } from '@/lib/types'
 
 export async function GET(request: NextRequest) {
@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
   if (!eventId) {
     return NextResponse.json({ error: 'eventId required' }, { status: 400 })
   }
-  const layouts = await memoryDB.getLayoutsByEventId(eventId)
+  const layouts = await getLayoutsByEventId(eventId)
   return NextResponse.json(layouts)
 }
 
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid printSize. Use 4x6, 2x6, or 6x4' }, { status: 400 })
     }
 
-    const layout = await memoryDB.createLayout({
+    const layout = await createLayout({
       eventId,
       name,
       printSize: printSize as PrintSize,

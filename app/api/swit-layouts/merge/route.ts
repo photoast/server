@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import sharp from 'sharp'
 import path from 'path'
 import fs from 'fs'
-import memoryDB from '@/lib/memorydb'
+import { getLayoutById } from '@/lib/models'
 import type { SwitFrameLayer } from '@/lib/types'
 
 // Fetch a URL and return Buffer (handles /uploads/ relative paths and data URLs)
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'layoutId required' }, { status: 400 })
     }
 
-    const layout = await memoryDB.getLayoutById(layoutId)
+    const layout = await getLayoutById(layoutId)
     if (!layout) {
       return NextResponse.json({ error: 'Layout not found' }, { status: 404 })
     }

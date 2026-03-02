@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import memoryDB from '@/lib/memorydb'
+import { duplicateLayout } from '@/lib/models'
 
 export async function POST(_: NextRequest, { params }: { params: { id: string } }) {
-  const duplicated = await memoryDB.duplicateLayout(params.id)
+  const duplicated = await duplicateLayout(params.id)
   if (!duplicated) {
     return NextResponse.json({ error: 'Layout not found' }, { status: 404 })
   }
