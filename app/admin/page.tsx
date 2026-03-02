@@ -13,6 +13,7 @@ interface Printer {
   name: string
   printMethod: PrintMethod
   email?: string
+  apiKey?: string
   supportedSizes: string[]
   borderCorrectionEnabled: boolean
   shrinkPercent: number
@@ -49,7 +50,7 @@ interface PrintJob {
   imageUrl: string
   printedImageUrl?: string
   createdAt: string
-  status: 'DONE' | 'FAILED'
+  status: 'PENDING' | 'DONE' | 'FAILED'
   deviceInfo?: DeviceInfo
   errorMessage?: string
 }
@@ -1218,6 +1219,39 @@ export default function AdminPage() {
                   ))}
                 </div>
               </UIFormField>
+
+              {editingPrinter.printMethod === 'polling' && (
+                <UIFormField label="API Key" hint="프린터 클라이언트 인증에 사용됩니다">
+                  <div className="flex gap-2 items-center">
+                    <code className="flex-1 bg-gray-100 px-3 py-2 rounded-lg text-xs font-mono text-gray-700 truncate select-all">
+                      {editingPrinter.apiKey || '(미생성)'}
+                    </code>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (editingPrinter.apiKey) {
+                          navigator.clipboard.writeText(editingPrinter.apiKey)
+                          alert('API Key가 복사되었습니다')
+                        }
+                      }}
+                      className="text-xs bg-blue-100 text-blue-600 px-3 py-2 rounded-lg hover:bg-blue-200 whitespace-nowrap"
+                    >
+                      복사
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (confirm('새 API Key를 생성하면 기존 키는 무효화됩니다. 계속할까요?')) {
+                          await handleUpdatePrinter(editingPrinter._id, { regenerateApiKey: true } as any)
+                        }
+                      }}
+                      className="text-xs bg-gray-100 text-gray-600 px-3 py-2 rounded-lg hover:bg-gray-200 whitespace-nowrap"
+                    >
+                      재생성
+                    </button>
+                  </div>
+                </UIFormField>
+              )}
 
               <UIFormField label="테두리 보정">
                 <label className="flex items-center gap-2 cursor-pointer">

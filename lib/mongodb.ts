@@ -56,6 +56,8 @@ export async function ensureIndexes(): Promise<void> {
       db.collection(COLLECTIONS.errorLogs).createIndex({ eventSlug: 1 }),
       db.collection(COLLECTIONS.admins).createIndex({ username: 1 }, { unique: true }),
       db.collection(COLLECTIONS.printers).createIndex({ name: 1 }, { unique: true }),
+      db.collection(COLLECTIONS.printers).createIndex({ apiKey: 1 }, { unique: true, sparse: true }),
+      db.collection(COLLECTIONS.printJobs).createIndex({ printerId: 1, status: 1 }),
     ])
     indexesCreated = true
     console.log('[MongoDB] Indexes ensured')

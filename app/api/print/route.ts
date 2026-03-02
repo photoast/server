@@ -1,7 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
+import path from 'path'
+import fs from 'fs/promises'
+import sharp from 'sharp'
 import { findEventBySlug, findPrinterById, createPrintJob } from '@/lib/models'
 import { printImage } from '@/lib/printer'
+import { applyPrinterCorrection } from '@/lib/image-correction'
 import { DeviceInfo } from '@/lib/types'
+
+function resolveImagePath(imageUrl: string): string {
+  if (imageUrl.startsWith('/api/serve-image/')) {
+    const filename = imageUrl.replace('/api/serve-image/', '')
+    return path.join('/tmp/uploads', filename)
+  }
+  if (imageUrl.startsWith('/uploads/')) {
+    return path.join(process.cwd(), 'public', imageUrl)
+  }
+  if (imageUrl.startsWith('/tmp')) {
+    return imageUrl
+  }
+  return path.join(process.cwd(), 'public', imageUrl)
+}
 
 // Extract IP address from request
 function getClientIp(request: NextRequest): string {
@@ -68,15 +86,54 @@ export async function POST(request: NextRequest) {
 
       try {
         if (printer.printMethod === 'polling') {
-          // Polling: just record the job — printer polls DB for pending jobs
+          // Polling: apply image correction, save corrected image, create PENDING job
+          let imagePath: string
+          if (imageUrl.startsWith('data:')) {
+            const base64Data = imageUrl.split(',')[1]
+            const buffer = Buffer.from(base64Data, 'base64')
+            const tempDir = '/tmp/uploads'
+            await fs.mkdir(tempDir, { recursive: true })
+            imagePath = path.join(tempDir, `print-${Date.now()}.jpg`)
+            await fs.writeFile(imagePath, buffer)
+          } else {
+            imagePath = resolveImagePath(imageUrl)
+          }
+
+          let imageBuffer = await fs.readFile(imagePath)
+
+          // Rotate landscape images for 4x6 printing
+          const metadata = await sharp(imageBuffer).metadata()
+          if ((metadata.width || 0) > (metadata.height || 0)) {
+            imageBuffer = Buffer.from(await sharp(imageBuffer).rotate(90).jpeg({ quality: 100 }).toBuffer())
+          }
+
+          // Apply printer correction
+          if (printer.borderCorrectionEnabled) {
+            imageBuffer = Buffer.from(await applyPrinterCorrection(imageBuffer, {
+              canvasWidth: 1200,
+              canvasHeight: 1800,
+              shrinkPercent: printer.shrinkPercent,
+              verticalOffsetPx: printer.verticalOffsetPx,
+            }))
+          }
+
+          // Save corrected image
+          const correctedFilename = `corrected-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`
+          const uploadDir = '/tmp/uploads'
+          await fs.mkdir(uploadDir, { recursive: true })
+          await fs.writeFile(path.join(uploadDir, correctedFilename), imageBuffer)
+          const correctedUrl = `/api/serve-image/${correctedFilename}`
+
           const printJob = await createPrintJob({
             eventId: event._id!.toString(),
+            printerId: printer._id!.toString(),
             imageUrl,
-            status: 'DONE',
+            printedImageUrl: correctedUrl,
+            status: 'PENDING',
             deviceInfo,
           })
           jobIds.push(printJob._id?.toString() || '')
-          console.log(`[Print API] Print job ${i + 1}/${printQuantity} recorded (polling)`)
+          console.log(`[Print API] Print job ${i + 1}/${printQuantity} created as PENDING (polling)`)
         } else {
           // Email: send via Epson Email Print
           const result = await printImage(imageUrl, {

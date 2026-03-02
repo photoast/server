@@ -64,6 +64,34 @@ export async function getAllPrintJobs(): Promise<PrintJob[]> {
     .toArray()
 }
 
+export async function findPrintJobById(jobId: string): Promise<PrintJob | null> {
+  const db = await getDb()
+  return db.collection<PrintJob>(COLLECTIONS.printJobs).findOne({ _id: new ObjectId(jobId) })
+}
+
+export async function getPendingJobsByPrinterId(printerId: string): Promise<PrintJob[]> {
+  const db = await getDb()
+  return db.collection<PrintJob>(COLLECTIONS.printJobs)
+    .find({ printerId, status: 'PENDING' })
+    .sort({ createdAt: 1 })
+    .toArray()
+}
+
+export async function updatePrintJobStatus(
+  jobId: string,
+  status: 'DONE' | 'FAILED',
+  errorMessage?: string
+): Promise<boolean> {
+  const db = await getDb()
+  const update: any = { status }
+  if (errorMessage) update.errorMessage = errorMessage
+  const result = await db.collection(COLLECTIONS.printJobs).updateOne(
+    { _id: new ObjectId(jobId) },
+    { $set: update }
+  )
+  return result.matchedCount > 0
+}
+
 // ==================== Admins ====================
 
 export async function findAdminByUsername(username: string): Promise<Admin | null> {
@@ -209,6 +237,11 @@ export async function createPrinter(printer: Omit<Printer, '_id' | 'createdAt'>)
 export async function findPrinterById(id: string): Promise<Printer | null> {
   const db = await getDb()
   return db.collection<Printer>(COLLECTIONS.printers).findOne({ _id: new ObjectId(id) })
+}
+
+export async function findPrinterByApiKey(apiKey: string): Promise<Printer | null> {
+  const db = await getDb()
+  return db.collection<Printer>(COLLECTIONS.printers).findOne({ apiKey })
 }
 
 export async function getAllPrinters(): Promise<Printer[]> {

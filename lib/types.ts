@@ -93,6 +93,7 @@ export interface Printer {
   name: string              // e.g. "사무실 Epson L3150"
   printMethod: PrintMethod  // 'email' | 'polling'
   email?: string            // Epson Connect 이메일 주소 (email 방식일 때 필수)
+  apiKey?: string           // polling 프린터 인증용 UUID
   supportedSizes: PrintSize[] // e.g. ['4x6', '6x4'] — 프린터가 지원하는 인쇄 규격
   borderCorrectionEnabled: boolean
   shrinkPercent: number     // default: 97.5
@@ -126,10 +127,11 @@ export interface DeviceInfo {
 export interface PrintJob {
   _id?: ObjectId
   eventId: string
+  printerId?: string       // polling 프린터의 job일 때 프린터 ID
   imageUrl: string
   printedImageUrl?: string // The actual image sent to printer (corrected/rotated)
   createdAt: Date
-  status: 'DONE' | 'FAILED'
+  status: 'PENDING' | 'DONE' | 'FAILED'
   deviceInfo?: DeviceInfo
   errorMessage?: string
 }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { randomUUID } from 'crypto'
 import { getAllPrinters, createPrinter } from '@/lib/models'
 import { checkAuth } from '@/lib/middleware'
 
@@ -42,6 +43,7 @@ export async function POST(request: NextRequest) {
       name,
       printMethod,
       email: printMethod === 'email' ? email : undefined,
+      apiKey: printMethod === 'polling' ? randomUUID() : undefined,
       supportedSizes,
       borderCorrectionEnabled,
       shrinkPercent,

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { randomUUID } from 'crypto'
 import { findPrinterById, updatePrinter, deletePrinter } from '@/lib/models'
 import { checkAuth } from '@/lib/middleware'
 
@@ -33,6 +34,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     if (borderCorrectionEnabled !== undefined) updates.borderCorrectionEnabled = borderCorrectionEnabled
     if (shrinkPercent !== undefined) updates.shrinkPercent = shrinkPercent
     if (verticalOffsetPx !== undefined) updates.verticalOffsetPx = verticalOffsetPx
+    if (body.regenerateApiKey) updates.apiKey = randomUUID()
 
     const success = await updatePrinter(params.id, updates)
     if (!success) {
