@@ -48,6 +48,7 @@ export interface SwitLayout {
   frameUrl: string | null        // deprecated, kept for backward compat
   backgroundColor: string        // background color hex (default '#FFFFFF')
   backgroundColorCustomizable: boolean // true = client can change bg color
+  visible?: boolean              // true (default) = exposed to users, false = hidden
   isPreset: boolean              // true = auto-created from default template
   order: number                  // display order (lower = first)
   createdAt: string

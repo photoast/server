@@ -132,7 +132,7 @@ export default function SwitLayoutPage({
         if (lay.backgroundColor) setSelectedColor(lay.backgroundColor)
         // Fetch all layouts for layout switching
         if (ev._id) {
-          fetch(`/api/swit-layouts?eventId=${ev._id}`)
+          fetch(`/api/swit-layouts?eventId=${ev._id}&visibleOnly=true`)
             .then(r => r.ok ? r.json() : [])
             .then(layouts => setAllLayouts(Array.isArray(layouts) ? layouts : []))
             .catch(() => {})
@@ -643,6 +643,19 @@ export default function SwitLayoutPage({
               </svg>
               사진 저장
             </UIButton>
+          )}
+          {printJobIds.length > 0 && (
+            <button
+              onClick={() => {
+                const url = `${window.location.origin}/result/${printJobIds[0]}`
+                navigator.clipboard?.writeText(url)
+                  .then(() => alert('결과 링크가 복사되었습니다'))
+                  .catch(() => prompt('결과 링크:', url))
+              }}
+              className="w-full py-3 rounded-2xl border border-gray-200 bg-white text-gray-700 font-semibold text-sm hover:bg-gray-50 transition-colors"
+            >
+              결과 링크 복사
+            </button>
           )}
           <UIButton fullWidth variant="secondary" onClick={handleReset}>새로운 사진 만들기</UIButton>
         </div>

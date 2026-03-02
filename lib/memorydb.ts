@@ -208,13 +208,25 @@ class MemoryDB {
   async createLayout(layout: Omit<SwitLayout, '_id' | 'createdAt' | 'updatedAt' | 'isPreset' | 'order' | 'backgroundColor' | 'backgroundColorCustomizable'> & { isPreset?: boolean; order?: number; backgroundColor?: string; backgroundColorCustomizable?: boolean }): Promise<SwitLayout> {
     const id = new ObjectId()
     const now = new Date().toISOString()
+
+    let order = layout.order
+    if (order === undefined) {
+      if (layout.isPreset) {
+        order = Date.now()
+      } else {
+        const siblings = Array.from(this.layouts.values()).filter(l => l.eventId === layout.eventId)
+        const minOrder = siblings.length > 0 ? Math.min(...siblings.map(l => l.order ?? 0)) : 0
+        order = minOrder - 1
+      }
+    }
+
     const newLayout: SwitLayout = {
       _id: id.toString(),
       ...layout,
       backgroundColor: layout.backgroundColor ?? '#FFFFFF',
       backgroundColorCustomizable: layout.backgroundColorCustomizable ?? true,
       isPreset: layout.isPreset ?? false,
-      order: layout.order ?? Date.now(),
+      order,
       createdAt: now,
       updatedAt: now,
     }
@@ -227,12 +239,14 @@ class MemoryDB {
     if (!source) return null
     const newId = new ObjectId()
     const now = new Date().toISOString()
+    const siblings = Array.from(this.layouts.values()).filter(l => l.eventId === source.eventId)
+    const minOrder = siblings.length > 0 ? Math.min(...siblings.map(l => l.order ?? 0)) : 0
     const duplicated: SwitLayout = {
       ...source,
       _id: newId.toString(),
       name: `${source.name} 복사본`,
       isPreset: false,
-      order: Date.now(),
+      order: minOrder - 1,
       slots: source.slots.map(s => ({ ...s })),
       frameLayers: (source.frameLayers || []).map(l => ({ ...l })),
       createdAt: now,
@@ -240,6 +254,16 @@ class MemoryDB {
     }
     this.layouts.set(newId.toString(), duplicated)
     return duplicated
+  }
+
+  async reorderLayouts(orderedIds: string[]): Promise<void> {
+    const now = new Date().toISOString()
+    orderedIds.forEach((id, index) => {
+      const layout = this.layouts.get(id)
+      if (layout) {
+        this.layouts.set(id, { ...layout, order: index, updatedAt: now })
+      }
+    })
   }
 
   async getLayoutById(id: string): Promise<SwitLayout | null> {

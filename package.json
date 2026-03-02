@@ -7,7 +7,10 @@
     "build": "next build",
     "start": "NODE_ENV=production node server.js",
     "lint": "next lint",
-    "seed": "npx tsx scripts/seed.ts"
+    "seed": "npx tsx scripts/seed.ts",
+    "dev:pm2": "pm2 start npm --name 'switphoto-dev' -- run dev",
+    "stop:pm2": "pm2 stop switphoto-dev",
+    "log:pm2": "pm2 logs switphoto-dev"
   },
   "dependencies": {
     "@tosspayments/tosspayments-sdk": "^2.4.1",

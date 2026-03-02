@@ -31,6 +31,8 @@ function LayoutsPageInner() {
   const [newName, setNewName] = useState('')
   const [newPrintSize, setNewPrintSize] = useState<'4x6' | '2x6' | '6x4'>('4x6')
   const [copyLink, setCopyLink] = useState('')
+  const [draggedId, setDraggedId] = useState<string | null>(null)
+  const [dragOverId, setDragOverId] = useState<string | null>(null)
 
   useEffect(() => {
     // Fetch all events for the dropdown
@@ -100,6 +102,69 @@ function LayoutsPageInner() {
       await loadLayouts()
       alert('저장되었습니다!')
     }
+  }
+
+  const handleToggleVisible = async (layout: SwitLayout) => {
+    const newVisible = layout.visible === false ? true : false
+    await fetch(`/api/swit-layouts/${layout._id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ visible: newVisible }),
+    })
+    await loadLayouts()
+  }
+
+  const sortedLayouts = [...layouts].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+
+  const handleDragStart = (e: React.DragEvent, layoutId: string) => {
+    setDraggedId(layoutId)
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', layoutId)
+  }
+
+  const handleDragOver = (e: React.DragEvent, layoutId: string) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    if (layoutId !== draggedId) {
+      setDragOverId(layoutId)
+    }
+  }
+
+  const handleDrop = async (e: React.DragEvent, targetId: string) => {
+    e.preventDefault()
+    setDragOverId(null)
+
+    if (!draggedId || draggedId === targetId) {
+      setDraggedId(null)
+      return
+    }
+
+    const newOrder = [...sortedLayouts]
+    const draggedIndex = newOrder.findIndex(l => l._id === draggedId)
+    const targetIndex = newOrder.findIndex(l => l._id === targetId)
+    if (draggedIndex < 0 || targetIndex < 0) return
+
+    const [removed] = newOrder.splice(draggedIndex, 1)
+    newOrder.splice(targetIndex, 0, removed)
+
+    const reordered = newOrder.map((l, i) => ({ ...l, order: i }))
+    setLayouts(reordered)
+    setDraggedId(null)
+
+    try {
+      await fetch('/api/swit-layouts/reorder', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderedIds: reordered.map(l => l._id) }),
+      })
+    } catch {
+      await loadLayouts()
+    }
+  }
+
+  const handleDragEnd = () => {
+    setDraggedId(null)
+    setDragOverId(null)
   }
 
   const copyUserLink = (layout: SwitLayout) => {
@@ -195,20 +260,44 @@ function LayoutsPageInner() {
               {loading && !showCreate && <p className="text-gray-400 text-sm">불러오는 중...</p>}
 
               <div className="space-y-2">
-                {layouts
-                  .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-                  .map(layout => (
+                {sortedLayouts.map(layout => (
                   <div
                     key={layout._id}
-                    className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
-                      selectedLayout?._id === layout._id
-                        ? 'border-blue-400 bg-blue-50'
-                        : 'border-gray-100 hover:border-gray-200 bg-white'
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, layout._id)}
+                    onDragOver={(e) => handleDragOver(e, layout._id)}
+                    onDragLeave={() => setDragOverId(null)}
+                    onDrop={(e) => handleDrop(e, layout._id)}
+                    onDragEnd={handleDragEnd}
+                    className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-colors ${
+                      draggedId === layout._id
+                        ? 'opacity-40 border-gray-200 bg-gray-50'
+                        : dragOverId === layout._id
+                          ? 'border-blue-400 bg-blue-50/60'
+                          : selectedLayout?._id === layout._id
+                            ? 'border-blue-400 bg-blue-50'
+                            : layout.visible === false
+                              ? 'border-transparent hover:border-gray-200 bg-gray-50 opacity-50'
+                              : 'border-transparent hover:border-gray-200 bg-white'
                     }`}
                   >
+                    {/* Drag handle */}
+                    <div className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 shrink-0 select-none">
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <circle cx="5" cy="3" r="1.5"/>
+                        <circle cx="11" cy="3" r="1.5"/>
+                        <circle cx="5" cy="8" r="1.5"/>
+                        <circle cx="11" cy="8" r="1.5"/>
+                        <circle cx="5" cy="13" r="1.5"/>
+                        <circle cx="11" cy="13" r="1.5"/>
+                      </svg>
+                    </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
                         <p className="font-semibold text-sm text-gray-800 truncate">{layout.name}</p>
+                        {layout.visible === false && (
+                          <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded shrink-0">미노출</span>
+                        )}
                         {layout.isPreset && (
                           <span className="text-[10px] font-semibold text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded shrink-0">프리셋</span>
                         )}
@@ -220,6 +309,17 @@ function LayoutsPageInner() {
                       </p>
                     </div>
                     <div className="flex gap-1.5 shrink-0">
+                      <button
+                        onClick={() => handleToggleVisible(layout)}
+                        className={`px-3 py-1.5 text-xs rounded-xl font-semibold ${
+                          layout.visible === false
+                            ? 'bg-gray-200 text-gray-500 hover:bg-gray-300'
+                            : 'bg-green-50 text-green-600 hover:bg-green-100'
+                        }`}
+                        title={layout.visible === false ? '노출로 전환' : '미노출로 전환'}
+                      >
+                        {layout.visible === false ? '미노출' : '노출'}
+                      </button>
                       <button
                         onClick={() => setSelectedLayout(layout)}
                         className="px-3 py-1.5 text-xs rounded-xl bg-blue-500 text-white hover:bg-blue-600 font-semibold"

@@ -8,7 +8,10 @@ export async function GET(request: NextRequest) {
   if (!eventId) {
     return NextResponse.json({ error: 'eventId required' }, { status: 400 })
   }
-  const layouts = await getLayoutsByEventId(eventId)
+  let layouts = await getLayoutsByEventId(eventId)
+  if (searchParams.get('visibleOnly') === 'true') {
+    layouts = layouts.filter(l => l.visible !== false)
+  }
   return NextResponse.json(layouts)
 }
 

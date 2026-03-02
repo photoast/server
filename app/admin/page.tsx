@@ -920,12 +920,42 @@ export default function AdminPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <UIBadge variant={job.status === 'DONE' ? 'success' : job.status === 'PENDING' ? 'info' : 'error'}>
-                          {job.status === 'DONE' ? '완료' : job.status === 'PENDING' ? '대기' : '실패'}
-                        </UIBadge>
+                        <select
+                          value={job.status}
+                          onChange={async (e) => {
+                            const newStatus = e.target.value
+                            const res = await fetch(`/api/print-jobs/job/${job._id}`, {
+                              method: 'PATCH',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ status: newStatus }),
+                            })
+                            if (res.ok) {
+                              setRecentPrintJobs(prev => prev.map(j =>
+                                j._id === job._id ? { ...j, status: newStatus as any } : j
+                              ))
+                            }
+                          }}
+                          className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border-0 cursor-pointer ${
+                            job.status === 'DONE' ? 'bg-green-100 text-green-700' :
+                            job.status === 'PENDING' ? 'bg-blue-100 text-blue-700' :
+                            'bg-red-100 text-red-700'
+                          }`}
+                        >
+                          <option value="PENDING">대기</option>
+                          <option value="DONE">완료</option>
+                          <option value="FAILED">실패</option>
+                        </select>
                         {job.printerName && (
                           <span className="text-[10px] text-gray-400">{job.printerName}</span>
                         )}
+                        <button
+                          onClick={() => {
+                            window.open(`/result/${job._id}`, '_blank')
+                          }}
+                          className="text-[10px] text-blue-500 hover:text-blue-700 underline"
+                        >
+                          링크
+                        </button>
                       </div>
                       <p className="text-[11px] text-gray-400 mt-0.5">
                         {new Date(job.createdAt).toLocaleString()}
@@ -1024,15 +1054,45 @@ export default function AdminPage() {
                     )}
                     <div className="flex-1 space-y-2">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <UIBadge variant={job.status === 'DONE' ? 'success' : job.status === 'PENDING' ? 'info' : 'error'}>
-                          {job.status === 'DONE' ? '완료' : job.status === 'PENDING' ? '대기' : '실패'}
-                        </UIBadge>
+                        <select
+                          value={job.status}
+                          onChange={async (e) => {
+                            const newStatus = e.target.value
+                            const res = await fetch(`/api/print-jobs/job/${job._id}`, {
+                              method: 'PATCH',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ status: newStatus }),
+                            })
+                            if (res.ok) {
+                              setPrintJobs(prev => prev.map(j =>
+                                j._id === job._id ? { ...j, status: newStatus as any } : j
+                              ))
+                            }
+                          }}
+                          className={`text-xs font-semibold px-2 py-1 rounded-lg border-0 cursor-pointer ${
+                            job.status === 'DONE' ? 'bg-green-100 text-green-700' :
+                            job.status === 'PENDING' ? 'bg-blue-100 text-blue-700' :
+                            'bg-red-100 text-red-700'
+                          }`}
+                        >
+                          <option value="PENDING">대기</option>
+                          <option value="DONE">완료</option>
+                          <option value="FAILED">실패</option>
+                        </select>
                         {job.printerName && (
                           <span className="text-xs text-gray-400">{job.printerName}</span>
                         )}
                         <span className="text-sm text-gray-600">
                           {new Date(job.createdAt).toLocaleString()}
                         </span>
+                        <button
+                          onClick={() => {
+                            window.open(`/result/${job._id}`, '_blank')
+                          }}
+                          className="text-[11px] text-blue-500 hover:text-blue-700 underline"
+                        >
+                          결과 링크
+                        </button>
                       </div>
                       {job.errorMessage && <p className="text-sm text-red-600">Error: {job.errorMessage}</p>}
                       {job.deviceInfo && (

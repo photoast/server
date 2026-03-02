@@ -79,7 +79,7 @@ export async function getPendingJobsByPrinterId(printerId: string): Promise<Prin
 
 export async function updatePrintJobStatus(
   jobId: string,
-  status: 'DONE' | 'FAILED',
+  status: 'PENDING' | 'DONE' | 'FAILED',
   errorMessage?: string
 ): Promise<boolean> {
   const db = await getDb()
@@ -175,12 +175,31 @@ export async function createLayout(
 ): Promise<SwitLayout> {
   const db = await getDb()
   const now = new Date().toISOString()
+
+  let order = layout.order
+  if (order === undefined) {
+    if (layout.isPreset) {
+      order = Date.now()
+    } else {
+      // Non-preset layouts go to the top: find min order and subtract 1
+      const minDoc = await db.collection(COLLECTIONS.layouts)
+        .find({ eventId: layout.eventId })
+        .sort({ order: 1 })
+        .limit(1)
+        .project({ order: 1 })
+        .toArray()
+      const minOrder = minDoc.length > 0 ? (minDoc[0].order ?? 0) : 0
+      order = minOrder - 1
+    }
+  }
+
   const doc = {
     ...layout,
     backgroundColor: layout.backgroundColor ?? '#FFFFFF',
     backgroundColorCustomizable: layout.backgroundColorCustomizable ?? true,
+    visible: layout.visible ?? true,
     isPreset: layout.isPreset ?? false,
-    order: layout.order ?? Date.now(),
+    order,
     createdAt: now,
     updatedAt: now,
   }
@@ -233,12 +252,26 @@ export async function duplicateLayout(id: string): Promise<SwitLayout | null> {
   const source = await getLayoutById(id)
   if (!source) return null
   const { _id, ...rest } = source
+  // order is omitted so createLayout will place it at the top
   return createLayout({
     ...rest,
     name: `${source.name} 복사본`,
     isPreset: false,
-    order: Date.now(),
   })
+}
+
+export async function reorderLayouts(orderedIds: string[]): Promise<void> {
+  const db = await getDb()
+  const now = new Date().toISOString()
+  const ops = orderedIds.map((id, index) => ({
+    updateOne: {
+      filter: { _id: new ObjectId(id) },
+      update: { $set: { order: index, updatedAt: now } },
+    },
+  }))
+  if (ops.length > 0) {
+    await db.collection(COLLECTIONS.layouts).bulkWrite(ops)
+  }
 }
 
 // ==================== Printers ====================
