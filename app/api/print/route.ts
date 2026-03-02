@@ -67,30 +67,41 @@ export async function POST(request: NextRequest) {
       console.log(`[Print API] Sending print job ${i + 1}/${printQuantity}`)
 
       try {
-        // Send print job
-        const result = await printImage(imageUrl, {
-          borderCorrection: printer.borderCorrectionEnabled,
-          shrinkPercent: printer.shrinkPercent,
-          verticalOffsetPx: printer.verticalOffsetPx,
-          printerEmail: printer.email,
-        })
-
-        // Record print job
-        const printJob = await createPrintJob({
-          eventId: event._id!.toString(),
-          imageUrl,
-          printedImageUrl: result.printedImageUrl,
-          status: result.success ? 'DONE' : 'FAILED',
-          deviceInfo,
-          errorMessage: result.error,
-        })
-
-        if (result.success) {
+        if (printer.printMethod === 'polling') {
+          // Polling: just record the job — printer polls DB for pending jobs
+          const printJob = await createPrintJob({
+            eventId: event._id!.toString(),
+            imageUrl,
+            status: 'DONE',
+            deviceInfo,
+          })
           jobIds.push(printJob._id?.toString() || '')
-          console.log(`[Print API] Print job ${i + 1}/${printQuantity} succeeded`)
+          console.log(`[Print API] Print job ${i + 1}/${printQuantity} recorded (polling)`)
         } else {
-          errors.push(`Copy ${i + 1}: ${result.error || 'Print job failed'}`)
-          console.error(`[Print API] Print job ${i + 1}/${printQuantity} failed:`, result.error)
+          // Email: send via Epson Email Print
+          const result = await printImage(imageUrl, {
+            borderCorrection: printer.borderCorrectionEnabled,
+            shrinkPercent: printer.shrinkPercent,
+            verticalOffsetPx: printer.verticalOffsetPx,
+            printerEmail: printer.email,
+          })
+
+          const printJob = await createPrintJob({
+            eventId: event._id!.toString(),
+            imageUrl,
+            printedImageUrl: result.printedImageUrl,
+            status: result.success ? 'DONE' : 'FAILED',
+            deviceInfo,
+            errorMessage: result.error,
+          })
+
+          if (result.success) {
+            jobIds.push(printJob._id?.toString() || '')
+            console.log(`[Print API] Print job ${i + 1}/${printQuantity} succeeded`)
+          } else {
+            errors.push(`Copy ${i + 1}: ${result.error || 'Print job failed'}`)
+            console.error(`[Print API] Print job ${i + 1}/${printQuantity} failed:`, result.error)
+          }
         }
       } catch (err: any) {
         errors.push(`Copy ${i + 1}: ${err.message || 'Unknown error'}`)
