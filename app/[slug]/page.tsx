@@ -125,6 +125,10 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   const [paymentProcessing, setPaymentProcessing] = useState(false)
   const [paymentConfirming, setPaymentConfirming] = useState(false) // 결제 승인 처리 중
 
+  // Print job tracking
+  const [printJobIds, setPrintJobIds] = useState<string[]>([])
+  const [printJobStatuses, setPrintJobStatuses] = useState<{ jobId: string; status: string; queuePosition?: number; errorMessage?: string }[]>([])
+
   // SWIT layout options
   const [switLayouts, setSwitLayouts] = useState<SwitLayoutOption[]>([])
 
@@ -796,55 +800,35 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     if (!previewUrl) return
 
     try {
-      // Generate timestamp for filenames
-      const now = new Date()
-      const timestamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`
-      const layoutName = (LAYOUT_OPTIONS.find(l => l.type === frameType)?.nameEn || frameType).replace(/\s+/g, '-').toLowerCase()
-
-      // 일반 레이아웃 다운로드
       let blob: Blob
-
-      // Handle data URL (Vercel environment)
       if (previewUrl.startsWith('data:')) {
-        // Convert data URL to blob
-        const response = await fetch(previewUrl)
-        blob = await response.blob()
+        blob = await (await fetch(previewUrl)).blob()
       } else {
-        // Handle regular URL (local development)
         const absoluteUrl = previewUrl.startsWith('http')
           ? previewUrl
           : `${window.location.origin}${previewUrl}`
-
-        const response = await fetch(absoluteUrl)
-
-        if (!response.ok) {
-          throw new Error(`이미지 다운로드 실패: ${response.status}`)
-        }
-
-        blob = await response.blob()
+        blob = await (await fetch(absoluteUrl)).blob()
       }
 
-      // Create download link
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `phost_${layoutName}_${timestamp}.jpg`
+      const file = new File([blob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' })
 
-      // Trigger download
-      document.body.appendChild(link)
-      link.click()
-
-      // Cleanup
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file] })
+      } else {
+        const url = window.URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = file.name
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        window.URL.revokeObjectURL(url)
+      }
     } catch (err: any) {
-      const errorMessage = err.message || '다운로드에 실패했습니다'
-      console.error('Download error:', err)
-      setError(errorMessage)
-      logClientError('Failed to download image', err, params.slug, {
-        previewUrl,
-        frameType,
-      })
+      if (err?.name !== 'AbortError') {
+        setError('다운로드에 실패했습니다')
+        logClientError('Failed to download image', err, params.slug, { previewUrl, frameType })
+      }
     }
   }
 
@@ -869,6 +853,9 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         const data = await res.json()
         throw new Error(data.error || 'Failed to print')
       }
+
+      const data = await res.json()
+      if (data.jobIds) setPrintJobIds(data.jobIds)
 
       updateStep('success')
     } catch (err: any) {
@@ -1021,6 +1008,8 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
             const data = await printRes.json()
             throw new Error(data.error || '프린트에 실패했습니다')
           }
+          const printData = await printRes.json()
+          if (printData.jobIds) setPrintJobIds(printData.jobIds)
 
           // 성공 처리
           localStorage.removeItem('pendingPrintUrl')
@@ -1064,7 +1053,31 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     setPreviewUrl(null)
     setError('')
     setPrintQuantity(1)
+    setPrintJobIds([])
+    setPrintJobStatuses([])
   }
+
+  // Poll print job status when on success screen
+  const allJobsSettled = printJobStatuses.length > 0 &&
+    printJobStatuses.every(j => j.status === 'DONE' || j.status === 'FAILED')
+
+  useEffect(() => {
+    if (step !== 'success' || printJobIds.length === 0 || allJobsSettled) return
+
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/print-jobs/status?jobIds=${printJobIds.join(',')}`)
+        if (res.ok) {
+          const data = await res.json()
+          setPrintJobStatuses(data.jobs || [])
+        }
+      } catch {}
+    }
+
+    poll()
+    const interval = setInterval(poll, 3000)
+    return () => clearInterval(interval)
+  }, [step, printJobIds, allJobsSettled])
 
   // ============ Render Helpers ============
 
@@ -1383,22 +1396,14 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                   />
                 )}
 
-                {/* Download & Payment Buttons - Side by side */}
+                {/* Payment / Print Button */}
                 {allSlotsFilled && previewUrl && !processing && (
-                  <div className="flex gap-3">
-                    <UIButton variant="download" size="md" onClick={handleDownload} disabled={printing}>
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                      </svg>
-                      저장
-                    </UIButton>
-                    <UIButton size="md" className="flex-1 min-w-0" onClick={handleGoToPayment} disabled={printing} loading={printing}>
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                      </svg>
-                      {(event?.price ?? 0) === 0 ? `무료 프린트 ${printQuantity}매` : `${(event?.price ?? 0) * printQuantity}원 결제하기`}
-                    </UIButton>
-                  </div>
+                  <UIButton size="md" fullWidth onClick={handleGoToPayment} disabled={printing} loading={printing}>
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                    </svg>
+                    {(event?.price ?? 0) === 0 ? `무료 프린트 ${printQuantity}매` : `${(event?.price ?? 0) * printQuantity}원 결제하기`}
+                  </UIButton>
                 )}
 
                 <UIButton
@@ -1524,24 +1529,85 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
           )}
 
           {/* Step 5: Success */}
-          {step === 'success' && (
-            <div className="space-y-5">
-              <div className="bg-green-50 rounded-2xl p-8 text-center">
-                <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-7 h-7 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                  </svg>
+          {step === 'success' && (() => {
+            const hasPending = printJobStatuses.some(j => j.status === 'PENDING')
+            const hasFailed = printJobStatuses.some(j => j.status === 'FAILED')
+            const allDone = allJobsSettled && !hasFailed
+            const allFailed = allJobsSettled && printJobStatuses.every(j => j.status === 'FAILED')
+            const maxQueue = Math.max(...printJobStatuses.filter(j => j.status === 'PENDING').map(j => j.queuePosition || 0), 0)
+
+            let statusBg = 'bg-yellow-50'
+            let iconBg = 'bg-yellow-100'
+            let title = '인쇄 대기 중'
+            let subtitle = maxQueue > 1 ? `대기 ${maxQueue}번째` : '곧 인쇄가 시작됩니다'
+            let icon = (
+              <svg className="w-7 h-7 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            )
+
+            if (allDone) {
+              statusBg = 'bg-green-50'
+              iconBg = 'bg-green-100'
+              title = '인쇄 완료'
+              subtitle = '출력이 완료되었습니다'
+              icon = (
+                <svg className="w-7 h-7 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                </svg>
+              )
+            } else if (allFailed) {
+              statusBg = 'bg-red-50'
+              iconBg = 'bg-red-100'
+              title = '인쇄 실패'
+              subtitle = '관리자에게 문의해 주세요'
+              icon = (
+                <svg className="w-7 h-7 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              )
+            } else if (!hasPending && printJobStatuses.length === 0) {
+              statusBg = 'bg-green-50'
+              iconBg = 'bg-green-100'
+              title = '프린트 전송 완료'
+              subtitle = '잠시 후 출력됩니다'
+              icon = (
+                <svg className="w-7 h-7 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                </svg>
+              )
+            }
+
+            return (
+              <div className="space-y-5">
+                <div className={`${statusBg} rounded-2xl p-8 text-center`}>
+                  <div className={`w-14 h-14 ${iconBg} rounded-full flex items-center justify-center mx-auto mb-4`}>
+                    {icon}
+                  </div>
+                  <h2 className="text-xl font-bold text-gray-900 mb-2">{title}</h2>
+                  <p className="text-sm text-gray-500">{subtitle}</p>
+                  {hasPending && (
+                    <div className="mt-4 flex items-center justify-center gap-2">
+                      <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
+                      <span className="text-xs text-gray-400">상태 확인 중...</span>
+                    </div>
+                  )}
+                  {hasFailed && !allFailed && (
+                    <p className="mt-3 text-xs text-red-500">일부 인쇄가 실패했습니다. 관리자에게 문의해 주세요.</p>
+                  )}
                 </div>
-                <h2 className="text-xl font-bold text-gray-900 mb-2">프린트 전송 완료</h2>
-                <p className="text-sm text-gray-500">
-                  {printQuantity}매가 프린터로 전송되었어요.<br />잠시 후 출력됩니다.
-                </p>
+                {!allFailed && (
+                  <UIButton fullWidth variant="download" onClick={handleDownload}>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    사진 저장
+                  </UIButton>
+                )}
+                <UIButton fullWidth variant="secondary" onClick={handleReset}>새로운 사진 만들기</UIButton>
               </div>
-              <UIButton fullWidth onClick={handleReset}>
-                새로운 사진 만들기
-              </UIButton>
-            </div>
-          )}
+            )
+          })()}
         </div>
 
         {/* Action Modal */}
