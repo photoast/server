@@ -475,29 +475,42 @@ export default function SwitLayoutPage({
   const handleDownload = async () => {
     if (!mergedUrl) return
     try {
+      const dataUrlToBlob = async (dataUrl: string): Promise<Blob> => {
+        const res = await fetch(dataUrl)
+        return res.blob()
+      }
+
       if (puzzleMode && puzzlePieceUrls.length > 0) {
-        // Download each puzzle piece
         for (let i = 0; i < puzzlePieceUrls.length; i++) {
-          const link = document.createElement('a')
-          link.href = puzzlePieceUrls[i]
-          link.download = `puzzle-piece-${i + 1}-${Date.now()}.jpg`
-          link.click()
+          const blob = await dataUrlToBlob(puzzlePieceUrls[i])
+          const file = new File([blob], `puzzle-piece-${i + 1}.jpg`, { type: 'image/jpeg' })
+          if (navigator.canShare?.({ files: [file] })) {
+            await navigator.share({ files: [file] })
+          } else {
+            const link = document.createElement('a')
+            link.href = puzzlePieceUrls[i]
+            link.download = file.name
+            link.click()
+          }
           await new Promise(r => setTimeout(r, 300))
         }
       } else {
-        const link = document.createElement('a')
-        if (mergedUrl.startsWith('data:')) {
-          link.href = mergedUrl
+        const blob = mergedUrl.startsWith('data:')
+          ? await dataUrlToBlob(mergedUrl)
+          : await (await fetch(mergedUrl)).blob()
+        const file = new File([blob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' })
+
+        if (navigator.canShare?.({ files: [file] })) {
+          await navigator.share({ files: [file] })
         } else {
-          const res = await fetch(mergedUrl)
-          const blob = await res.blob()
+          const link = document.createElement('a')
           link.href = URL.createObjectURL(blob)
+          link.download = file.name
+          link.click()
         }
-        link.download = `photo-${Date.now()}.jpg`
-        link.click()
       }
-    } catch {
-      setError('다운로드에 실패했습니다')
+    } catch (err: any) {
+      if (err?.name !== 'AbortError') setError('다운로드에 실패했습니다')
     }
   }
 
@@ -623,7 +636,15 @@ export default function SwitLayoutPage({
               <p className="mt-3 text-xs text-red-500">일부 인쇄가 실패했습니다. 관리자에게 문의해 주세요.</p>
             )}
           </div>
-          <UIButton fullWidth onClick={handleReset}>새로운 사진 만들기</UIButton>
+          {!allFailed && (
+            <UIButton fullWidth variant="download" onClick={handleDownload}>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              사진 저장
+            </UIButton>
+          )}
+          <UIButton fullWidth variant="secondary" onClick={handleReset}>새로운 사진 만들기</UIButton>
         </div>
       </div>
     )
@@ -925,12 +946,6 @@ export default function SwitLayoutPage({
               )}
 
               <div className="flex gap-3">
-                <UIButton variant="download" onClick={handleDownload}>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                  저장
-                </UIButton>
                 <UIButton className="flex-1 min-w-0" onClick={handleGoToPayment} loading={printing} disabled={printing}>
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
