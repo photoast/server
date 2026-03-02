@@ -44,14 +44,10 @@ export async function POST(request: NextRequest) {
     const cropAreasStr = formData.get('cropAreas') as string | null
     const frameType = (formData.get('frameType') as string || 'single') as FrameType
     const backgroundColor = formData.get('backgroundColor') as string | null
-    const logoBase64FromClient = formData.get('logoBase64') as string | null
     // 회전 정보
     const rotationStr = formData.get('rotation') as string | null
     const rotationsStr = formData.get('rotations') as string | null
-    // 클라이언트에서 렌더링된 이미지 (single-with-logo용)
-    const preRenderedImage = formData.get('preRenderedImage') as File | null
-    const applyPrinterCorrectionOnly = formData.get('applyPrinterCorrectionOnly') === 'true'
-    console.log('[API] Request params:', { slug, frameType, hasCropArea: !!cropDataStr, hasCropAreas: !!cropAreasStr, backgroundColor, hasLogoBase64FromClient: !!logoBase64FromClient, rotation: rotationStr, rotations: rotationsStr, hasPreRenderedImage: !!preRenderedImage, applyPrinterCorrectionOnly })
+    console.log('[API] Request params:', { slug, frameType, hasCropArea: !!cropDataStr, hasCropAreas: !!cropAreasStr, backgroundColor, rotation: rotationStr, rotations: rotationsStr })
 
     if (!slug) {
       console.error('[API] Error: Event slug is required')
@@ -70,42 +66,15 @@ export async function POST(request: NextRequest) {
 
     console.log('[API] Event found:', event.name)
 
-    // Special path: Client-rendered image (single-with-logo only)
-    if (preRenderedImage && applyPrinterCorrectionOnly) {
-      console.log('[API] Using client-rendered image (NO printer correction here)')
-      console.log('[API] Printer correction will be applied once at print time to avoid double correction')
-      const imageBuffer = Buffer.from(await preRenderedImage.arrayBuffer())
-      console.log('[API] Client-rendered image buffer size:', imageBuffer.length, 'bytes')
-
-      // DO NOT apply printer correction here!
-      // Correction will be applied in printViaEmail() to avoid DOUBLE correction
-      // const { applyPrinterCorrection } = await import('@/lib/image-correction')
-      // const correctedBuffer = await applyPrinterCorrection(imageBuffer, {...})
-
-      // Return as base64 data URL for Vercel (serverless functions don't share filesystem)
-      // This ensures the image is available across different function invocations
-      const base64 = imageBuffer.toString('base64')
-      const dataUrl = `data:image/jpeg;base64,${base64}`
-
-      console.log('[API] Preview converted to data URL (uncorrected), size:', dataUrl.length, 'chars')
-
-      return NextResponse.json({ url: dataUrl })
-    }
-
     // Define expected photo counts for each layout
     const photoCountMap: Record<FrameType, number> = {
       'single': 1,
-      'single-with-logo': 1,
-      'single-with-logo-overlay': 1,
       'landscape-single': 1,
       'landscape-two': 2,
       'vertical-two': 2,
       'one-plus-two': 3,
       'four-cut': 4,
       'two-by-two': 4,
-      'puzzle-2x2': 1,
-      'puzzle-3x3': 1,
-      'free-layout': 1,
     }
 
     const expectedCount = photoCountMap[frameType]
@@ -219,57 +188,10 @@ export async function POST(request: NextRequest) {
     }
     console.log('[API] Final rotation value to processImage:', rotation)
 
-    // Get photo area ratio from event (default 85%)
-    let photoAreaRatio = event.photoAreaRatio ?? 85
-
-    // Only apply logo to specific layouts
-    // single-with-logo: always shows logo if available
-    const shouldHaveLogo = frameType === 'single-with-logo'
-
-    // Priority: logoBase64 from client > logoBase64 from event > logoUrl
-    const isVercel = process.env.VERCEL === '1'
-    let finalLogoUrl: string | undefined = undefined
-
-    if (shouldHaveLogo) {
-      if (logoBase64FromClient) {
-        // Highest priority: logo base64 sent from client
-        finalLogoUrl = logoBase64FromClient
-        console.log('[API] Using logoBase64 from client')
-      } else if (isVercel && event.logoBase64) {
-        // Second priority: logo base64 stored in event (Vercel environment)
-        finalLogoUrl = event.logoBase64
-        console.log('[API] Using logoBase64 from event')
-      } else if (event.logoUrl) {
-        // Fallback: logo URL (works in local development)
-        finalLogoUrl = event.logoUrl
-        console.log('[API] Using logoUrl from event')
-      }
-    }
-
-    console.log('[API] Processing image with settings:', {
-      frameType,
-      hasLogo: !!finalLogoUrl,
-      logoUrl: finalLogoUrl?.substring(0, 50) + (finalLogoUrl && finalLogoUrl.length > 50 ? '...' : ''),
-      isUsingBase64: finalLogoUrl?.startsWith('data:'),
-      photoAreaRatio,
-      logoSettings: event.logoSettings,
-      overlayLogoSettings: event.overlayLogoSettings,
-      backgroundColor,
-      rotation
-    })
-
-    // Use overlayLogoSettings for single-with-logo-overlay, fallback to logoSettings
-    const effectiveLogoSettings = frameType === 'single-with-logo-overlay'
-      ? (event.overlayLogoSettings || event.logoSettings)
-      : event.logoSettings
-
     console.log('[API] Calling processImage...')
     const processedBuffer = await processImage(
       buffers,
-      finalLogoUrl,
-      cropArea,
-      photoAreaRatio,
-      effectiveLogoSettings,
+      cropArea || undefined,
       frameType,
       backgroundColor || undefined,
       rotation
@@ -278,6 +200,7 @@ export async function POST(request: NextRequest) {
 
     // In Vercel (serverless), return image as base64 data URL
     // In local development, save to public/uploads
+    const isVercel = process.env.VERCEL === '1'
     console.log('[API] Preparing response:', { isVercel })
 
     if (isVercel) {

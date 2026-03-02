@@ -44,7 +44,7 @@ export default function UIButton({
     <button
       disabled={disabled || loading}
       className={[
-        'rounded-2xl font-semibold transition-colors flex items-center justify-center gap-2',
+        'rounded-2xl font-semibold transition-colors flex items-center justify-center gap-2 whitespace-nowrap',
         variantClasses[variant],
         sizeClasses[size],
         fullWidth ? 'w-full' : '',

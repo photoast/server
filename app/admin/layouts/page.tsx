@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
-import type { SwitLayout, SwitSlot } from '@/lib/types'
+import type { SwitLayout, SwitSlot, SwitFrameLayer } from '@/lib/types'
 import { UIButton, UICard, UIFormField, UITextInput, UIStatusBanner } from '@/app/components/ui'
 
 const SwitSlotEditor = dynamic(() => import('@/app/components/SwitSlotEditor'), { ssr: false })
@@ -87,12 +87,12 @@ function LayoutsPageInner() {
     await loadLayouts()
   }
 
-  const handleSaveSlots = async (slots: SwitSlot[], frameUrl: string | null) => {
+  const handleSaveSlots = async (slots: SwitSlot[], frameLayers: SwitFrameLayer[], bgColor: string, bgCustomizable: boolean) => {
     if (!selectedLayout) return
     const res = await fetch(`/api/swit-layouts/${selectedLayout._id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slots, frameUrl }),
+      body: JSON.stringify({ slots, frameLayers, backgroundColor: bgColor, backgroundColorCustomizable: bgCustomizable }),
     })
     if (res.ok) {
       const updated = await res.json()
@@ -195,7 +195,9 @@ function LayoutsPageInner() {
               {loading && !showCreate && <p className="text-gray-400 text-sm">불러오는 중...</p>}
 
               <div className="space-y-2">
-                {layouts.map(layout => (
+                {layouts
+                  .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+                  .map(layout => (
                   <div
                     key={layout._id}
                     className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
@@ -205,10 +207,16 @@ function LayoutsPageInner() {
                     }`}
                   >
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm text-gray-800 truncate">{layout.name}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="font-semibold text-sm text-gray-800 truncate">{layout.name}</p>
+                        {layout.isPreset && (
+                          <span className="text-[10px] font-semibold text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded shrink-0">프리셋</span>
+                        )}
+                      </div>
                       <p className="text-xs text-gray-400">
                         {layout.printSize} · 슬롯 {layout.slots.length}개
-                        {layout.frameUrl && ' · 프레임 ✓'}
+                        {(layout.frameLayers?.length || 0) > 0 && ` · 레이어 ${layout.frameLayers.length}개`}
+                        {!layout.frameLayers?.length && layout.frameUrl && ' · 프레임 ✓'}
                       </p>
                     </div>
                     <div className="flex gap-1.5 shrink-0">
@@ -217,6 +225,15 @@ function LayoutsPageInner() {
                         className="px-3 py-1.5 text-xs rounded-xl bg-blue-500 text-white hover:bg-blue-600 font-semibold"
                       >
                         편집
+                      </button>
+                      <button
+                        onClick={async () => {
+                          await fetch(`/api/swit-layouts/${layout._id}/duplicate`, { method: 'POST' })
+                          await loadLayouts()
+                        }}
+                        className="px-3 py-1.5 text-xs rounded-xl bg-gray-100 text-gray-700 hover:bg-gray-200 font-semibold"
+                      >
+                        복제
                       </button>
                       <button
                         onClick={() => copyUserLink(layout)}

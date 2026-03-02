@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
       canvasWidth: dims.width,
       canvasHeight: dims.height,
       slots: [],
+      frameLayers: [],
       frameUrl: null,
     })
 

@@ -18,6 +18,22 @@ export interface SwitSlot {
   height: number  // canvas pixels
   aspectRatio: '1:1' | '2:3' | '3:4' | '3:2' | '4:3' | 'free'
   order: number
+  zIndex: number  // layer z-order (default 10)
+  rotation: number // degrees (0-360), default 0
+}
+
+export interface SwitFrameLayer {
+  id: string           // "layer-{timestamp}"
+  name: string         // display name (e.g. "배경", "프레임")
+  imageUrl: string     // PNG/JPG/WebP URL
+  zIndex: number       // render order (lower = behind)
+  opacity: number      // 0-1
+  visible: boolean     // toggle in editor
+  x?: number           // canvas pixels from left (default 0)
+  y?: number           // canvas pixels from top (default 0)
+  width?: number       // canvas pixels (default canvasWidth)
+  height?: number      // canvas pixels (default canvasHeight)
+  rotation?: number    // degrees (default 0)
 }
 
 export interface SwitLayout {
@@ -28,19 +44,40 @@ export interface SwitLayout {
   canvasWidth: number   // 300dpi canonical size
   canvasHeight: number
   slots: SwitSlot[]
-  frameUrl: string | null  // Top layer: transparent PNG frame
+  frameLayers: SwitFrameLayer[]  // image layers (backgrounds, frames, decorations)
+  frameUrl: string | null        // deprecated, kept for backward compat
+  backgroundColor: string        // background color hex (default '#FFFFFF')
+  backgroundColorCustomizable: boolean // true = client can change bg color
+  isPreset: boolean              // true = auto-created from default template
+  order: number                  // display order (lower = first)
   createdAt: string
   updatedAt: string
 }
 
-export interface LogoSettings {
-  position: 'top-left' | 'top-center' | 'top-right' | 'center-left' | 'center' | 'center-right' | 'bottom-left' | 'bottom-center' | 'bottom-right' | 'custom'
-  size: number // Percentage of logo area width (10-100)
-  x?: number // Custom X position in logo area (0-100 percent)
-  y?: number // Custom Y position in logo area (0-100 percent)
+/** Normalize legacy layouts: migrate frameUrl → frameLayers, ensure slot.zIndex */
+export function normalizeLayout(layout: SwitLayout): SwitLayout {
+  if (!layout.frameLayers) {
+    layout.frameLayers = []
+  }
+  if (layout.frameUrl && layout.frameLayers.length === 0) {
+    layout.frameLayers = [{
+      id: 'legacy-frame',
+      name: '프레임',
+      imageUrl: layout.frameUrl,
+      zIndex: 100,
+      opacity: 1,
+      visible: true,
+    }]
+  }
+  layout.slots = layout.slots.map((s, i) => ({
+    ...s,
+    zIndex: s.zIndex ?? (10 + i),
+    rotation: s.rotation ?? 0,
+  }))
+  return layout
 }
 
-export type FrameType = 'single' | 'single-with-logo' | 'single-with-logo-overlay' | 'four-cut' | 'two-by-two' | 'vertical-two' | 'one-plus-two' | 'landscape-single' | 'landscape-two' | 'puzzle-2x2' | 'puzzle-3x3' | 'free-layout'
+export type FrameType = 'single' | 'four-cut' | 'two-by-two' | 'vertical-two' | 'one-plus-two' | 'landscape-single' | 'landscape-two'
 
 export interface Sticker {
   _id?: ObjectId
@@ -54,13 +91,10 @@ export interface Event {
   name: string
   slug: string
   printerUrl: string
-  logoUrl?: string
-  logoBase64?: string // Base64 encoded logo for Vercel (serverless) environment
-  photoAreaRatio?: number // Percentage of photo area (default 85, range 0-100)
-  logoSettings?: LogoSettings // Logo position and size settings (for single-with-logo)
-  overlayLogoSettings?: LogoSettings // Logo position and size settings (for single-with-logo-overlay)
   availableLayouts?: FrameType[] // Layouts available for this event (default: all)
+  puzzleEnabled?: boolean // Enable puzzle mode for SWIT layouts (default: false)
   price?: number // Payment amount in KRW (default: 0 = free)
+  backgroundColors?: string[] // Available background colors for user selection (default: ['#FFFFFF'])
   createdAt: Date
 }
 

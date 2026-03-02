@@ -18,20 +18,6 @@ export const LAYOUT_OPTIONS: LayoutOption[] = [
     photoCount: 1
   },
   {
-    type: 'single-with-logo',
-    name: '로고 포함 1장',
-    nameEn: 'Single with Logo',
-    description: '4×6 세로 + 로고',
-    photoCount: 1
-  },
-  {
-    type: 'single-with-logo-overlay',
-    name: '로고 오버레이 1장',
-    nameEn: 'Single with Logo Overlay',
-    description: '4×6 세로, 로고 위에',
-    photoCount: 1
-  },
-  {
     type: 'landscape-single',
     name: '가로 1장',
     nameEn: 'Landscape Single',
@@ -73,27 +59,6 @@ export const LAYOUT_OPTIONS: LayoutOption[] = [
     description: '4장 그리드',
     photoCount: 4
   },
-  {
-    type: 'puzzle-2x2',
-    name: '🧩 퍼즐 2×2',
-    nameEn: 'Puzzle 2×2',
-    description: '1장 → 4조각 퍼즐',
-    photoCount: 1
-  },
-  {
-    type: 'puzzle-3x3',
-    name: '🧩 퍼즐 3×3',
-    nameEn: 'Puzzle 3×3',
-    description: '1장 → 9조각 퍼즐',
-    photoCount: 1
-  },
-  {
-    type: 'free-layout',
-    name: '✨ 자유 레이아웃',
-    nameEn: 'Free Layout',
-    description: '내 맘대로 꾸미기',
-    photoCount: 0
-  }
 ]
 
 export function getLayoutOption(type: FrameType): LayoutOption | undefined {
@@ -101,11 +66,10 @@ export function getLayoutOption(type: FrameType): LayoutOption | undefined {
 }
 
 export function getPhotoCount(type: FrameType): number {
-  if (type === 'free-layout') return 0
   return getLayoutOption(type)?.photoCount || 1
 }
 
-export function getCropAspectRatio(type: FrameType, hasLogo: boolean = false, photoAreaRatio: number = 85): number {
+export function getCropAspectRatio(type: FrameType): number {
   // Calculate exact ratios dynamically from layout constants
   // These must match the actual output dimensions in lib/image.ts
 
@@ -116,14 +80,7 @@ export function getCropAspectRatio(type: FrameType, hasLogo: boolean = false, ph
 
   let baseRatio: number
 
-  if (type === 'single-with-logo') {
-    // Single with logo: photo area uses photoAreaRatio
-    const photoAreaHeight = Math.round(canvasHeight * (photoAreaRatio / 100))
-    baseRatio = canvasWidth / photoAreaHeight
-  } else if (type === 'single-with-logo-overlay') {
-    // Single with logo overlay: full photo with logo on top
-    baseRatio = canvasWidth / canvasHeight
-  } else if (type === 'landscape-single') {
+  if (type === 'landscape-single') {
     // Landscape single: full 6x4 canvas
     baseRatio = canvasWidth / canvasHeight  // 1800/1200 = 1.5
   } else if (type === 'landscape-two') {
@@ -167,9 +124,6 @@ export function getCropAspectRatio(type: FrameType, hasLogo: boolean = false, ph
     const topPhotoWidth = availableWidth
     const topPhotoHeight = Math.round((availableHeight - GAP) / 2)
     baseRatio = topPhotoWidth / topPhotoHeight
-  } else if (type === 'puzzle-2x2' || type === 'puzzle-3x3') {
-    // Puzzle: crop to full 4x6 aspect ratio (photo will be divided later)
-    baseRatio = canvasWidth / canvasHeight
   } else {
     // Single photo default (no logo)
     baseRatio = canvasWidth / canvasHeight
@@ -178,7 +132,7 @@ export function getCropAspectRatio(type: FrameType, hasLogo: boolean = false, ph
   return baseRatio
 }
 
-export function getCropAspectRatioForSlot(type: FrameType, slotIndex: number, hasLogo: boolean = false, photoAreaRatio: number = 85): number {
+export function getCropAspectRatioForSlot(type: FrameType, slotIndex: number): number {
   if (type === 'one-plus-two') {
     // Match lib/image.ts processOnePlusTwoImage
     const { MARGIN_HORIZONTAL, MARGIN_VERTICAL, GAP } = LAYOUT_CONFIG
@@ -195,5 +149,5 @@ export function getCropAspectRatioForSlot(type: FrameType, slotIndex: number, ha
 
     return slotIndex === 0 ? topRatio : bottomRatio
   }
-  return getCropAspectRatio(type, hasLogo, photoAreaRatio)
+  return getCropAspectRatio(type)
 }

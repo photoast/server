@@ -1,7 +1,6 @@
 'use client'
 
 import PhotoSlot from './PhotoSlot'
-import Image from 'next/image'
 import { CANVAS_WIDTH, CANVAS_HEIGHT, DEFAULT_PHOTO_RATIO, LAYOUT_CONFIG, FOUR_CUT_CONFIG } from '@/lib/layoutConstants'
 
 interface PhotoSlotData {
@@ -11,20 +10,10 @@ interface PhotoSlotData {
   croppedImageUrl: string | null
 }
 
-interface LogoSettings {
-  position?: string
-  size?: number
-  x?: number
-  y?: number
-}
-
 interface LayoutPreviewProps {
   photoSlots: PhotoSlotData[]
   onSlotClick: (index: number) => void
   backgroundColor?: string
-  logoUrl?: string
-  logoSettings?: LogoSettings
-  photoAreaRatio?: number
 }
 
 // 4x6 세로 1장
@@ -64,7 +53,7 @@ export function LandscapeSinglePreview({ photoSlots, onSlotClick }: LayoutPrevie
 }
 
 // 6x4 가로 2장 (2x1 그리드)
-export function LandscapeTwoPreview({ photoSlots, onSlotClick, backgroundColor = '#000000' }: LayoutPreviewProps) {
+export function LandscapeTwoPreview({ photoSlots, onSlotClick, backgroundColor = '#FFFFFF' }: LayoutPreviewProps) {
   const { MARGIN_HORIZONTAL: MARGIN_H, MARGIN_VERTICAL: MARGIN_V, GAP } = LAYOUT_CONFIG
 
   // 6x4 landscape canvas dimensions
@@ -110,170 +99,6 @@ export function LandscapeTwoPreview({ photoSlots, onSlotClick, backgroundColor =
             </div>
           ))}
         </div>
-      </div>
-    </div>
-  )
-}
-
-// 4x6 세로 + 로고
-export function SingleWithLogoPreview({ photoSlots, onSlotClick, logoUrl, logoSettings, photoAreaRatio = 85 }: LayoutPreviewProps) {
-  const logoSize = logoSettings?.size || 80 // Default 80%
-  const logoPosition = logoSettings?.position || 'bottom-center'
-  const logoX = logoSettings?.x || 50 // Default center
-  const logoY = logoSettings?.y || 50 // Default center
-
-  // Calculate logo area height
-  const logoAreaHeight = 100 - photoAreaRatio
-  const isOverlay = photoAreaRatio === 100
-
-  return (
-    <div className="relative w-full max-w-sm mx-auto" style={{ aspectRatio: '2/3' }}>
-      <div className="absolute inset-0 bg-white shadow-2xl overflow-hidden">
-        {/* Logo area background - lowest layer (only for non-overlay mode) */}
-        {!isOverlay && (
-          <div
-            className="absolute bottom-0 left-0 right-0 bg-white"
-            style={{ height: `${logoAreaHeight}%`, zIndex: 1 }}
-          >
-            {!logoUrl && (
-              <div className="h-full flex items-center justify-center text-gray-400 text-sm">로고 영역</div>
-            )}
-          </div>
-        )}
-        {/* Photo area */}
-        <div
-          className="absolute inset-0"
-          style={{ height: `${photoAreaRatio}%`, zIndex: isOverlay ? 1 : 10 }}
-        >
-          <PhotoSlot
-            file={photoSlots[0]?.file}
-            croppedImageUrl={photoSlots[0]?.croppedImageUrl}
-            slotNumber={1}
-            onClick={() => onSlotClick(0)}
-            className="w-full h-full"
-            size="large"
-          />
-        </div>
-        {/* Logo layer */}
-        {logoUrl && (
-          isOverlay ? (
-            // Overlay mode: logo on top of full-size photo
-            logoPosition === 'custom' ? (
-              <div
-                className="absolute pointer-events-none"
-                style={{
-                  width: `${logoSize}%`,
-                  left: `${logoX}%`,
-                  top: `${logoY}%`,
-                  transform: 'translate(-50%, -50%)',
-                  zIndex: 20,
-                }}
-              >
-                <Image
-                  src={logoUrl}
-                  alt="Event Logo"
-                  width={1000}
-                  height={300}
-                  className="object-contain w-full h-auto"
-                  unoptimized
-                />
-              </div>
-            ) : (
-              // Preset positions on full canvas
-              (() => {
-                const [vertical, horizontal] = logoPosition.split('-')
-                let alignItems = 'center'
-                let justifyContent = 'center'
-
-                if (vertical === 'top') alignItems = 'flex-start'
-                else if (vertical === 'bottom') alignItems = 'flex-end'
-
-                if (horizontal === 'left') justifyContent = 'flex-start'
-                else if (horizontal === 'right') justifyContent = 'flex-end'
-
-                return (
-                  <div
-                    className="absolute inset-0 flex pointer-events-none p-2"
-                    style={{
-                      alignItems,
-                      justifyContent,
-                      zIndex: 20,
-                    }}
-                  >
-                    <div style={{ width: `${logoSize}%` }}>
-                      <Image
-                        src={logoUrl}
-                        alt="Event Logo"
-                        width={1000}
-                        height={300}
-                        className="object-contain w-full h-auto"
-                        unoptimized
-                      />
-                    </div>
-                  </div>
-                )
-              })()
-            )
-          ) : (
-            // Normal mode: logo in logo area below photo
-            logoPosition === 'custom' ? (
-              <div
-                className="absolute pointer-events-none"
-                style={{
-                  width: `${logoSize}%`,
-                  left: `${logoX}%`,
-                  top: `${photoAreaRatio + (logoY * logoAreaHeight / 100)}%`,
-                  transform: 'translate(-50%, -50%)',
-                  zIndex: 5,
-                }}
-              >
-                <Image
-                  src={logoUrl}
-                  alt="Event Logo"
-                  width={1000}
-                  height={300}
-                  className="object-contain w-full h-auto"
-                  unoptimized
-                />
-              </div>
-            ) : (
-              (() => {
-                const [vertical, horizontal] = logoPosition.split('-')
-                let alignItems = 'center'
-                let justifyContent = 'center'
-
-                if (vertical === 'top') alignItems = 'flex-start'
-                else if (vertical === 'bottom') alignItems = 'flex-end'
-
-                if (horizontal === 'left') justifyContent = 'flex-start'
-                else if (horizontal === 'right') justifyContent = 'flex-end'
-
-                return (
-                  <div
-                    className="absolute bottom-0 left-0 right-0 flex pointer-events-none p-2"
-                    style={{
-                      height: `${logoAreaHeight}%`,
-                      alignItems,
-                      justifyContent,
-                      zIndex: 5,
-                    }}
-                  >
-                    <div style={{ width: `${logoSize}%` }}>
-                      <Image
-                        src={logoUrl}
-                        alt="Event Logo"
-                        width={1000}
-                        height={300}
-                        className="object-contain w-full h-auto"
-                        unoptimized
-                      />
-                    </div>
-                  </div>
-                )
-              })()
-            )
-          )
-        )}
       </div>
     </div>
   )
@@ -355,7 +180,7 @@ export function FourCutPreview({ photoSlots, onSlotClick }: LayoutPreviewProps) 
 }
 
 // 4x6 2x2 그리드
-export function TwoByTwoPreview({ photoSlots, onSlotClick, backgroundColor = '#000000' }: LayoutPreviewProps) {
+export function TwoByTwoPreview({ photoSlots, onSlotClick, backgroundColor = '#FFFFFF' }: LayoutPreviewProps) {
   // Exact pixel coordinates from lib/image.ts processTwoByTwoImage
   const { MARGIN_HORIZONTAL: MARGIN_H, MARGIN_VERTICAL: MARGIN_V, GAP } = LAYOUT_CONFIG
 
@@ -410,7 +235,7 @@ export function TwoByTwoPreview({ photoSlots, onSlotClick, backgroundColor = '#0
 }
 
 // 4x6 세로 2장 (1x2)
-export function VerticalTwoPreview({ photoSlots, onSlotClick, backgroundColor = '#000000' }: LayoutPreviewProps) {
+export function VerticalTwoPreview({ photoSlots, onSlotClick, backgroundColor = '#FFFFFF' }: LayoutPreviewProps) {
   // Exact pixel coordinates from lib/image.ts processVerticalTwoImage
   const { MARGIN_HORIZONTAL: MARGIN_H, MARGIN_VERTICAL: MARGIN_V, GAP } = LAYOUT_CONFIG
 
@@ -459,7 +284,7 @@ export function VerticalTwoPreview({ photoSlots, onSlotClick, backgroundColor = 
 }
 
 // 4x6 1+2 레이아웃
-export function OnePlusTwoPreview({ photoSlots, onSlotClick, backgroundColor = '#000000' }: LayoutPreviewProps) {
+export function OnePlusTwoPreview({ photoSlots, onSlotClick, backgroundColor = '#FFFFFF' }: LayoutPreviewProps) {
   // Exact pixel coordinates from lib/image.ts processOnePlusTwoImage
   const { MARGIN_HORIZONTAL: MARGIN_H, MARGIN_VERTICAL: MARGIN_V, GAP } = LAYOUT_CONFIG
 

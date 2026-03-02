@@ -3,9 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
-import dynamic from 'next/dynamic'
 import FourCutCropEditor from '../components/FourCutCropEditor'
-const FreeLayoutEditor = dynamic(() => import('../components/FreeLayoutEditor'), { ssr: false })
 import { UIButton, UIStatusBanner, UICounterControl, UISectionHeading, UIPageSpinner, UICardSpinner, UIStepBar, UISelectItem, UIBottomSheet } from '../components/ui'
 import { loadTossPayments } from '@tosspayments/tosspayments-sdk'
 import type { TossPaymentsWidgets } from '@tosspayments/tosspayments-sdk'
@@ -14,7 +12,6 @@ import type { TossPaymentsWidgets } from '@tosspayments/tosspayments-sdk'
 const ANONYMOUS_CUSTOMER_KEY = 'ANONYMOUS'
 import {
   SinglePhotoPreview,
-  SingleWithLogoPreview,
   FourCutPreview,
   TwoByTwoPreview,
   VerticalTwoPreview,
@@ -25,18 +22,13 @@ import {
 import { LAYOUT_OPTIONS, getPhotoCount, getCropAspectRatioForSlot } from './layoutConfig'
 import type { FrameType } from '@/lib/types'
 import { logClientError, logClientInfo } from '@/lib/errorLogger'
-import { renderSingleWithLogoToCanvas } from '@/lib/canvas-renderer'
 
 interface Event {
   _id: string
   name: string
   slug: string
   printerUrl: string
-  logoUrl?: string
-  photoAreaRatio?: number
   availableLayouts?: string[]
-  logoSettings?: any
-  overlayLogoSettings?: any
   price?: number
 }
 
@@ -44,7 +36,10 @@ interface SwitLayoutOption {
   _id: string
   name: string
   printSize: string
-  slots: { id: string }[]
+  canvasWidth: number
+  canvasHeight: number
+  slots: { id: string; x: number; y: number; width: number; height: number; rotation: number; zIndex: number }[]
+  frameLayers: { id: string; imageUrl: string; zIndex: number; opacity: number; visible: boolean }[]
   frameUrl: string | null
 }
 
@@ -109,7 +104,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     const urlLayout = searchParams.get('layout') as FrameType
     return urlLayout || 'single'
   })
-  const [backgroundColor, setBackgroundColor] = useState('#000000')
+  const [backgroundColor, setBackgroundColor] = useState('#FFFFFF')
 
   // Photo management state
   const [photoSlots, setPhotoSlots] = useState<PhotoSlot[]>([])
@@ -123,10 +118,6 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   const [printing, setPrinting] = useState(false)
   const [error, setError] = useState('')
   const [printQuantity, setPrintQuantity] = useState(1)
-  const [puzzlePieces, setPuzzlePieces] = useState<Blob[]>([])
-  const [puzzlePieceUrls, setPuzzlePieceUrls] = useState<string[]>([])
-  const [puzzleAnimationSplit, setPuzzleAnimationSplit] = useState(false)
-
   // Payment state
   const [paymentWidgets, setPaymentWidgets] = useState<TossPaymentsWidgets | null>(null)
   const [paymentReady, setPaymentReady] = useState(false)
@@ -196,35 +187,16 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     fetchEvent()
   }, [params.slug])
 
-  // Auto-select layout if only one is available
+  // Auto-select layout if only one SwitLayout is available (and no special layouts)
   useEffect(() => {
     if (!event || step !== 'select-layout') return
 
     const availableLayouts = event.availableLayouts || []
-
-    // If only one layout is available, auto-select it and skip to next step
-    if (availableLayouts.length === 1) {
-      const selectedLayout = availableLayouts[0] as FrameType
-      updateFrameType(selectedLayout)
-
-      // Move to appropriate next step based on layout type
-      const nextStep = (selectedLayout === 'single' || selectedLayout === 'single-with-logo' || selectedLayout === 'single-with-logo-overlay')
-        ? 'fill-photos'
-        : 'select-color'
-      updateStep(nextStep)
+    // If exactly one SwitLayout, auto-redirect
+    if (switLayouts.length === 1) {
+      router.push(`/${params.slug}/layout/${switLayouts[0]._id}`)
     }
-  }, [event, step])
-
-  // Auto-animate puzzle pieces (split/combine)
-  useEffect(() => {
-    if (puzzlePieceUrls.length > 0) {
-      const interval = setInterval(() => {
-        setPuzzleAnimationSplit(prev => !prev)
-      }, 2500) // Toggle every 2.5 seconds
-
-      return () => clearInterval(interval)
-    }
-  }, [puzzlePieceUrls.length])
+  }, [event, step, switLayouts, router, params.slug])
 
   // ============ Event Handlers ============
 
@@ -433,76 +405,6 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     return blob
   }
 
-  // 퍼즐 레이아웃 렌더링 (1장의 사진을 여러 조각으로 분할)
-  const renderPuzzleToCanvases = async (gridSize: 2 | 3): Promise<Blob[]> => {
-    console.log(`[Puzzle] Rendering ${gridSize}x${gridSize} puzzle...`)
-
-    const photoSlot = photoSlots[0]
-    if (!photoSlot?.croppedImageUrl) {
-      throw new Error('사진을 선택하고 편집해주세요')
-    }
-
-    // 원본 사진 로드
-    const sourceImg = await loadImage(photoSlot.croppedImageUrl)
-    console.log(`[Puzzle] Source image loaded: ${sourceImg.width}x${sourceImg.height}`)
-
-    const CANVAS_WIDTH = 1200
-    const CANVAS_HEIGHT = 1800
-    const pieceCount = gridSize * gridSize
-
-    // 원본 이미지의 각 조각 크기
-    const pieceWidth = sourceImg.width / gridSize
-    const pieceHeight = sourceImg.height / gridSize
-
-    console.log(`[Puzzle] Piece dimensions: ${pieceWidth}x${pieceHeight}`)
-    console.log(`[Puzzle] Creating ${pieceCount} pieces...`)
-
-    const blobs: Blob[] = []
-
-    // 각 조각을 개별 캔버스로 렌더링
-    for (let row = 0; row < gridSize; row++) {
-      for (let col = 0; col < gridSize; col++) {
-        const pieceIndex = row * gridSize + col
-        console.log(`[Puzzle] Rendering piece ${pieceIndex + 1}/${pieceCount} (row=${row}, col=${col})`)
-
-        // 새 캔버스 생성
-        const canvas = document.createElement('canvas')
-        canvas.width = CANVAS_WIDTH
-        canvas.height = CANVAS_HEIGHT
-        const ctx = canvas.getContext('2d')
-        if (!ctx) throw new Error('Canvas context not available')
-
-        ctx.imageSmoothingEnabled = true
-        ctx.imageSmoothingQuality = 'high'
-
-        // 배경색 채우기
-        ctx.fillStyle = backgroundColor
-        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
-
-        // 원본 이미지에서 이 조각에 해당하는 부분 추출
-        const sourceX = col * pieceWidth
-        const sourceY = row * pieceHeight
-
-        // 전체 캔버스에 확대하여 그리기
-        ctx.drawImage(
-          sourceImg,
-          sourceX, sourceY, pieceWidth, pieceHeight,  // 소스 영역
-          0, 0, CANVAS_WIDTH, CANVAS_HEIGHT           // 대상 영역 (전체 캔버스)
-        )
-
-        console.log(`[Puzzle] Piece ${pieceIndex + 1}: source=(${sourceX},${sourceY},${pieceWidth},${pieceHeight})`)
-
-        // Blob으로 변환
-        const blob = await canvasToBlob(canvas, 0.95)
-        blobs.push(blob)
-        console.log(`[Puzzle] Piece ${pieceIndex + 1} converted to blob: ${blob.size} bytes`)
-      }
-    }
-
-    console.log(`[Puzzle] All ${pieceCount} pieces rendered successfully`)
-    return blobs
-  }
-
   const handleProcess = useCallback(async () => {
     setProcessing(true)
     setError('')
@@ -519,84 +421,18 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         throw new Error('모든 사진을 선택하고 편집해주세요')
       }
 
-      // 퍼즐 레이아웃 처리
-      if (frameType === 'puzzle-2x2' || frameType === 'puzzle-3x3') {
-        const gridSize = frameType === 'puzzle-2x2' ? 2 : 3
-        console.log(`[handleProcess] Rendering ${gridSize}x${gridSize} puzzle`)
-
-        const pieces = await renderPuzzleToCanvases(gridSize)
-        setPuzzlePieces(pieces)
-
-        // 각 조각의 미리보기 URL 생성
-        const pieceUrls = pieces.map(piece => URL.createObjectURL(piece))
-        setPuzzlePieceUrls(pieceUrls)
-
-        // 미리보기용: 모든 조각을 하나의 그리드 이미지로 결합
-        const previewCanvas = document.createElement('canvas')
-        const previewSize = 600 // 미리보기 크기
-        previewCanvas.width = previewSize
-        previewCanvas.height = previewSize
-        const ctx = previewCanvas.getContext('2d')
-        if (!ctx) throw new Error('Canvas context not available')
-
-        ctx.fillStyle = backgroundColor
-        ctx.fillRect(0, 0, previewSize, previewSize)
-
-        const pieceSize = previewSize / gridSize
-
-        for (let row = 0; row < gridSize; row++) {
-          for (let col = 0; col < gridSize; col++) {
-            const pieceIndex = row * gridSize + col
-            const img = await loadImage(pieceUrls[pieceIndex])
-            ctx.drawImage(img, col * pieceSize, row * pieceSize, pieceSize, pieceSize)
-          }
-        }
-
-        const previewBlob = await canvasToBlob(previewCanvas, 0.85)
-        const previewDataUrl = URL.createObjectURL(previewBlob)
-        setPreviewUrl(previewDataUrl)
-
-        console.log(`[handleProcess] Puzzle preview created, ${pieces.length} pieces ready`)
-        setProcessing(false)
-        return
-      }
-
-      // 클라이언트에서 Canvas로 렌더링 (일반 레이아웃)
-      let imageBlob: Blob
-
-      if (frameType === 'single-with-logo' || frameType === 'single-with-logo-overlay') {
-        // 로고 레이아웃은 공통 함수 사용
-        const isOverlay = frameType === 'single-with-logo-overlay'
-        console.log(`[handleProcess] Rendering ${frameType} with Canvas`)
-        const photoSlot = photoSlots[0]
-        if (!photoSlot?.croppedImageUrl) {
-          throw new Error('사진을 선택하고 편집해주세요')
-        }
-        const logoSettingsToUse = isOverlay
-          ? (event?.overlayLogoSettings || event?.logoSettings || { position: 'bottom-center', size: 80 })
-          : (event?.logoSettings || { position: 'bottom-center', size: 80 })
-        imageBlob = await renderSingleWithLogoToCanvas(
-          photoSlot.croppedImageUrl,
-          event?.logoUrl,
-          isOverlay ? 100 : (event?.photoAreaRatio ?? 85),
-          logoSettingsToUse
-        )
-      } else {
-        // 다른 모든 레이아웃은 공통 함수 사용
-        console.log(`[handleProcess] Rendering ${frameType} with common Canvas function`)
-        imageBlob = await renderLayoutToCanvas(frameType)
-      }
+      // 클라이언트에서 Canvas로 렌더링
+      console.log(`[handleProcess] Rendering ${frameType} with common Canvas function`)
+      const imageBlob = await renderLayoutToCanvas(frameType)
 
       console.log('[handleProcess] Canvas rendered, blob size:', imageBlob.size)
 
-      // 서버에 렌더링된 이미지 전송 (프린터 보정만 적용)
+      // 서버에 렌더링된 이미지 전송
       const formData = new FormData()
       formData.append('slug', params.slug)
       formData.append('frameType', frameType)
       formData.append('preRenderedImage', imageBlob, 'preview.jpg')
       formData.append('applyPrinterCorrectionOnly', 'true')
-
-      // 모든 레이아웃이 클라이언트에서 렌더링되므로 서버는 프린터 보정만 담당
 
       console.log('[handleProcess] Sending request to /api/process-image')
       logClientInfo('[Mobile] Sending fetch request', params.slug, { frameType })
@@ -679,33 +515,6 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     }
   }, [params.slug, frameType, photoSlots, backgroundColor])
 
-  // 자유 레이아웃 완료 처리
-  const handleFreeLayoutComplete = useCallback(async (blob: Blob) => {
-    setProcessing(true)
-    setError('')
-    try {
-      const formData = new FormData()
-      formData.append('slug', params.slug)
-      formData.append('frameType', 'free-layout')
-      formData.append('preRenderedImage', blob, 'free-layout.jpg')
-      formData.append('applyPrinterCorrectionOnly', 'true')
-
-      const res = await fetch('/api/process-image', { method: 'POST', body: formData })
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.error || `미리보기 생성 실패: ${res.status}`)
-      }
-
-      const data = await res.json()
-      if (!data.url) throw new Error('미리보기 URL을 받지 못했습니다')
-      setPreviewUrl(data.url)
-    } catch (err: any) {
-      setError(err.message || '미리보기 생성에 실패했습니다')
-    } finally {
-      setProcessing(false)
-    }
-  }, [params.slug])
 
   // Auto-process image when all slots are filled AND cropped
   useEffect(() => {
@@ -986,35 +795,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       const timestamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`
       const layoutName = (LAYOUT_OPTIONS.find(l => l.type === frameType)?.nameEn || frameType).replace(/\s+/g, '-').toLowerCase()
 
-      // 퍼즐 레이아웃: 모든 조각 다운로드
-      if (frameType === 'puzzle-2x2' || frameType === 'puzzle-3x3') {
-        if (puzzlePieces.length === 0) {
-          throw new Error('퍼즐 조각이 생성되지 않았습니다')
-        }
-
-        console.log(`[Download] Downloading ${puzzlePieces.length} puzzle pieces`)
-
-        // 각 조각을 순차적으로 다운로드
-        for (let i = 0; i < puzzlePieces.length; i++) {
-          const url = window.URL.createObjectURL(puzzlePieces[i])
-          const link = document.createElement('a')
-          link.href = url
-          link.download = `phost_${layoutName}_piece-${i + 1}_${timestamp}.jpg`
-
-          document.body.appendChild(link)
-          link.click()
-          document.body.removeChild(link)
-          window.URL.revokeObjectURL(url)
-
-          // 다운로드 간 짧은 딜레이 (브라우저가 여러 다운로드를 처리할 시간)
-          await new Promise(resolve => setTimeout(resolve, 100))
-        }
-
-        console.log(`[Download] All ${puzzlePieces.length} pieces downloaded`)
-        return
-      }
-
-      // 일반 레이아웃: 기존 로직
+      // 일반 레이아웃 다운로드
       let blob: Blob
 
       // Handle data URL (Vercel environment)
@@ -1068,55 +849,6 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     setError('')
 
     try {
-      // 퍼즐 레이아웃: 각 조각을 개별 프린트
-      if (frameType === 'puzzle-2x2' || frameType === 'puzzle-3x3') {
-        if (puzzlePieces.length === 0) {
-          throw new Error('퍼즐 조각이 생성되지 않았습니다')
-        }
-
-        console.log(`[Print] Printing ${puzzlePieces.length} puzzle pieces, ${printQuantity} copy(ies) each`)
-
-        const totalJobs = puzzlePieces.length * printQuantity
-        console.log(`[Print] Total print jobs: ${totalJobs}`)
-
-        // 각 조각을 프린트 (수량만큼 반복)
-        for (let copy = 0; copy < printQuantity; copy++) {
-          for (let i = 0; i < puzzlePieces.length; i++) {
-            console.log(`[Print] Sending puzzle piece ${i + 1}/${puzzlePieces.length}, copy ${copy + 1}/${printQuantity}`)
-
-            // Blob을 data URL로 변환
-            const reader = new FileReader()
-            const dataUrl = await new Promise<string>((resolve, reject) => {
-              reader.onload = () => resolve(reader.result as string)
-              reader.onerror = reject
-              reader.readAsDataURL(puzzlePieces[i])
-            })
-
-            const res = await fetch('/api/print', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                slug: params.slug,
-                imageUrl: dataUrl,
-                quantity: 1, // 각 조각은 1장씩
-              }),
-            })
-
-            if (!res.ok) {
-              const data = await res.json()
-              throw new Error(`Piece ${i + 1} failed: ${data.error || 'Print failed'}`)
-            }
-
-            console.log(`[Print] Piece ${i + 1}/${puzzlePieces.length}, copy ${copy + 1}/${printQuantity} sent successfully`)
-          }
-        }
-
-        console.log(`[Print] All ${totalJobs} puzzle pieces sent successfully`)
-        updateStep('success')
-        return
-      }
-
-      // 일반 레이아웃: 기존 로직
       const res = await fetch('/api/print', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1319,18 +1051,13 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   }, [step, previewUrl])
 
   const handleReset = () => {
-    // Clean up puzzle piece URLs
-    puzzlePieceUrls.forEach(url => URL.revokeObjectURL(url))
-
     updateStep('select-layout')
     updateFrameType('single')
-    setBackgroundColor('#000000')
+    setBackgroundColor('#FFFFFF')
     setPhotoSlots([])
     setPreviewUrl(null)
     setError('')
     setPrintQuantity(1)
-    setPuzzlePieces([])
-    setPuzzlePieceUrls([])
   }
 
   // ============ Render Helpers ============
@@ -1345,10 +1072,6 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     switch (frameType) {
       case 'single':
         return <SinglePhotoPreview {...baseProps} />
-      case 'single-with-logo':
-        return <SingleWithLogoPreview {...baseProps} logoUrl={event?.logoUrl} logoSettings={event?.logoSettings} photoAreaRatio={event?.photoAreaRatio} />
-      case 'single-with-logo-overlay':
-        return <SingleWithLogoPreview {...baseProps} logoUrl={event?.logoUrl} logoSettings={event?.overlayLogoSettings || event?.logoSettings} photoAreaRatio={100} />
       case 'landscape-single':
         return <LandscapeSinglePreview {...baseProps} />
       case 'landscape-two':
@@ -1361,15 +1084,6 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         return <VerticalTwoPreview {...baseProps} />
       case 'one-plus-two':
         return <OnePlusTwoPreview {...baseProps} />
-      case 'puzzle-2x2':
-      case 'puzzle-3x3':
-        return <SinglePhotoPreview {...baseProps} />
-      case 'free-layout':
-        return previewUrl ? (
-          <div className="relative w-full rounded-2xl overflow-hidden shadow-lg" style={{ paddingBottom: '150%' }}>
-            <Image src={previewUrl} alt="자유 레이아웃 미리보기" fill className="object-contain" />
-          </div>
-        ) : null
       default:
         return null
     }
@@ -1381,33 +1095,23 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
     const gridStyles: Record<FrameType, string> = {
       'single': 'grid-cols-1 grid-rows-1',
-      'single-with-logo': 'grid-cols-1 grid-rows-1',
-      'single-with-logo-overlay': 'grid-cols-1 grid-rows-1',
       'landscape-single': 'grid-cols-1 grid-rows-1',
       'landscape-two': 'grid-cols-2 grid-rows-1',
       'vertical-two': 'grid-cols-1 grid-rows-2',
       'one-plus-two': 'grid-cols-2 grid-rows-2',
       'four-cut': 'grid-cols-1 grid-rows-4',
       'two-by-two': 'grid-cols-2 grid-rows-2',
-      'puzzle-2x2': 'grid-cols-2 grid-rows-2',
-      'puzzle-3x3': 'grid-cols-3 grid-rows-3',
-      'free-layout': 'grid-cols-1 grid-rows-1'
     }
 
     const getCells = (): { colspan?: number, rowspan?: number }[] => {
       switch (type) {
         case 'single': return [{ colspan: 1, rowspan: 1 }]
-        case 'single-with-logo': return [{ colspan: 1, rowspan: 1 }]
-        case 'single-with-logo-overlay': return [{ colspan: 1, rowspan: 1 }]
         case 'landscape-single': return [{ colspan: 1, rowspan: 1 }]
         case 'landscape-two': return [{}, {}]
         case 'vertical-two': return [{}, {}]
         case 'one-plus-two': return [{ colspan: 2 }, {}, {}]
         case 'four-cut': return [{}, {}, {}, {}]
         case 'two-by-two': return [{}, {}, {}, {}]
-        case 'puzzle-2x2': return [{}, {}, {}, {}]
-        case 'puzzle-3x3': return [{}, {}, {}, {}, {}, {}, {}, {}, {}]
-        case 'free-layout': return [{ colspan: 1, rowspan: 1 }]
         default: return []
       }
     }
@@ -1420,7 +1124,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         {getCells().map((cell, i) => (
           <div
             key={i}
-            className={type === 'single-with-logo' && i === 0 ? 'bg-purple-400 border-b-2 border-yellow-400' : type === 'single-with-logo-overlay' && i === 0 ? 'bg-purple-400 relative overflow-hidden' : 'bg-purple-400'}
+            className="bg-purple-400"
             style={{
               gridColumn: cell.colspan ? `span ${cell.colspan}` : undefined,
               gridRow: cell.rowspan ? `span ${cell.rowspan}` : undefined
@@ -1438,7 +1142,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     return (
       <UICardSpinner
         label="결제 처리 중..."
-        sublabel="잠시만 기다려주세요 💕"
+        sublabel="잠시만 기다려주세요"
       />
     )
   }
@@ -1449,7 +1153,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
   if (!event) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50">
+      <div className="min-h-dvh flex items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50">
         <div className="text-center">
           <p className="text-red-600 text-xl mb-4">이벤트를 찾을 수 없습니다</p>
           <p className="text-gray-600">{error}</p>
@@ -1463,7 +1167,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   // ============ Main Render ============
 
   return (
-    <div className="min-h-screen bg-gray-50 py-6 px-4">
+    <div className="min-h-dvh bg-gray-50 py-6 px-4">
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="mb-4 px-1">
@@ -1476,7 +1180,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
           <div className="bg-white rounded-2xl border border-gray-100 px-5 py-4 mb-4">
             <UIStepBar
               steps={STEP_BAR_STEPS.filter(s => {
-                if (s.id === 'select-color' && (frameType === 'single' || frameType === 'single-with-logo' || frameType === 'single-with-logo-overlay' || frameType === 'free-layout')) return false
+                if (s.id === 'select-color' && frameType === 'single') return false
                 return true
               })}
               currentStep={step}
@@ -1491,70 +1195,77 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
             <div className="space-y-6">
               <UISectionHeading title="레이아웃 선택" subtitle="원하는 스타일을 골라보세요" />
 
+              {/* SwitLayout 기반 레이아웃 그리드 (통합) */}
               <div className="grid grid-cols-2 gap-3">
-                {LAYOUT_OPTIONS
-                  .filter((option) => {
-                    // If availableLayouts is not set or empty, show all layouts
-                    if (!event?.availableLayouts || event.availableLayouts.length === 0) {
-                      return true
-                    }
-                    // Otherwise, only show layouts in the availableLayouts array
-                    return event.availableLayouts.includes(option.type)
-                  })
-                  .map((option) => (
-                  <UISelectItem
-                    key={option.type}
-                    selected={frameType === option.type}
-                    onClick={() => updateFrameType(option.type)}
-                  >
-                    <div className="flex flex-col items-center gap-2">
-                      {renderLayoutOptionPreview(option.type)}
-                      <div className="text-center">
-                        <div className={`font-semibold text-sm ${frameType === option.type ? 'text-blue-600' : 'text-gray-700'}`}>
-                          {option.name}
-                        </div>
-                        <div className="text-xs text-gray-400 mt-0.5">{option.description}</div>
-                      </div>
-                    </div>
-                  </UISelectItem>
-                ))}
+                {switLayouts.map((sl) => {
+                  const isLandscape = sl.canvasWidth > sl.canvasHeight
 
-                {/* SWIT Custom Layouts */}
-                {switLayouts.map((sl) => (
-                  <UISelectItem
-                    key={`swit-${sl._id}`}
-                    selected={false}
-                    onClick={() => router.push(`/${params.slug}/layout/${sl._id}`)}
-                  >
-                    <div className="flex flex-col items-center gap-2">
-                      {/* Frame thumbnail or placeholder */}
-                      {sl.frameUrl ? (
-                        <div className="h-16 w-10 rounded overflow-hidden border border-gray-200">
-                          <img src={sl.frameUrl} alt={sl.name} className="w-full h-full object-cover" />
+                  return (
+                    <UISelectItem
+                      key={`swit-${sl._id}`}
+                      selected={false}
+                      onClick={() => router.push(`/${params.slug}/layout/${sl._id}`)}
+                    >
+                      <div className="flex flex-col items-center gap-2">
+                        {/* Layout preview with frame layers + slot placeholders */}
+                        <div
+                          className="relative overflow-hidden border border-gray-200 bg-white mx-auto"
+                          style={{
+                            aspectRatio: `${sl.canvasWidth} / ${sl.canvasHeight}`,
+                            height: isLandscape ? undefined : 120,
+                            width: isLandscape ? '100%' : undefined,
+                            maxHeight: 120,
+                          }}
+                        >
+                          {/* Frame layers */}
+                          {(sl.frameLayers || [])
+                            .filter(l => l.visible)
+                            .sort((a, b) => a.zIndex - b.zIndex)
+                            .map(layer => (
+                              <img
+                                key={layer.id}
+                                src={layer.imageUrl}
+                                alt=""
+                                className="absolute inset-0 w-full h-full object-fill pointer-events-none"
+                                style={{ zIndex: layer.zIndex, opacity: layer.opacity }}
+                              />
+                            ))}
+                          {/* Legacy frameUrl fallback */}
+                          {(!sl.frameLayers || sl.frameLayers.length === 0) && sl.frameUrl && (
+                            <img src={sl.frameUrl} alt="" className="absolute inset-0 w-full h-full object-fill pointer-events-none" style={{ zIndex: 100 }} />
+                          )}
+                          {/* Slot placeholders */}
+                          {sl.canvasWidth > 0 && sl.slots.map((slot, idx) => (
+                            <div
+                              key={slot.id}
+                              className="absolute bg-gray-100 border border-dashed border-gray-300 flex items-center justify-center"
+                              style={{
+                                left: `${(slot.x / sl.canvasWidth) * 100}%`,
+                                top: `${(slot.y / sl.canvasHeight) * 100}%`,
+                                width: `${(slot.width / sl.canvasWidth) * 100}%`,
+                                height: `${(slot.height / sl.canvasHeight) * 100}%`,
+                                zIndex: slot.zIndex ?? 10,
+                                transform: (slot.rotation ?? 0) !== 0 ? `rotate(${slot.rotation}deg)` : undefined,
+                                transformOrigin: 'top left',
+                              }}
+                            >
+                              <span className="text-[8px] font-bold text-gray-400">{idx + 1}</span>
+                            </div>
+                          ))}
                         </div>
-                      ) : (
-                        <div className="h-16 w-10 rounded bg-gradient-to-br from-blue-100 to-blue-50 border border-blue-200 flex items-center justify-center">
-                          <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 9h.01M15 15l-3-3-4 4" />
-                          </svg>
+                        <div className="text-center">
+                          <div className="font-semibold text-sm text-gray-700">{sl.name}</div>
+                          <div className="text-xs text-gray-400 mt-0.5">{sl.printSize} · {sl.slots.length}칸</div>
                         </div>
-                      )}
-                      <div className="text-center">
-                        <div className="font-semibold text-sm text-gray-700">{sl.name}</div>
-                        <div className="text-xs text-gray-400 mt-0.5">{sl.printSize} · {sl.slots.length}칸</div>
                       </div>
-                    </div>
-                  </UISelectItem>
-                ))}
+                    </UISelectItem>
+                  )
+                })}
+
               </div>
-
-              <UIButton
-                fullWidth
-                onClick={() => updateStep((frameType === 'single' || frameType === 'single-with-logo' || frameType === 'single-with-logo-overlay' || frameType === 'free-layout') ? 'fill-photos' : 'select-color')}
-              >
-                다음으로
-              </UIButton>
+              {switLayouts.length > 1 && (
+                <p className="text-xs text-gray-400 text-center mt-2">사진 선택 후에도 레이아웃을 변경할 수 있어요</p>
+              )}
             </div>
           )}
 
@@ -1594,14 +1305,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
           )}
 
           {/* Step 3: Fill Photos */}
-          {step === 'fill-photos' && frameType === 'free-layout' && !previewUrl && (
-            <FreeLayoutEditor
-              onComplete={handleFreeLayoutComplete}
-              onBack={() => updateStep('select-layout')}
-            />
-          )}
-
-          {step === 'fill-photos' && (frameType !== 'free-layout' || previewUrl) && (
+          {step === 'fill-photos' && (
             <div className="space-y-6">
               {/* Header with layout info */}
               <div className="flex items-center justify-between">
@@ -1613,14 +1317,12 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                     {LAYOUT_OPTIONS.find(l => l.type === frameType)?.description}
                   </p>
                 </div>
-                {frameType !== 'free-layout' && (
-                  <div className="text-right">
-                    <div className="text-xl font-bold text-gray-900 tabular-nums">
-                      {photoSlots.filter(s => s.file).length}/{photoSlots.length}
-                    </div>
-                    <div className="text-xs text-gray-400">사진 완료</div>
+                <div className="text-right">
+                  <div className="text-xl font-bold text-gray-900 tabular-nums">
+                    {photoSlots.filter(s => s.file).length}/{photoSlots.length}
                   </div>
-                )}
+                  <div className="text-xs text-gray-400">사진 완료</div>
+                </div>
               </div>
 
               {/* Status Banner */}
@@ -1643,7 +1345,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                 <div className="transition-all duration-300">
                   {renderLayoutPreview()}
                 </div>
-                {frameType !== 'free-layout' && <div className="bg-gray-50 rounded-xl p-3">
+                <div className="bg-gray-50 rounded-xl p-3">
                   <p className="text-center text-sm text-gray-500">
                     사진을 탭해 추가하거나 변경할 수 있어요
                   </p>
@@ -1652,83 +1354,13 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                       중앙을 세로로 자르면 동일한 스트립 2개가 나와요
                     </p>
                   )}
-                  {(frameType === 'puzzle-2x2' || frameType === 'puzzle-3x3') && (
-                    <p className="text-center text-xs text-gray-400 mt-1">
-                      {frameType === 'puzzle-2x2' ? '4조각' : '9조각'}으로 나눠져 인쇄돼요 · 조립하면 하나의 큰 사진이 돼요
-                    </p>
-                  )}
-                </div>}
+                </div>
               </div>
 
               {/* Processing indicator */}
               {processing && <UIStatusBanner type="processing" message="미리보기 생성 중..." />}
 
               {error && <UIStatusBanner type="error" message={error} />}
-
-              {/* Puzzle Pieces Preview with Animation */}
-              {(frameType === 'puzzle-2x2' || frameType === 'puzzle-3x3') && puzzlePieceUrls.length > 0 && (
-                <div className="bg-gray-50 border border-gray-100 rounded-xl p-4">
-                  <h4 className="text-sm font-semibold text-gray-700 mb-3 text-center">
-                    인쇄될 퍼즐 조각 (총 {puzzlePieceUrls.length}조각)
-                  </h4>
-                  <div className="relative w-full" style={{ paddingBottom: '150%' }}>
-                    {puzzlePieceUrls.map((url, index) => {
-                      const gridSize = frameType === 'puzzle-2x2' ? 2 : 3
-                      const row = Math.floor(index / gridSize)
-                      const col = index % gridSize
-
-                      // Combined position (perfectly aligned, no gap)
-                      const combinedX = col * (100 / gridSize)
-                      const combinedY = row * (100 / gridSize)
-
-                      // Split position (spread out from center)
-                      const spreadFactor = puzzleAnimationSplit ? 1.08 : 1 // 8% spread when split (subtle)
-                      const centerOffset = (gridSize - 1) / 2
-                      const splitX = combinedX + (col - centerOffset) * 5 * (spreadFactor - 1)
-                      const splitY = combinedY + (row - centerOffset) * 5 * (spreadFactor - 1)
-
-                      return (
-                        <div
-                          key={index}
-                          className="absolute transition-all duration-1000 ease-in-out"
-                          style={{
-                            width: `${100 / gridSize}%`,
-                            height: `${100 / gridSize}%`,
-                            left: `${puzzleAnimationSplit ? splitX : combinedX}%`,
-                            top: `${puzzleAnimationSplit ? splitY : combinedY}%`,
-                            transform: `scale(${puzzleAnimationSplit ? 0.98 : 1})`,
-                          }}
-                        >
-                          <div className="relative w-full h-full" style={{
-                            padding: puzzleAnimationSplit ? '2px' : '0px',
-                            transition: 'padding 1000ms ease-in-out'
-                          }}>
-                            <div
-                              className="relative bg-white overflow-hidden shadow-lg h-full transition-all duration-1000"
-                              style={{
-                                borderRadius: puzzleAnimationSplit ? '8px' : '0px',
-                                border: puzzleAnimationSplit ? '2px solid rgb(192, 132, 252)' : '0px solid transparent',
-                              }}
-                            >
-                              <img
-                                src={url}
-                                alt={`퍼즐 조각 ${index + 1}`}
-                                className="w-full h-full object-cover"
-                              />
-                              <div className="absolute top-1 right-1 bg-gray-800 text-white text-xs font-bold px-1.5 py-0.5 rounded-md">
-                                {index + 1}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                  <p className="text-xs text-gray-400 text-center mt-3">
-                    {puzzleAnimationSplit ? '각 조각이 개별 인쇄됩니다' : '조립하면 하나의 큰 사진이 돼요'}
-                  </p>
-                </div>
-              )}
 
               {/* Action Buttons */}
               <div className="space-y-3">
@@ -1740,27 +1372,21 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                     max={10}
                     onChange={setPrintQuantity}
                     disabled={printing}
-                    label={frameType === 'puzzle-2x2' || frameType === 'puzzle-3x3' ? '퍼즐 세트 수' : '인쇄 매수'}
-                    hint={
-                      frameType === 'puzzle-2x2'
-                        ? `최대 10세트 (총 ${printQuantity * 4}장)`
-                        : frameType === 'puzzle-3x3'
-                        ? `최대 10세트 (총 ${printQuantity * 9}장)`
-                        : '최대 10매까지 선택 가능합니다'
-                    }
+                    label="인쇄 매수"
+                    hint="최대 10매까지 선택 가능합니다"
                   />
                 )}
 
                 {/* Download & Payment Buttons - Side by side */}
                 {allSlotsFilled && previewUrl && !processing && (
                   <div className="flex gap-3">
-                    <UIButton variant="download" size="md" className="flex-1" onClick={handleDownload} disabled={printing}>
+                    <UIButton variant="download" size="md" onClick={handleDownload} disabled={printing}>
                       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                       </svg>
                       저장
                     </UIButton>
-                    <UIButton size="md" className="flex-1" onClick={handleGoToPayment} disabled={printing} loading={printing}>
+                    <UIButton size="md" className="flex-1 min-w-0" onClick={handleGoToPayment} disabled={printing} loading={printing}>
                       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                       </svg>
@@ -1774,13 +1400,8 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                   size="md"
                   fullWidth
                   onClick={() => {
-                    if (frameType === 'free-layout' && previewUrl) {
-                      // 자유 레이아웃: 미리보기 → 에디터로 돌아가기
-                      setPreviewUrl(null)
-                    } else {
-                      updateStep(frameType === 'single' || frameType === 'single-with-logo' || frameType === 'single-with-logo-overlay' || frameType === 'free-layout' ? 'select-layout' : 'select-color')
-                      setPreviewUrl(null)
-                    }
+                    updateStep(frameType === 'single' ? 'select-layout' : 'select-color')
+                    setPreviewUrl(null)
                   }}
                   disabled={printing}
                 >
@@ -1932,7 +1553,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         {showCropEditor && currentEditingSlot !== null && photoSlots[currentEditingSlot]?.file && (
           <FourCutCropEditor
             images={[photoSlots[currentEditingSlot].file!]}
-            aspectRatio={getCropAspectRatioForSlot(frameType, currentEditingSlot, !!event?.logoUrl, event?.photoAreaRatio ?? 85)}
+            aspectRatio={getCropAspectRatioForSlot(frameType, currentEditingSlot)}
             onComplete={handleCropComplete}
             onCancel={handleCropCancel}
             initialSettings={photoSlots[currentEditingSlot]?.cropSettings ? [photoSlots[currentEditingSlot].cropSettings!] : undefined}

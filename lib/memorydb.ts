@@ -1,5 +1,6 @@
-import { Event, PrintJob, Admin, ErrorLog, Sticker, SwitLayout } from './types'
+import { Event, PrintJob, Admin, ErrorLog, Sticker, SwitLayout, normalizeLayout } from './types'
 import { ObjectId } from 'mongodb'
+import { DEFAULT_LAYOUT_TEMPLATES } from './defaultLayoutTemplates'
 
 // In-memory database for development without MongoDB
 class MemoryDB {
@@ -26,14 +27,29 @@ class MemoryDB {
       name: 'Photo Toast',
       slug: 'phost-default',
       printerUrl: 'https://192.168.219.105/ipp/print',
-      photoAreaRatio: 85,
-      logoSettings: {
-        position: 'bottom-center',
-        size: 80
-      },
       createdAt: new Date(),
     }
-    this.events.set(defaultEventId.toString(), defaultEvent)
+    const eventId = defaultEventId.toString()
+    this.events.set(eventId, defaultEvent)
+
+    // 기본 레이아웃 프리셋 자동 생성
+    for (let idx = 0; idx < DEFAULT_LAYOUT_TEMPLATES.length; idx++) {
+      const template = DEFAULT_LAYOUT_TEMPLATES[idx]
+      this.createLayout({
+        eventId,
+        name: template.name,
+        printSize: template.printSize,
+        canvasWidth: template.canvasWidth,
+        canvasHeight: template.canvasHeight,
+        slots: template.slots.map((s, i) => ({ ...s, id: `slot-${i}`, order: i, zIndex: 10 + i, rotation: 0 })),
+        frameLayers: template.frameLayers || [],
+        frameUrl: null,
+        backgroundColor: template.backgroundColor,
+        backgroundColorCustomizable: template.backgroundColorCustomizable,
+        isPreset: true,
+        order: idx,
+      })
+    }
   }
 
   // Events
@@ -161,22 +177,53 @@ class MemoryDB {
   }
 
   // SwitLayouts
-  async createLayout(layout: Omit<SwitLayout, '_id' | 'createdAt' | 'updatedAt'>): Promise<SwitLayout> {
+  async createLayout(layout: Omit<SwitLayout, '_id' | 'createdAt' | 'updatedAt' | 'isPreset' | 'order' | 'backgroundColor' | 'backgroundColorCustomizable'> & { isPreset?: boolean; order?: number; backgroundColor?: string; backgroundColorCustomizable?: boolean }): Promise<SwitLayout> {
     const id = new ObjectId()
     const now = new Date().toISOString()
-    const newLayout: SwitLayout = { _id: id.toString(), ...layout, createdAt: now, updatedAt: now }
+    const newLayout: SwitLayout = {
+      _id: id.toString(),
+      ...layout,
+      backgroundColor: layout.backgroundColor ?? '#FFFFFF',
+      backgroundColorCustomizable: layout.backgroundColorCustomizable ?? true,
+      isPreset: layout.isPreset ?? false,
+      order: layout.order ?? Date.now(),
+      createdAt: now,
+      updatedAt: now,
+    }
     this.layouts.set(id.toString(), newLayout)
     return newLayout
   }
 
+  async duplicateLayout(id: string): Promise<SwitLayout | null> {
+    const source = this.layouts.get(id)
+    if (!source) return null
+    const newId = new ObjectId()
+    const now = new Date().toISOString()
+    const duplicated: SwitLayout = {
+      ...source,
+      _id: newId.toString(),
+      name: `${source.name} 복사본`,
+      isPreset: false,
+      order: Date.now(),
+      slots: source.slots.map(s => ({ ...s })),
+      frameLayers: (source.frameLayers || []).map(l => ({ ...l })),
+      createdAt: now,
+      updatedAt: now,
+    }
+    this.layouts.set(newId.toString(), duplicated)
+    return duplicated
+  }
+
   async getLayoutById(id: string): Promise<SwitLayout | null> {
-    return this.layouts.get(id) || null
+    const layout = this.layouts.get(id)
+    return layout ? normalizeLayout(layout) : null
   }
 
   async getLayoutsByEventId(eventId: string): Promise<SwitLayout[]> {
     return Array.from(this.layouts.values())
       .filter(l => l.eventId === eventId)
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+      .map(normalizeLayout)
   }
 
   async updateLayout(id: string, updates: Partial<SwitLayout>): Promise<boolean> {

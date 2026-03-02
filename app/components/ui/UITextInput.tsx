@@ -5,10 +5,11 @@ interface UITextInputProps extends InputHTMLAttributes<HTMLInputElement> {
 }
 
 export default function UITextInput({ error = false, className = '', ...props }: UITextInputProps) {
+  const hasWidth = /\bw-/.test(className)
   return (
     <input
       className={[
-        'w-full px-3.5 py-2.5 rounded-xl border text-sm text-gray-900 bg-gray-50',
+        `${hasWidth ? '' : 'w-full'} px-3.5 py-2.5 rounded-xl border text-sm text-gray-900 bg-gray-50`,
         'placeholder:text-gray-400 transition-colors',
         'focus:bg-white focus:outline-none focus:ring-2',
         error

@@ -1,8 +1,8 @@
 import sharp from 'sharp'
 import path from 'path'
 import fs from 'fs/promises'
-import { LogoSettings, FrameType } from './types'
-import { CANVAS_WIDTH, CANVAS_HEIGHT, DEFAULT_PHOTO_RATIO, LAYOUT_CONFIG, FOUR_CUT_CONFIG } from './layoutConstants'
+import { FrameType } from './types'
+import { CANVAS_WIDTH, CANVAS_HEIGHT, LAYOUT_CONFIG, FOUR_CUT_CONFIG } from './layoutConstants'
 
 // Standard print sizes at 300 DPI (4x6 inch)
 const TARGET_WIDTH = CANVAS_WIDTH    // 4 inch * 300 DPI
@@ -25,10 +25,7 @@ function isLandscapeLayout(frameType: FrameType): boolean {
 
 export async function processImage(
   inputBuffer: Buffer | Buffer[],
-  logoPath?: string,
   cropArea?: CropArea | CropArea[],
-  photoAreaRatio: number = DEFAULT_PHOTO_RATIO,
-  logoSettings?: LogoSettings,
   frameType: FrameType = 'single',
   backgroundColor?: string,
   rotation?: number | number[]
@@ -44,9 +41,6 @@ export async function processImage(
   if (frameType === 'four-cut') {
     return processFourCutImage(
       inputBuffer as Buffer[],
-      logoPath,
-      photoAreaRatio,
-      logoSettings,
       cropArea as CropArea[],
       backgroundColor,
       rotation as number[]
@@ -90,43 +84,24 @@ export async function processImage(
     )
   }
 
-  // Handle single frame with logo
-  if (frameType === 'single-with-logo') {
-    const singleBuffer = Array.isArray(inputBuffer) ? inputBuffer[0] : inputBuffer
-    const singleCropArea = Array.isArray(cropArea) ? cropArea[0] : cropArea
-    const singleRotation = Array.isArray(rotation) ? rotation[0] : (rotation || 0)
-    return processSingleImage(singleBuffer, singleCropArea, logoPath, logoSettings, photoAreaRatio, singleRotation, false)
-  }
-
-  // Handle single frame with logo overlay (photo 100%, logo on top)
-  if (frameType === 'single-with-logo-overlay') {
-    const singleBuffer = Array.isArray(inputBuffer) ? inputBuffer[0] : inputBuffer
-    const singleCropArea = Array.isArray(cropArea) ? cropArea[0] : cropArea
-    const singleRotation = Array.isArray(rotation) ? rotation[0] : (rotation || 0)
-    return processSingleImage(singleBuffer, singleCropArea, logoPath, logoSettings, 100, singleRotation, false)
-  }
-
   // Handle landscape-single (6x4 single photo)
   if (frameType === 'landscape-single') {
     const singleBuffer = Array.isArray(inputBuffer) ? inputBuffer[0] : inputBuffer
     const singleCropArea = Array.isArray(cropArea) ? cropArea[0] : cropArea
     const singleRotation = Array.isArray(rotation) ? rotation[0] : (rotation || 0)
-    return processSingleImage(singleBuffer, singleCropArea, undefined, undefined, 100, singleRotation, true)
+    return processSingleImage(singleBuffer, singleCropArea, singleRotation, true)
   }
 
-  // Handle single frame (no logo, 4x6 portrait)
+  // Handle single frame (4x6 portrait)
   const singleBuffer = Array.isArray(inputBuffer) ? inputBuffer[0] : inputBuffer
   const singleCropArea = Array.isArray(cropArea) ? cropArea[0] : cropArea
   const singleRotation = Array.isArray(rotation) ? rotation[0] : (rotation || 0)
-  return processSingleImage(singleBuffer, singleCropArea, undefined, undefined, 100, singleRotation, false)
+  return processSingleImage(singleBuffer, singleCropArea, singleRotation, false)
 }
 
 async function processSingleImage(
   inputBuffer: Buffer,
   cropArea?: CropArea,
-  logoPath?: string,
-  logoSettings?: LogoSettings,
-  photoAreaRatio: number = DEFAULT_PHOTO_RATIO,
   rotation: number = 0,
   isLandscape: boolean = false
 ): Promise<Buffer> {
@@ -134,12 +109,10 @@ async function processSingleImage(
   const outputWidth = isLandscape ? CANVAS_HEIGHT : CANVAS_WIDTH   // landscape: 1800, portrait: 1200
   const outputHeight = isLandscape ? CANVAS_WIDTH : CANVAS_HEIGHT  // landscape: 1200, portrait: 1800
 
-  // Calculate photo and logo area
-  const ratio = logoPath ? photoAreaRatio : 100 // Use provided ratio if logo exists, 100% otherwise
-  const photoHeight = Math.round(outputHeight * (ratio / 100))
-  const logoHeight = outputHeight - photoHeight
+  // Photo takes up full canvas
+  const photoHeight = outputHeight
 
-  console.log(`Single image layout: ${isLandscape ? 'landscape' : 'portrait'} mode, canvas ${outputWidth}x${outputHeight}, Photo area ${ratio}% (${photoHeight}px), Logo area ${100-ratio}% (${logoHeight}px), Rotation: ${rotation}°`)
+  console.log(`Single image layout: ${isLandscape ? 'landscape' : 'portrait'} mode, canvas ${outputWidth}x${outputHeight}, Photo area 100% (${photoHeight}px), Rotation: ${rotation}°`)
 
   // Get original image metadata BEFORE any rotation
   const originalMetadata = await sharp(inputBuffer).metadata()
@@ -216,194 +189,12 @@ async function processSingleImage(
     }
   })
 
-  const composites: any[] = []
-
-  // If logo exists, add it
-  const isOverlayMode = ratio === 100 && logoPath
-  console.log(`[processSingleImage] Logo path provided: ${logoPath}, logoHeight: ${logoHeight}, isOverlayMode: ${isOverlayMode}`)
-  if (logoPath && (logoHeight > 0 || isOverlayMode)) {
-    try {
-      let logoBuffer: Buffer
-
-      // Check if logoPath is a data URL (base64)
-      if (logoPath.startsWith('data:')) {
-        console.log(`[processSingleImage] Logo is data URL, converting from base64`)
-        // Extract base64 data from data URL
-        const base64Data = logoPath.split(',')[1]
-        logoBuffer = Buffer.from(base64Data, 'base64')
-      } else {
-        // Convert URL to file path
-        let logoFullPath: string
-
-        if (logoPath.startsWith('/api/serve-image/')) {
-          // Vercel: /api/serve-image/filename → /tmp/uploads/filename
-          const filename = logoPath.replace('/api/serve-image/', '')
-          logoFullPath = path.join('/tmp/uploads', filename)
-        } else if (logoPath.startsWith('/uploads/')) {
-          // Local: /uploads/filename → public/uploads/filename
-          logoFullPath = path.join(process.cwd(), 'public', logoPath)
-        } else if (logoPath.startsWith('/tmp')) {
-          // Legacy absolute path (Vercel)
-          logoFullPath = logoPath
-        } else {
-          // Relative path (local)
-          logoFullPath = path.join(process.cwd(), 'public', logoPath)
-        }
-
-        console.log(`[processSingleImage] Logo full path resolved: ${logoFullPath}`)
-        const logoExists = await fs.access(logoFullPath).then(() => true).catch((err) => {
-          console.error(`[processSingleImage] Logo file not accessible: ${err.message}`)
-          return false
-        })
-
-        if (!logoExists) {
-          console.error(`[processSingleImage] Logo file does not exist at path: ${logoFullPath}`)
-          throw new Error('Logo file not found')
-        }
-
-        logoBuffer = await fs.readFile(logoFullPath)
-      }
-
-      if (logoBuffer) {
-        // Get logo settings or use defaults
-        const position = logoSettings?.position || 'bottom-center'
-        const sizePercent = logoSettings?.size || 80 // Default 80% of LOGO AREA width
-
-        console.log('Processing logo with settings:', { position, sizePercent, x: logoSettings?.x, y: logoSettings?.y })
-
-        // IMPORTANT: Logo size is percentage of logo area width (with padding consideration)
-        // Note: single-with-logo is now rendered on client side, this logic is for other potential logo layouts
-        const PREVIEW_PADDING = 8 * 2 // p-2 in Tailwind = 8px, both sides = 16px
-        const logoAreaWidth = outputWidth - PREVIEW_PADDING
-        const requestedLogoWidth = Math.round(logoAreaWidth * (sizePercent / 100))
-
-        console.log(`[Logo Debug] logoSize: ${sizePercent}%, logoAreaWidth: ${logoAreaWidth}px (excluding padding), requestedLogoWidth: ${requestedLogoWidth}px`)
-
-        // Resize logo based on width - no height limit, allow it to extend into photo area
-        const resizedLogoBuffer = await sharp(logoBuffer)
-          .resize(requestedLogoWidth, null, {
-            fit: 'inside',
-            withoutEnlargement: false, // Allow enlargement beyond original size
-          })
-          .toBuffer()
-
-        const logoMetadata = await sharp(resizedLogoBuffer).metadata()
-        const logoWidth = logoMetadata.width || 0
-        const actualLogoHeight = logoMetadata.height || 0
-
-        // Calculate position based on settings
-        let left = 0
-        let top = photoHeight
-
-        if (position === 'custom' && logoSettings?.x !== undefined && logoSettings?.y !== undefined) {
-          if (isOverlayMode) {
-            // Overlay mode: x and y are direct percentages of full canvas
-            const centerX = Math.round((logoSettings.x / 100) * outputWidth)
-            const centerY = Math.round((logoSettings.y / 100) * outputHeight)
-            left = centerX - Math.round(logoWidth / 2)
-            top = centerY - Math.round(actualLogoHeight / 2)
-          } else {
-            // Logo area mode: position within logo area below photo
-            const centerX = Math.round((logoSettings.x / 100) * outputWidth)
-            const centerY = photoHeight + Math.round((logoSettings.y / 100) * logoHeight)
-            left = centerX - Math.round(logoWidth / 2)
-            top = centerY - Math.round(actualLogoHeight / 2)
-          }
-        } else {
-          // Parse position string
-          const [vertical, horizontal] = position.split('-')
-
-          // IMPORTANT: Use same padding as preview (p-2 = 8px)
-          const PADDING = 8
-
-          // Calculate horizontal position
-          if (horizontal === 'left') {
-            left = PADDING // Left padding
-          } else if (horizontal === 'center') {
-            left = Math.round((outputWidth - logoWidth) / 2)
-          } else if (horizontal === 'right') {
-            left = outputWidth - logoWidth - PADDING // Right padding
-          }
-
-          // Calculate vertical position
-          if (isOverlayMode) {
-            // Overlay mode: position relative to full canvas
-            if (vertical === 'top') {
-              top = PADDING
-            } else if (vertical === 'center') {
-              top = Math.round((outputHeight - actualLogoHeight) / 2)
-            } else if (vertical === 'bottom') {
-              top = outputHeight - actualLogoHeight - PADDING
-            }
-          } else {
-            // Logo area mode: position within logo area below photo
-            if (vertical === 'top') {
-              top = photoHeight + PADDING
-            } else if (vertical === 'center') {
-              top = photoHeight + Math.round((logoHeight - actualLogoHeight) / 2)
-            } else if (vertical === 'bottom') {
-              top = outputHeight - actualLogoHeight - PADDING
-            }
-          }
-        }
-
-        // Clamp position to keep logo within canvas bounds
-        // Allow logo to extend into photo area (top can be < photoHeight)
-        // Photo layer will be composited on top, so photo area takes priority
-        left = Math.max(-logoWidth, Math.min(left, outputWidth))
-        top = Math.max(0, Math.min(top, outputHeight))
-
-        if (isOverlayMode) {
-          // Overlay mode: photo first, then logo on top
-          composites.push({
-            input: photoBuffer,
-            top: 0,
-            left: 0,
-          })
-          composites.push({
-            input: resizedLogoBuffer,
-            top,
-            left,
-          })
-        } else {
-          // Normal mode: logo first (below), photo on top
-          composites.push({
-            input: resizedLogoBuffer,
-            top,
-            left,
-          })
-        }
-
-        console.log(`[Logo Debug] Final dimensions - logoWidth: ${logoWidth}px, actualLogoHeight: ${actualLogoHeight}px`)
-        console.log(`[Logo Debug] Final position - left: ${left}px, top: ${top}px (position: ${position}, overlay: ${isOverlayMode})`)
-        console.log(`[Logo Debug] Canvas - outputWidth: ${outputWidth}px, outputHeight: ${outputHeight}px, photoHeight: ${photoHeight}px, logoHeight: ${logoHeight}px`)
-      }
-    } catch (error) {
-      console.error('[processSingleImage] Error adding logo:', error)
-      // Continue without logo if there's an error
-    }
-  } else {
-    console.log(`[processSingleImage] Logo NOT added. logoPath=${logoPath}, logoHeight=${logoHeight}`)
-  }
-
-  // Add photo if not already added (overlay mode adds it above)
-  if (!isOverlayMode) {
-    // Normal mode: Add photo LAST (higher z-index) so it covers any logo that extends into photo area
-    composites.push({
-      input: photoBuffer,
-      top: 0,
-      left: 0,
-    })
-  } else if (composites.length === 0) {
-    // Overlay mode but no logo was added (error case): just add photo
-    composites.push({
-      input: photoBuffer,
-      top: 0,
-      left: 0,
-    })
-  }
-
-  finalImage = finalImage.composite(composites)
+  // Composite photo onto canvas
+  finalImage = finalImage.composite([{
+    input: photoBuffer,
+    top: 0,
+    left: 0,
+  }])
 
   return finalImage.jpeg({
     quality: 95,
@@ -413,9 +204,6 @@ async function processSingleImage(
 
 async function processFourCutImage(
   inputBuffers: Buffer[],
-  logoPath?: string,
-  photoAreaRatio: number = DEFAULT_PHOTO_RATIO,
-  logoSettings?: LogoSettings | undefined,
   cropAreas?: CropArea[],
   backgroundColor?: string,
   rotations?: number[]
@@ -504,7 +292,7 @@ async function processFourCutImage(
   }
 
   // Parse background color (default black)
-  const bgColor = backgroundColor || '#000000'
+  const bgColor = backgroundColor || '#FFFFFF'
   const rgb = hexToRgb(bgColor)
 
   // Create blank canvas with custom background
@@ -545,8 +333,6 @@ async function processFourCutImage(
 
   console.log(`Composed ${composites.length} photos (2 identical strips of 4 photos each)`)
 
-  // Note: Logo is not supported in four-cut layout (only in single-with-logo)
-
   finalImage = finalImage.composite(composites)
 
   return finalImage.jpeg({
@@ -567,111 +353,6 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
   const b = bigint & 255
 
   return { r, g, b }
-}
-
-// Helper function to get logo full path
-function getLogoFullPath(logoPath: string): string {
-  if (logoPath.startsWith('/api/serve-image/')) {
-    const filename = logoPath.replace('/api/serve-image/', '')
-    return path.join('/tmp/uploads', filename)
-  } else if (logoPath.startsWith('/uploads/')) {
-    return path.join(process.cwd(), 'public', logoPath)
-  } else if (logoPath.startsWith('/tmp')) {
-    return logoPath
-  } else {
-    return path.join(process.cwd(), 'public', logoPath)
-  }
-}
-
-// Helper function to add logo to composites array
-async function addLogoOverlay(
-  logoPath: string,
-  logoSettings: LogoSettings | undefined,
-  canvasWidth: number,
-  canvasHeight: number,
-  bottomMargin: number = 0
-): Promise<{ buffer: Buffer; width: number; height: number } | null> {
-  try {
-    const logoFullPath = getLogoFullPath(logoPath)
-    const logoExists = await fs.access(logoFullPath).then(() => true).catch(() => false)
-
-    if (!logoExists) {
-      return null
-    }
-
-    // Get logo settings or use defaults
-    const sizePercent = logoSettings?.size || 80 // Default 80% of canvas width
-
-    // Calculate logo width based on settings (percentage of canvas width)
-    const targetLogoWidth = Math.round(canvasWidth * (sizePercent / 100))
-
-    // Resize logo proportionally based on width
-    const logoBuffer = await sharp(logoFullPath)
-      .resize(targetLogoWidth, null, {
-        fit: 'inside',
-        withoutEnlargement: false,
-      })
-      .toBuffer()
-
-    const logoMetadata = await sharp(logoBuffer).metadata()
-    const logoWidth = logoMetadata.width || 0
-    const logoHeight = logoMetadata.height || 0
-
-    return { buffer: logoBuffer, width: logoWidth, height: logoHeight }
-  } catch (error) {
-    console.error('Error processing logo:', error)
-    return null
-  }
-}
-
-// Helper function to position logo based on settings
-function calculateLogoPosition(
-  logoSettings: LogoSettings | undefined,
-  logoWidth: number,
-  logoHeight: number,
-  canvasWidth: number,
-  canvasHeight: number,
-  photoHeight: number,
-  logoAreaHeight: number
-): { left: number; top: number } {
-  const position = logoSettings?.position || 'bottom-center'
-
-  if (position === 'custom' && logoSettings?.x !== undefined && logoSettings?.y !== undefined) {
-    // Use custom position (percentage of logo area)
-    const centerX = Math.round((logoSettings.x / 100) * canvasWidth)
-    const centerY = photoHeight + Math.round((logoSettings.y / 100) * logoAreaHeight)
-
-    return {
-      left: centerX - Math.round(logoWidth / 2),
-      top: centerY - Math.round(logoHeight / 2)
-    }
-  }
-
-  // Parse position string
-  const [vertical, horizontal] = position.split('-')
-
-  let left = 0
-  let top = 0
-
-  // Calculate horizontal position
-  if (horizontal === 'left') {
-    left = 20 // Left padding
-  } else if (horizontal === 'center') {
-    left = Math.round((canvasWidth - logoWidth) / 2)
-  } else if (horizontal === 'right') {
-    left = canvasWidth - logoWidth - 20 // Right padding
-  }
-
-  // Calculate vertical position within logo area
-  if (vertical === 'top') {
-    top = photoHeight + 20 // Top of logo area with padding
-  } else if (vertical === 'center') {
-    top = photoHeight + Math.round((logoAreaHeight - logoHeight) / 2)
-  } else if (vertical === 'bottom') {
-    top = canvasHeight - logoHeight - 20 // Bottom with padding
-  }
-
-  return { left, top }
 }
 
 async function processTwoByTwoImage(
@@ -695,7 +376,6 @@ async function processTwoByTwoImage(
 
   const { MARGIN_HORIZONTAL, MARGIN_VERTICAL, GAP } = LAYOUT_CONFIG
 
-  // No logo for this layout - full canvas used for photos
   const photoAreaHeight = TARGET_HEIGHT
 
   console.log(`Two-by-Two layout: Photo area 100% (${photoAreaHeight}px)`)
@@ -766,7 +446,7 @@ async function processTwoByTwoImage(
   }
 
   // Parse background color (default black)
-  const bgColor = backgroundColor || '#000000'
+  const bgColor = backgroundColor || '#FFFFFF'
   const rgb = hexToRgb(bgColor)
 
   // Create blank canvas with custom background
@@ -830,7 +510,6 @@ async function processVerticalTwoImage(
 
   const { MARGIN_HORIZONTAL, MARGIN_VERTICAL, GAP } = LAYOUT_CONFIG
 
-  // No logo for this layout - full canvas used for photos
   const photoAreaHeight = TARGET_HEIGHT
 
   console.log(`Vertical-Two layout: Photo area 100% (${photoAreaHeight}px)`)
@@ -901,7 +580,7 @@ async function processVerticalTwoImage(
   }
 
   // Parse background color (default black)
-  const bgColor = backgroundColor || '#000000'
+  const bgColor = backgroundColor || '#FFFFFF'
   const rgb = hexToRgb(bgColor)
 
   // Create blank canvas with custom background
@@ -962,7 +641,6 @@ async function processOnePlusTwoImage(
 
   const { MARGIN_HORIZONTAL, MARGIN_VERTICAL, GAP } = LAYOUT_CONFIG
 
-  // No logo for this layout - full canvas used for photos
   const photoAreaHeight = TARGET_HEIGHT
 
   console.log(`One-Plus-Two layout: Photo area 100% (${photoAreaHeight}px)`)
@@ -1089,7 +767,7 @@ async function processOnePlusTwoImage(
   }
 
   // Parse background color (default black)
-  const bgColor = backgroundColor || '#000000'
+  const bgColor = backgroundColor || '#FFFFFF'
   const rgb = hexToRgb(bgColor)
 
   // Create blank canvas with custom background
@@ -1162,7 +840,7 @@ async function processLandscapeTwoImage(
   console.log(`Landscape Two layout: canvas ${LANDSCAPE_WIDTH}x${LANDSCAPE_HEIGHT}, photo ${photoWidth}x${photoHeight}`)
 
   // Create canvas with background color
-  const bgColor = backgroundColor || '#000000'
+  const bgColor = backgroundColor || '#FFFFFF'
   let finalImage = sharp({
     create: {
       width: LANDSCAPE_WIDTH,

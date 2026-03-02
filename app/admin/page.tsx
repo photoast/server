@@ -4,28 +4,17 @@ import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import QRCode from 'qrcode'
 import { logClientError } from '@/lib/errorLogger'
-import { renderSingleWithLogoToCanvas } from '@/lib/canvas-renderer'
-import { UIButton, UICard, UIFormField, UITextInput, UIStatusBanner } from '@/app/components/ui'
-
-interface LogoSettings {
-  position: 'top-left' | 'top-center' | 'top-right' | 'center-left' | 'center' | 'center-right' | 'bottom-left' | 'bottom-center' | 'bottom-right' | 'custom'
-  size: number
-  x?: number
-  y?: number
-}
+import { UIButton, UICard, UIFormField, UITextInput, UIStatusBanner, UIBadge, UISectionHeading } from '@/app/components/ui'
 
 interface Event {
   _id: string
   name: string
   slug: string
   printerUrl: string
-  logoUrl?: string
-  logoBase64?: string
-  photoAreaRatio?: number
-  logoSettings?: LogoSettings
-  overlayLogoSettings?: LogoSettings
   availableLayouts?: string[]
+  puzzleEnabled?: boolean
   price?: number
+  backgroundColors?: string[]
   createdAt: string
 }
 
@@ -79,35 +68,16 @@ export default function AdminPage() {
   const [editingField, setEditingField] = useState<'name' | 'printer' | null>(null)
   const [tempValue, setTempValue] = useState('')
 
-  // Preview states
-  const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({})
-  const [overlayPreviewUrls, setOverlayPreviewUrls] = useState<Record<string, string>>({})
-  const [loadingPreviews, setLoadingPreviews] = useState<Record<string, boolean>>({})
-  const [loadingOverlayPreviews, setLoadingOverlayPreviews] = useState<Record<string, boolean>>({})
-  const [showGrid, setShowGrid] = useState<Record<string, boolean>>({})
-
-  // Debounce timers
-  const [debounceTimers, setDebounceTimers] = useState<Record<string, NodeJS.Timeout>>({})
-
   // Sticker management
   const [stickers, setStickers] = useState<{ _id: string; url: string; filename: string }[]>([])
   const [stickerUploading, setStickerUploading] = useState(false)
 
+  // Event layouts (SwitLayout-based)
+  const [eventLayouts, setEventLayouts] = useState<Record<string, { _id: string; name: string; printSize: string; slots: any[]; isPreset?: boolean; order?: number }[]>>({})
+
   useEffect(() => {
     checkAuth()
   }, [])
-
-  // Auto-generate previews when events are loaded
-  useEffect(() => {
-    events.forEach(event => {
-      if (event.logoUrl && !previewUrls[event._id] && !loadingPreviews[event._id]) {
-        generatePreview(event)
-      }
-      if (event.logoUrl && !overlayPreviewUrls[event._id] && !loadingOverlayPreviews[event._id]) {
-        generateOverlayPreview(event)
-      }
-    })
-  }, [events])
 
   const checkAuth = async () => {
     try {
@@ -196,11 +166,26 @@ export default function AdminPage() {
       if (!res.ok) throw new Error('Failed to fetch events')
       const data = await res.json()
       setEvents(data)
+
+      // Fetch layouts for each event
+      for (const ev of data) {
+        fetchEventLayouts(ev._id)
+      }
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to fetch events'
       setError(errorMessage)
       logClientError('Failed to fetch events', err)
     }
+  }
+
+  const fetchEventLayouts = async (eventId: string) => {
+    try {
+      const res = await fetch(`/api/swit-layouts?eventId=${eventId}`)
+      if (res.ok) {
+        const layouts = await res.json()
+        setEventLayouts(prev => ({ ...prev, [eventId]: Array.isArray(layouts) ? layouts : [] }))
+      }
+    } catch {}
   }
 
   const handleCreateEvent = async (e: React.FormEvent) => {
@@ -236,74 +221,7 @@ export default function AdminPage() {
     }
   }
 
-  const handleUploadLogo = async (eventId: string, file: File) => {
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('type', 'logo')
-
-      const uploadRes = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      })
-
-      if (!uploadRes.ok) throw new Error('Failed to upload logo')
-
-      const { url, base64 } = await uploadRes.json()
-
-      // Save both logoUrl and logoBase64 (for Vercel environment)
-      const updatePayload: any = { logoUrl: url }
-      if (base64) {
-        updatePayload.logoBase64 = base64
-      }
-
-      const updateRes = await fetch(`/api/events/${eventId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatePayload),
-      })
-
-      if (!updateRes.ok) throw new Error('Failed to update event')
-
-      await fetchEvents()
-
-      // Auto-generate preview after logo upload
-      const updatedEvent = events.find(e => e._id === eventId)
-      if (updatedEvent) {
-        await generatePreview({ ...updatedEvent, logoUrl: url })
-      }
-    } catch (err: any) {
-      const errorMessage = err.message || 'Failed to upload logo'
-      setError(errorMessage)
-      logClientError('Failed to upload logo', err, undefined, {
-        eventId,
-        fileName: file.name,
-      })
-    }
-  }
-
-  const handleUpdatePhotoRatio = async (eventId: string, ratio: number) => {
-    try {
-      const updateRes = await fetch(`/api/events/${eventId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ photoAreaRatio: ratio }),
-      })
-
-      if (!updateRes.ok) throw new Error('Failed to update photo ratio')
-
-      await fetchEvents()
-    } catch (err: any) {
-      const errorMessage = err.message || 'Failed to update photo ratio'
-      setError(errorMessage)
-      logClientError('Failed to update photo ratio', err, undefined, {
-        eventId,
-        ratio,
-      })
-    }
-  }
-
-  const handleUpdateEvent = async (eventId: string, updates: { name?: string; printerUrl?: string; availableLayouts?: string[]; price?: number }) => {
+  const handleUpdateEvent = async (eventId: string, updates: { name?: string; printerUrl?: string; availableLayouts?: string[]; price?: number; puzzleEnabled?: boolean; backgroundColors?: string[] }) => {
     try {
       const updateRes = await fetch(`/api/events/${eventId}`, {
         method: 'PATCH',
@@ -321,208 +239,6 @@ export default function AdminPage() {
         eventId,
         updates,
       })
-    }
-  }
-
-  const handleUpdateLogoSettings = async (eventId: string, logoSettings: LogoSettings, autoRefreshPreview = true) => {
-    try {
-      const updateRes = await fetch(`/api/events/${eventId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ logoSettings }),
-      })
-
-      if (!updateRes.ok) throw new Error('Failed to update logo settings')
-
-      await fetchEvents()
-
-      // Auto-refresh preview
-      if (autoRefreshPreview) {
-        const updatedEvent = events.find(e => e._id === eventId)
-        if (updatedEvent) {
-          setTimeout(() => generatePreview({ ...updatedEvent, logoSettings }), 300)
-        }
-      }
-    } catch (err: any) {
-      const errorMessage = err.message || 'Failed to update logo settings'
-      setError(errorMessage)
-      logClientError('Failed to update logo settings', err, undefined, {
-        eventId,
-        logoSettings,
-      })
-    }
-  }
-
-  const debouncedUpdateLogoSettings = (eventId: string, logoSettings: LogoSettings, autoRefreshPreview = true) => {
-    // Clear existing timer for this event
-    if (debounceTimers[eventId]) {
-      clearTimeout(debounceTimers[eventId])
-    }
-
-    // Find the event before state update
-    const currentEvent = events.find(e => e._id === eventId)
-
-    // Optimistically update local state
-    setEvents(prevEvents =>
-      prevEvents.map(e =>
-        e._id === eventId ? { ...e, logoSettings } : e
-      )
-    )
-
-    // Immediately update preview with optimistic state
-    if (autoRefreshPreview && currentEvent) {
-      generatePreview({ ...currentEvent, logoSettings })
-    }
-
-    // Set new timer to save to server
-    const timer = setTimeout(() => {
-      handleUpdateLogoSettings(eventId, logoSettings, false) // Don't refresh preview again
-    }, 500)
-
-    setDebounceTimers(prev => ({ ...prev, [eventId]: timer }))
-  }
-
-  const handleUpdateOverlayLogoSettings = async (eventId: string, overlayLogoSettings: LogoSettings, autoRefreshPreview = true) => {
-    try {
-      const updateRes = await fetch(`/api/events/${eventId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ overlayLogoSettings }),
-      })
-
-      if (!updateRes.ok) throw new Error('Failed to update overlay logo settings')
-
-      await fetchEvents()
-
-      if (autoRefreshPreview) {
-        const updatedEvent = events.find(e => e._id === eventId)
-        if (updatedEvent) {
-          setTimeout(() => generateOverlayPreview({ ...updatedEvent, overlayLogoSettings }), 300)
-        }
-      }
-    } catch (err: any) {
-      setError(err.message || 'Failed to update overlay logo settings')
-    }
-  }
-
-  const debouncedUpdateOverlayLogoSettings = (eventId: string, overlayLogoSettings: LogoSettings, autoRefreshPreview = true) => {
-    const timerKey = `overlay-${eventId}`
-    if (debounceTimers[timerKey]) {
-      clearTimeout(debounceTimers[timerKey])
-    }
-
-    const currentEvent = events.find(e => e._id === eventId)
-
-    setEvents(prevEvents =>
-      prevEvents.map(e =>
-        e._id === eventId ? { ...e, overlayLogoSettings } : e
-      )
-    )
-
-    if (autoRefreshPreview && currentEvent) {
-      generateOverlayPreview({ ...currentEvent, overlayLogoSettings })
-    }
-
-    const timer = setTimeout(() => {
-      handleUpdateOverlayLogoSettings(eventId, overlayLogoSettings, false)
-    }, 500)
-
-    setDebounceTimers(prev => ({ ...prev, [timerKey]: timer }))
-  }
-
-  const debouncedUpdatePhotoRatio = (eventId: string, ratio: number) => {
-    const timerKey = `ratio-${eventId}`
-
-    // Clear existing timer
-    if (debounceTimers[timerKey]) {
-      clearTimeout(debounceTimers[timerKey])
-    }
-
-    // Find the event before state update
-    const currentEvent = events.find(e => e._id === eventId)
-
-    // Optimistically update local state
-    setEvents(prevEvents =>
-      prevEvents.map(e =>
-        e._id === eventId ? { ...e, photoAreaRatio: ratio } : e
-      )
-    )
-
-    // Immediately update preview with optimistic state
-    if (currentEvent) {
-      generatePreview({ ...currentEvent, photoAreaRatio: ratio })
-    }
-
-    // Set new timer to save to server
-    const timer = setTimeout(() => {
-      handleUpdatePhotoRatio(eventId, ratio)
-    }, 500)
-
-    setDebounceTimers(prev => ({ ...prev, [timerKey]: timer }))
-  }
-
-  const generatePreview = async (event: Event) => {
-    const eventId = event._id
-    if (!event.logoUrl) return
-
-    setLoadingPreviews(prev => ({ ...prev, [eventId]: true }))
-
-    try {
-      console.log('[Admin] Generating Canvas preview for event:', eventId)
-
-      // Use Canvas rendering (same as user page)
-      const blob = await renderSingleWithLogoToCanvas(
-        '/sample-photo.jpg', // Sample photo from public folder
-        event.logoUrl,
-        event.photoAreaRatio ?? 85,
-        event.logoSettings || { position: 'custom', size: 80, x: 50, y: 50 }
-      )
-
-      // Revoke old URL if exists
-      if (previewUrls[eventId]) {
-        URL.revokeObjectURL(previewUrls[eventId])
-      }
-
-      const url = URL.createObjectURL(blob)
-      setPreviewUrls(prev => ({ ...prev, [eventId]: url }))
-
-      console.log('Preview updated for event:', eventId, 'logoSettings:', event.logoSettings)
-    } catch (err: any) {
-      console.error('Preview error:', err)
-      logClientError('Failed to generate logo preview', err, undefined, {
-        eventId,
-        logoUrl: event.logoUrl,
-        photoAreaRatio: event.photoAreaRatio,
-      })
-    } finally {
-      setLoadingPreviews(prev => ({ ...prev, [eventId]: false }))
-    }
-  }
-
-  const generateOverlayPreview = async (event: Event) => {
-    const eventId = event._id
-    if (!event.logoUrl) return
-
-    setLoadingOverlayPreviews(prev => ({ ...prev, [eventId]: true }))
-
-    try {
-      const blob = await renderSingleWithLogoToCanvas(
-        '/sample-photo.jpg',
-        event.logoUrl,
-        100, // overlay mode: photo 100%
-        event.overlayLogoSettings || { position: 'bottom-center', size: 80 }
-      )
-
-      if (overlayPreviewUrls[eventId]) {
-        URL.revokeObjectURL(overlayPreviewUrls[eventId])
-      }
-
-      const url = URL.createObjectURL(blob)
-      setOverlayPreviewUrls(prev => ({ ...prev, [eventId]: url }))
-    } catch (err: any) {
-      console.error('Overlay preview error:', err)
-    } finally {
-      setLoadingOverlayPreviews(prev => ({ ...prev, [eventId]: false }))
     }
   }
 
@@ -840,8 +556,8 @@ export default function AdminPage() {
         <UICard className="mb-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-bold text-gray-900">스티커 관리</h2>
-            <label className={`inline-flex items-center px-4 py-2 rounded-xl text-sm font-semibold text-white cursor-pointer transition-colors ${stickerUploading ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600'}`}>
-              {stickerUploading ? '업로드 중...' : '+ 스티커 업로드'}
+            <label className={`inline-flex items-center px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer transition-colors ${stickerUploading ? 'bg-blue-100 text-blue-300 cursor-not-allowed' : 'bg-blue-500 text-white hover:bg-blue-600'}`}>
+              {stickerUploading ? '업로드 중...' : '스티커 추가'}
               <input
                 type="file"
                 accept="image/*"
@@ -918,56 +634,43 @@ export default function AdminPage() {
 
           <div className="space-y-4">
             {events.map((event) => {
-              const photoRatio = event.photoAreaRatio ?? 85
-              const logoSettings = event.logoSettings || { position: 'custom' as const, size: 80, x: 50, y: 50 }
-              const overlaySettings = event.overlayLogoSettings || { position: 'bottom-center' as const, size: 80 }
               const isEditingName = editingEventId === event._id && editingField === 'name'
               const isEditingPrinter = editingEventId === event._id && editingField === 'printer'
 
               return (
-                <div key={event._id} className="border rounded-lg p-4">
+                <UICard key={event._id}>
                   <div className="flex justify-between items-start gap-4">
                     <div className="flex-1 space-y-4">
                       {/* Event Name - Editable */}
                       <div>
                         {isEditingName ? (
                           <div className="flex gap-2">
-                            <input
-                              type="text"
+                            <UITextInput
                               value={tempValue}
                               onChange={(e) => setTempValue(e.target.value)}
-                              className="flex-1 px-3 py-1 border rounded-lg text-lg font-bold"
+                              className="flex-1 text-lg font-bold"
                             />
-                            <button
-                              onClick={() => {
-                                handleUpdateEvent(event._id, { name: tempValue })
-                                setEditingEventId(null)
-                                setEditingField(null)
-                              }}
-                              className="px-3 py-1 bg-green-600 text-white rounded-lg text-sm"
-                            >
-                              Save
-                            </button>
-                            <button
-                              onClick={() => {
-                                setEditingEventId(null)
-                                setEditingField(null)
-                              }}
-                              className="px-3 py-1 bg-gray-300 rounded-lg text-sm"
-                            >
-                              Cancel
-                            </button>
+                            <UIButton size="sm" onClick={() => {
+                              handleUpdateEvent(event._id, { name: tempValue })
+                              setEditingEventId(null)
+                              setEditingField(null)
+                            }}>저장</UIButton>
+                            <UIButton variant="secondary" size="sm" onClick={() => {
+                              setEditingEventId(null)
+                              setEditingField(null)
+                            }}>취소</UIButton>
                           </div>
                         ) : (
                           <h3
-                            className="text-lg font-bold cursor-pointer hover:text-blue-600"
+                            className="text-lg font-bold cursor-pointer hover:text-blue-500 transition-colors"
                             onClick={() => {
                               setEditingEventId(event._id)
                               setEditingField('name')
                               setTempValue(event.name)
                             }}
                           >
-                            {event.name} ✏️
+                            {event.name}
+                            <span className="ml-1 text-gray-300 text-sm">편집</span>
                           </h3>
                         )}
                       </div>
@@ -978,60 +681,46 @@ export default function AdminPage() {
                       <div>
                         {isEditingPrinter ? (
                           <div className="flex gap-2">
-                            <input
-                              type="text"
+                            <UITextInput
                               value={tempValue}
                               onChange={(e) => setTempValue(e.target.value)}
-                              className="flex-1 px-3 py-1 border rounded-lg text-sm"
+                              className="flex-1"
                             />
-                            <button
-                              onClick={() => {
-                                handleUpdateEvent(event._id, { printerUrl: tempValue })
-                                setEditingEventId(null)
-                                setEditingField(null)
-                              }}
-                              className="px-3 py-1 bg-green-600 text-white rounded-lg text-sm"
-                            >
-                              Save
-                            </button>
-                            <button
-                              onClick={() => {
-                                setEditingEventId(null)
-                                setEditingField(null)
-                              }}
-                              className="px-3 py-1 bg-gray-300 rounded-lg text-sm"
-                            >
-                              Cancel
-                            </button>
+                            <UIButton size="sm" onClick={() => {
+                              handleUpdateEvent(event._id, { printerUrl: tempValue })
+                              setEditingEventId(null)
+                              setEditingField(null)
+                            }}>저장</UIButton>
+                            <UIButton variant="secondary" size="sm" onClick={() => {
+                              setEditingEventId(null)
+                              setEditingField(null)
+                            }}>취소</UIButton>
                           </div>
                         ) : (
                           <p
-                            className="text-sm text-gray-600 cursor-pointer hover:text-blue-600"
+                            className="text-sm text-gray-500 cursor-pointer hover:text-blue-500 transition-colors"
                             onClick={() => {
                               setEditingEventId(event._id)
                               setEditingField('printer')
                               setTempValue(event.printerUrl)
                             }}
                           >
-                            Printer: {event.printerUrl} ✏️
+                            프린터: {event.printerUrl} <span className="text-gray-300">편집</span>
                           </p>
                         )}
                       </div>
 
                       {/* Payment Price Control */}
-                      <div>
-                        <label className="block text-sm font-medium mb-2">
-                          결제 금액: {event.price ?? 0}원
-                          {(event.price ?? 0) === 0 && (
-                            <span className="ml-2 px-2 py-1 bg-green-100 text-green-800 text-xs rounded">무료</span>
-                          )}
-                        </label>
+                      <UIFormField
+                        label={`결제 금액: ${event.price ?? 0}원`}
+                        hint="0원 = 결제 없이 바로 인쇄, 그 외 = 결제 후 인쇄"
+                      >
                         <div className="flex gap-2 items-center">
-                          <input
+                          <UITextInput
                             type="number"
-                            min="0"
-                            max="10000"
-                            step="1"
+                            min={0}
+                            max={10000}
+                            step={1}
                             value={event.price ?? 0}
                             onChange={(e) => {
                               const newPrice = Number(e.target.value)
@@ -1039,574 +728,186 @@ export default function AdminPage() {
                                 handleUpdateEvent(event._id, { price: newPrice })
                               }
                             }}
-                            className="px-3 py-2 border rounded-lg w-32"
+                            className="w-32"
                           />
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault()
-                              handleUpdateEvent(event._id, { price: 0 })
-                            }}
-                            className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm whitespace-nowrap"
-                          >
+                          <UIButton variant="secondary" size="sm" onClick={() => handleUpdateEvent(event._id, { price: 0 })}>
                             무료로 설정
-                          </button>
+                          </UIButton>
+                          {(event.price ?? 0) === 0 && <UIBadge variant="success">무료</UIBadge>}
                         </div>
-                        <p className="text-xs text-gray-500 mt-1">
-                          0원 = 결제 없이 바로 인쇄, 그 외 = 결제 후 인쇄
-                        </p>
-                      </div>
+                      </UIFormField>
 
-                      {/* Available Layouts Selection */}
-                      <div className="border-t pt-4">
-                        <label className="block text-sm font-medium mb-2">
-                          노출할 레이아웃 선택:
-                        </label>
-                        <div className="grid grid-cols-2 gap-2">
-                          {(() => {
-                            const allLayoutTypes = [
-                              { type: 'single', name: '일반 1장 (4×6)' },
-                              { type: 'single-with-logo', name: '로고 포함 1장 (4×6)' },
-                              { type: 'single-with-logo-overlay', name: '로고 오버레이 1장 (4×6)' },
-                              { type: 'landscape-single', name: '가로 1장 (6×4)' },
-                              { type: 'landscape-two', name: '가로 2장 (6×4)' },
-                              { type: 'vertical-two', name: '세로 2장 (4×6)' },
-                              { type: 'one-plus-two', name: '1+2 레이아웃 (4×6)' },
-                              { type: 'four-cut', name: '1*4 네컷 (4×6)' },
-                              { type: 'two-by-two', name: '2×2 그리드 (4×6)' },
-                            ]
+                      {/* Puzzle Mode */}
+                      <UIFormField label="퍼즐 모드">
+                        <div className="flex items-center gap-3">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={event.puzzleEnabled ?? false}
+                              onChange={e => handleUpdateEvent(event._id, { puzzleEnabled: e.target.checked })}
+                              className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <span className="text-sm text-gray-700">퍼즐 인쇄 활성화</span>
+                          </label>
+                          {event.puzzleEnabled && (
+                            <span className="text-xs text-gray-400">사용자가 조각 수를 선택합니다</span>
+                          )}
+                        </div>
+                      </UIFormField>
 
-                            return allLayoutTypes.map((layout) => {
-                              const availableLayouts = event.availableLayouts || []
-                              const isChecked = availableLayouts.length === 0 || availableLayouts.includes(layout.type)
-
-                              return (
-                                <label
-                                  key={layout.type}
-                                  className="flex items-center gap-2 p-2 border rounded hover:bg-gray-50 cursor-pointer"
+                      {/* Background Colors */}
+                      <UIFormField label="배경색 설정" hint="사용자가 선택할 수 있는 배경 색상 (기본: 흰색)">
+                        <div className="flex flex-wrap gap-2 items-center">
+                          {(event.backgroundColors || ['#FFFFFF']).map((color, idx) => (
+                            <div key={`${color}-${idx}`} className="relative group">
+                              <div
+                                className="w-8 h-8 rounded-full border-2 border-gray-200 shadow-sm"
+                                style={{ backgroundColor: color }}
+                                title={color}
+                              />
+                              {(event.backgroundColors || ['#FFFFFF']).length > 1 && (
+                                <button
+                                  onClick={() => {
+                                    const colors = (event.backgroundColors || ['#FFFFFF']).filter((_, i) => i !== idx)
+                                    handleUpdateEvent(event._id, { backgroundColors: colors })
+                                  }}
+                                  className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                                 >
-                                  <input
-                                    type="checkbox"
-                                    checked={isChecked}
-                                    onChange={(e) => {
-                                      const currentLayouts = event.availableLayouts || []
-                                      let newLayouts: string[]
-
-                                      if (e.target.checked) {
-                                        // Add layout
-                                        if (currentLayouts.length === 0) {
-                                          // If currently showing all (empty array), just add this one
-                                          newLayouts = [layout.type]
-                                        } else {
-                                          // Add to existing array
-                                          newLayouts = [...currentLayouts.filter(l => l !== layout.type), layout.type]
-                                        }
-                                      } else {
-                                        // Remove layout
-                                        if (currentLayouts.length === 0) {
-                                          // If currently showing all, create array with all except this one
-                                          newLayouts = allLayoutTypes
-                                            .map(l => l.type)
-                                            .filter(t => t !== layout.type)
-                                        } else {
-                                          // Remove from existing array
-                                          newLayouts = currentLayouts.filter(l => l !== layout.type)
-                                        }
-                                      }
-
-                                      handleUpdateEvent(event._id, { availableLayouts: newLayouts })
-                                    }}
-                                    className="rounded"
-                                  />
-                                  <span className="text-sm">{layout.name}</span>
-                                </label>
+                                  ×
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                          <label className="w-8 h-8 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:border-blue-400 transition-colors" title="색상 추가">
+                            <span className="text-gray-400 text-sm">+</span>
+                            <input
+                              type="color"
+                              className="sr-only"
+                              onChange={e => {
+                                const newColor = e.target.value.toUpperCase()
+                                const colors = event.backgroundColors || ['#FFFFFF']
+                                if (!colors.includes(newColor)) {
+                                  handleUpdateEvent(event._id, { backgroundColors: [...colors, newColor] })
+                                }
+                              }}
+                            />
+                          </label>
+                        </div>
+                        {/* Preset colors */}
+                        <div className="mt-2">
+                          <p className="text-xs text-gray-400 mb-1.5">프리셋:</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {[
+                              { color: '#FFFFFF', name: '화이트' },
+                              { color: '#000000', name: '블랙' },
+                              { color: '#F5F5DC', name: '베이지' },
+                              { color: '#FFF0F5', name: '라벤더블러시' },
+                              { color: '#F0F8FF', name: '앨리스블루' },
+                              { color: '#FFFAF0', name: '플로럴화이트' },
+                              { color: '#F5F0EB', name: '웜그레이' },
+                              { color: '#E8D5B7', name: '샌드' },
+                              { color: '#D4C5A9', name: '카키' },
+                              { color: '#C9B1FF', name: '라벤더' },
+                              { color: '#FFD1DC', name: '베이비핑크' },
+                              { color: '#B5E8D5', name: '민트' },
+                              { color: '#FFE4B5', name: '모카신' },
+                              { color: '#87CEEB', name: '스카이블루' },
+                              { color: '#2C2C2C', name: '차콜' },
+                              { color: '#1A1A2E', name: '네이비' },
+                            ].map(preset => {
+                              const currentColors = event.backgroundColors || ['#FFFFFF']
+                              const isAdded = currentColors.includes(preset.color)
+                              return (
+                                <button
+                                  key={preset.color}
+                                  onClick={() => {
+                                    if (!isAdded) {
+                                      handleUpdateEvent(event._id, { backgroundColors: [...currentColors, preset.color] })
+                                    }
+                                  }}
+                                  disabled={isAdded}
+                                  className={`w-6 h-6 rounded-full border transition-all ${
+                                    isAdded
+                                      ? 'border-blue-400 ring-1 ring-blue-200 opacity-50 cursor-default'
+                                      : 'border-gray-300 hover:scale-110 hover:border-gray-400 cursor-pointer'
+                                  }`}
+                                  style={{ backgroundColor: preset.color }}
+                                  title={`${preset.name} (${preset.color})${isAdded ? ' - 추가됨' : ''}`}
+                                />
                               )
-                            })
-                          })()}
+                            })}
+                          </div>
+                        </div>
+                      </UIFormField>
+
+                      {/* Layout Management (SwitLayout-based) */}
+                      <div className="border-t border-gray-100 pt-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <UISectionHeading title="레이아웃 관리" subtitle="레이아웃을 편집, 삭제, 복제할 수 있습니다" />
+                          <a href={`/admin/layouts?eventId=${event._id}&eventName=${encodeURIComponent(event.name)}`}>
+                            <UIButton variant="secondary" size="sm">편집기 열기</UIButton>
+                          </a>
+                        </div>
+                        <div className="space-y-1.5">
+                          {(eventLayouts[event._id] || [])
+                            .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+                            .map((layout) => (
+                            <div key={layout._id} className="flex items-center gap-2 p-2 border rounded hover:bg-gray-50">
+                              <div className="flex-1 min-w-0">
+                                <span className="text-sm font-medium text-gray-800">{layout.name}</span>
+                                {layout.isPreset && (
+                                  <span className="ml-1.5 text-[10px] font-semibold text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded">프리셋</span>
+                                )}
+                                <span className="text-xs text-gray-400 ml-2">{layout.printSize} · {layout.slots.length}칸</span>
+                              </div>
+                              <button
+                                onClick={async () => {
+                                  await fetch(`/api/swit-layouts/${layout._id}/duplicate`, { method: 'POST' })
+                                  fetchEventLayouts(event._id)
+                                }}
+                                className="text-xs text-gray-500 hover:text-blue-600 px-2 py-1"
+                                title="복제"
+                              >
+                                복제
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  if (!confirm(`"${layout.name}" 레이아웃을 삭제하시겠어요?`)) return
+                                  await fetch(`/api/swit-layouts/${layout._id}`, { method: 'DELETE' })
+                                  fetchEventLayouts(event._id)
+                                }}
+                                className="text-xs text-red-400 hover:text-red-600 px-2 py-1"
+                                title="삭제"
+                              >
+                                삭제
+                              </button>
+                            </div>
+                          ))}
+                          {(!eventLayouts[event._id] || eventLayouts[event._id].length === 0) && (
+                            <p className="text-xs text-gray-400 py-2">레이아웃이 없습니다</p>
+                          )}
                         </div>
                         <p className="text-xs text-gray-500 mt-2">
-                          {event.availableLayouts && event.availableLayouts.length > 0
-                            ? `${event.availableLayouts.length}개 레이아웃 선택됨`
-                            : '모든 레이아웃 활성화됨'}
+                          {(eventLayouts[event._id] || []).length}개 레이아웃
                         </p>
                       </div>
 
-                      {/* Logo Preview & Settings - 2 Column Layout */}
-                      {event.logoUrl && (
-                        <div className="grid grid-cols-2 gap-6 border-t pt-4">
-                          {/* Left: Preview */}
-                          <div>
-                            <div className="flex items-center justify-between mb-2">
-                              <p className="text-sm font-medium">Preview (102×152mm):</p>
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => setShowGrid(prev => ({ ...prev, [event._id]: !prev[event._id] }))}
-                                  className={`text-xs px-3 py-1 rounded transition-colors ${
-                                    showGrid[event._id]
-                                      ? 'bg-green-600 text-white hover:bg-green-700'
-                                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                  }`}
-                                >
-                                  {showGrid[event._id] ? '✓ Grid' : 'Grid'}
-                                </button>
-                                <button
-                                  onClick={() => generatePreview(event)}
-                                  disabled={loadingPreviews[event._id]}
-                                  className="text-xs px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-                                >
-                                  {loadingPreviews[event._id] ? 'Loading...' : 'Refresh'}
-                                </button>
-                              </div>
-                            </div>
-                            <div className="relative w-3/4 mx-auto aspect-[1000/1500] bg-gray-100 border-2 border-gray-300 rounded shadow-lg overflow-hidden">
-                              {previewUrls[event._id] ? (
-                                <Image
-                                  key={previewUrls[event._id]}
-                                  src={previewUrls[event._id]}
-                                  alt="Preview"
-                                  fill
-                                  className="object-cover"
-                                  unoptimized
-                                />
-                              ) : (
-                                <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm px-4 text-center">
-                                  Click &quot;Refresh&quot; to see preview
-                                </div>
-                              )}
-                              {loadingPreviews[event._id] && (
-                                <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center">
-                                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                                </div>
-                              )}
-
-                              {/* Draggable overlay for custom position mode */}
-                              {logoSettings.position === 'custom' && previewUrls[event._id] && !loadingPreviews[event._id] && (
-                                <div
-                                  className="absolute inset-0 cursor-move"
-                                  onMouseDown={(e) => {
-                                    e.preventDefault()
-                                    const container = e.currentTarget
-                                    const rect = container.getBoundingClientRect()
-
-                                    const logoAreaHeight = rect.height * ((100 - photoRatio) / 100)
-                                    const logoAreaTop = rect.height * (photoRatio / 100)
-
-                                    const handleMouseMove = (moveEvent: MouseEvent) => {
-                                      const relativeY = moveEvent.clientY - rect.top - logoAreaTop
-                                      const relativeX = moveEvent.clientX - rect.left
-
-                                      const percentX = Math.max(0, Math.min(100, (relativeX / rect.width) * 100))
-                                      const percentY = Math.max(0, Math.min(100, (relativeY / logoAreaHeight) * 100))
-
-                                      handleUpdateLogoSettings(event._id, {
-                                        ...logoSettings,
-                                        x: Math.round(percentX * 10) / 10,
-                                        y: Math.round(percentY * 10) / 10
-                                      }, false)
-                                    }
-
-                                    const handleMouseUp = () => {
-                                      document.removeEventListener('mousemove', handleMouseMove)
-                                      document.removeEventListener('mouseup', handleMouseUp)
-                                      setTimeout(() => generatePreview(event), 100)
-                                    }
-
-                                    document.addEventListener('mousemove', handleMouseMove)
-                                    document.addEventListener('mouseup', handleMouseUp)
-                                  }}
-                                >
-                                  <div className="absolute inset-0 bg-blue-400 bg-opacity-0 hover:bg-opacity-10 transition-all">
-                                    <div className="absolute top-2 left-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded pointer-events-none">
-                                      Drag to position logo
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* Grid overlay */}
-                              {showGrid[event._id] && (
-                                <svg
-                                  className="absolute inset-0 w-full h-full pointer-events-none"
-                                  style={{ zIndex: 100 }}
-                                >
-                                  <defs>
-                                    <pattern id={`grid-${event._id}`} width="10" height="10" patternUnits="userSpaceOnUse">
-                                      <path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(59, 130, 246, 0.6)" strokeWidth="0.5"/>
-                                    </pattern>
-                                  </defs>
-                                  <rect width="100%" height="100%" fill={`url(#grid-${event._id})`} />
-                                  {/* Center lines */}
-                                  <line x1="50%" y1="0" x2="50%" y2="100%" stroke="rgba(239, 68, 68, 0.8)" strokeWidth="1.5" strokeDasharray="4,4" />
-                                  <line x1="0" y1="50%" x2="100%" y2="50%" stroke="rgba(239, 68, 68, 0.8)" strokeWidth="1.5" strokeDasharray="4,4" />
-                                  {/* Photo area boundary */}
-                                  <line x1="0" y1={`${photoRatio}%`} x2="100%" y2={`${photoRatio}%`} stroke="rgba(34, 197, 94, 0.9)" strokeWidth="2.5" />
-                                </svg>
-                              )}
-                            </div>
-                            <p className="text-xs text-gray-500 mt-1">
-                              {logoSettings.position === 'custom' ? 'Drag on preview to position logo' : 'Adjust settings on the right →'}
-                            </p>
-                          </div>
-
-                          {/* Right: Logo Controls */}
-                          <div className="space-y-4">
-                            {/* Photo/Logo Ratio Control */}
-                            <div>
-                              <label className="block text-sm font-medium mb-2">
-                                Photo Area Ratio: {photoRatio}%
-                                <span className="text-gray-500 ml-2">(Logo: {100 - photoRatio}%)</span>
-                              </label>
-                              <input
-                                type="range"
-                                min="50"
-                                max="100"
-                                value={photoRatio}
-                                onChange={(e) => debouncedUpdatePhotoRatio(event._id, Number(e.target.value))}
-                                className="w-full"
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-sm font-medium mb-2">
-                                Logo Position:
-                              </label>
-                              <select
-                                value={logoSettings.position}
-                                onChange={(e) => {
-                                  const newPosition = e.target.value as LogoSettings['position']
-                                  if (newPosition === 'custom') {
-                                    handleUpdateLogoSettings(event._id, {
-                                      ...logoSettings,
-                                      position: 'custom',
-                                      x: 50,
-                                      y: 50
-                                    })
-                                  } else {
-                                    handleUpdateLogoSettings(event._id, {
-                                      ...logoSettings,
-                                      position: newPosition
-                                    })
-                                  }
-                                }}
-                                className="w-full px-3 py-2 border rounded-lg text-sm"
-                              >
-                                <option value="top-left">Top Left</option>
-                                <option value="top-center">Top Center</option>
-                                <option value="top-right">Top Right</option>
-                                <option value="center-left">Center Left</option>
-                                <option value="center">Center</option>
-                                <option value="center-right">Center Right</option>
-                                <option value="bottom-left">Bottom Left</option>
-                                <option value="bottom-center">Bottom Center</option>
-                                <option value="bottom-right">Bottom Right</option>
-                                <option value="custom">Custom (Drag)</option>
-                              </select>
-                            </div>
-
-                            {logoSettings.position === 'custom' && (
-                              <div className="space-y-3">
-                                <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
-                                  💡 Drag logo in preview or enter values
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-3">
-                                  <div>
-                                    <label className="block text-xs font-medium mb-1">
-                                      X Position (%):
-                                    </label>
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      max="100"
-                                      step="1"
-                                      value={Math.round(logoSettings.x ?? 50)}
-                                      onChange={(e) => debouncedUpdateLogoSettings(event._id, {
-                                        ...logoSettings,
-                                        x: Number(e.target.value)
-                                      })}
-                                      className="w-full px-2 py-1 border rounded text-sm"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="block text-xs font-medium mb-1">
-                                      Y Position (%):
-                                    </label>
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      max="100"
-                                      step="1"
-                                      value={Math.round(logoSettings.y ?? 50)}
-                                      onChange={(e) => debouncedUpdateLogoSettings(event._id, {
-                                        ...logoSettings,
-                                        y: Number(e.target.value)
-                                      })}
-                                      className="w-full px-2 py-1 border rounded text-sm"
-                                    />
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-
-                            <div>
-                              <label className="block text-sm font-medium mb-2">
-                                Logo Size: {logoSettings.size}%
-                              </label>
-                              <input
-                                type="range"
-                                min="5"
-                                max="300"
-                                step="1"
-                                value={logoSettings.size}
-                                onChange={(e) => debouncedUpdateLogoSettings(event._id, {
-                                  ...logoSettings,
-                                  size: Number(e.target.value)
-                                })}
-                                className="w-full"
-                              />
-                              <div className="flex justify-between text-xs text-gray-400 mt-1">
-                                <span>5%</span>
-                                <span>100%</span>
-                                <span>200%</span>
-                                <span>300%</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Overlay Logo Settings - separate from normal logo */}
-                      {event.logoUrl && (
-                        <div className="border-t pt-4">
-                          <h4 className="text-sm font-bold mb-3 text-purple-700">오버레이 로고 설정 (사진 위에 로고)</h4>
-                          <div className="grid grid-cols-2 gap-6">
-                            {/* Left: Overlay Preview */}
-                            <div>
-                              <div className="flex items-center justify-between mb-2">
-                                <p className="text-sm font-medium">Overlay Preview:</p>
-                                <button
-                                  onClick={() => generateOverlayPreview(event)}
-                                  disabled={loadingOverlayPreviews[event._id]}
-                                  className="text-xs px-3 py-1 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50"
-                                >
-                                  {loadingOverlayPreviews[event._id] ? 'Loading...' : 'Refresh'}
-                                </button>
-                              </div>
-                              <div className="relative w-3/4 mx-auto aspect-[1000/1500] bg-gray-100 border-2 border-purple-300 rounded shadow-lg overflow-hidden">
-                                {overlayPreviewUrls[event._id] ? (
-                                  <Image
-                                    key={overlayPreviewUrls[event._id]}
-                                    src={overlayPreviewUrls[event._id]}
-                                    alt="Overlay Preview"
-                                    fill
-                                    className="object-cover"
-                                    unoptimized
-                                  />
-                                ) : (
-                                  <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm px-4 text-center">
-                                    Click &quot;Refresh&quot; to see overlay preview
-                                  </div>
-                                )}
-                                {loadingOverlayPreviews[event._id] && (
-                                  <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center">
-                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-                                  </div>
-                                )}
-
-                                {/* Draggable overlay for custom position */}
-                                {overlaySettings.position === 'custom' && overlayPreviewUrls[event._id] && !loadingOverlayPreviews[event._id] && (
-                                  <div
-                                    className="absolute inset-0 cursor-move"
-                                    onMouseDown={(e) => {
-                                      e.preventDefault()
-                                      const container = e.currentTarget
-                                      const rect = container.getBoundingClientRect()
-
-                                      const handleMouseMove = (moveEvent: MouseEvent) => {
-                                        const percentX = Math.max(0, Math.min(100, ((moveEvent.clientX - rect.left) / rect.width) * 100))
-                                        const percentY = Math.max(0, Math.min(100, ((moveEvent.clientY - rect.top) / rect.height) * 100))
-
-                                        handleUpdateOverlayLogoSettings(event._id, {
-                                          ...overlaySettings,
-                                          x: Math.round(percentX * 10) / 10,
-                                          y: Math.round(percentY * 10) / 10
-                                        }, false)
-                                      }
-
-                                      const handleMouseUp = () => {
-                                        document.removeEventListener('mousemove', handleMouseMove)
-                                        document.removeEventListener('mouseup', handleMouseUp)
-                                        setTimeout(() => generateOverlayPreview(event), 100)
-                                      }
-
-                                      document.addEventListener('mousemove', handleMouseMove)
-                                      document.addEventListener('mouseup', handleMouseUp)
-                                    }}
-                                  >
-                                    <div className="absolute inset-0 bg-purple-400 bg-opacity-0 hover:bg-opacity-10 transition-all">
-                                      <div className="absolute top-2 left-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded pointer-events-none">
-                                        Drag to position logo
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Right: Overlay Logo Controls */}
-                            <div className="space-y-4">
-                              <div>
-                                <label className="block text-sm font-medium mb-2">
-                                  Logo Position:
-                                </label>
-                                <select
-                                  value={overlaySettings.position}
-                                  onChange={(e) => {
-                                    const newPosition = e.target.value as LogoSettings['position']
-                                    if (newPosition === 'custom') {
-                                      handleUpdateOverlayLogoSettings(event._id, {
-                                        ...overlaySettings,
-                                        position: 'custom',
-                                        x: 50,
-                                        y: 50
-                                      })
-                                    } else {
-                                      handleUpdateOverlayLogoSettings(event._id, {
-                                        ...overlaySettings,
-                                        position: newPosition
-                                      })
-                                    }
-                                  }}
-                                  className="w-full px-3 py-2 border rounded-lg text-sm"
-                                >
-                                  <option value="top-left">Top Left</option>
-                                  <option value="top-center">Top Center</option>
-                                  <option value="top-right">Top Right</option>
-                                  <option value="center-left">Center Left</option>
-                                  <option value="center">Center</option>
-                                  <option value="center-right">Center Right</option>
-                                  <option value="bottom-left">Bottom Left</option>
-                                  <option value="bottom-center">Bottom Center</option>
-                                  <option value="bottom-right">Bottom Right</option>
-                                  <option value="custom">Custom (Drag)</option>
-                                </select>
-                              </div>
-
-                              {overlaySettings.position === 'custom' && (
-                                <div className="space-y-3">
-                                  <div className="text-xs text-purple-600 bg-purple-50 p-2 rounded">
-                                    Drag logo in preview or enter values
-                                  </div>
-                                  <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                      <label className="block text-xs font-medium mb-1">X Position (%):</label>
-                                      <input
-                                        type="number"
-                                        min="0"
-                                        max="100"
-                                        step="1"
-                                        value={Math.round(overlaySettings.x ?? 50)}
-                                        onChange={(e) => debouncedUpdateOverlayLogoSettings(event._id, {
-                                          ...overlaySettings,
-                                          x: Number(e.target.value)
-                                        })}
-                                        className="w-full px-2 py-1 border rounded text-sm"
-                                      />
-                                    </div>
-                                    <div>
-                                      <label className="block text-xs font-medium mb-1">Y Position (%):</label>
-                                      <input
-                                        type="number"
-                                        min="0"
-                                        max="100"
-                                        step="1"
-                                        value={Math.round(overlaySettings.y ?? 50)}
-                                        onChange={(e) => debouncedUpdateOverlayLogoSettings(event._id, {
-                                          ...overlaySettings,
-                                          y: Number(e.target.value)
-                                        })}
-                                        className="w-full px-2 py-1 border rounded text-sm"
-                                      />
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-
-                              <div>
-                                <label className="block text-sm font-medium mb-2">
-                                  Logo Size: {overlaySettings.size}%
-                                </label>
-                                <input
-                                  type="range"
-                                  min="5"
-                                  max="300"
-                                  step="1"
-                                  value={overlaySettings.size}
-                                  onChange={(e) => debouncedUpdateOverlayLogoSettings(event._id, {
-                                    ...overlaySettings,
-                                    size: Number(e.target.value)
-                                  })}
-                                  className="w-full"
-                                />
-                                <div className="flex justify-between text-xs text-gray-400 mt-1">
-                                  <span>5%</span>
-                                  <span>100%</span>
-                                  <span>200%</span>
-                                  <span>300%</span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
                     </div>
 
-                    <div className="flex flex-col gap-2">
-                      <button
-                        onClick={() => generateQR(event)}
-                        className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm"
-                      >
-                        Show QR
-                      </button>
-                      <button
-                        onClick={() => {
-                          const url = `${window.location.origin}/${event.slug}`
-                          window.open(url, '_blank')
-                        }}
-                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm"
-                      >
-                        Link
-                      </button>
-                      <button
-                        onClick={() => {
-                          const url = `/admin/layouts?eventId=${event._id}&eventName=${encodeURIComponent(event.name)}`
-                          window.open(url, '_blank')
-                        }}
-                        className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm font-semibold"
-                      >
-                        레이아웃 편집
-                      </button>
-                      <button
-                        onClick={() => viewPrintHistory(event)}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
-                      >
-                        Print History
-                      </button>
-                      <label className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm text-center cursor-pointer">
-                        Upload Logo
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0]
-                            if (file) handleUploadLogo(event._id, file)
-                          }}
-                        />
-                      </label>
+                    <div className="flex flex-col gap-2 min-w-[120px]">
+                      <UIButton size="sm" onClick={() => generateQR(event)}>QR 코드</UIButton>
+                      <UIButton size="sm" variant="secondary" onClick={() => {
+                        const url = `${window.location.origin}/${event.slug}`
+                        window.open(url, '_blank')
+                      }}>링크 열기</UIButton>
+                      <UIButton size="sm" onClick={() => {
+                        const url = `/admin/layouts?eventId=${event._id}&eventName=${encodeURIComponent(event.name)}`
+                        window.open(url, '_blank')
+                      }}>레이아웃 편집</UIButton>
+                      <UIButton size="sm" variant="secondary" onClick={() => viewPrintHistory(event)}>인쇄 기록</UIButton>
                     </div>
                   </div>
-                </div>
+                </UICard>
               )
             })}
             {events.length === 0 && (
@@ -1650,31 +951,29 @@ export default function AdminPage() {
 
               {/* Action buttons */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <button
+                <UIButton
+                  variant="download"
                   onClick={downloadPromotionalImage}
                   disabled={!promotionalImageUrl || generatingPromo}
-                  className="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold flex items-center justify-center gap-2"
                 >
-                  <span>💾</span>
                   다운로드
-                </button>
-                <button
+                </UIButton>
+                <UIButton
                   onClick={printPromotionalImage}
                   disabled={!promotionalImageUrl || generatingPromo || loading}
-                  className="px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold flex items-center justify-center gap-2"
+                  loading={loading}
                 >
-                  <span>🖨️</span>
                   {loading ? '인쇄 중...' : '프린터로 인쇄'}
-                </button>
-                <button
+                </UIButton>
+                <UIButton
+                  variant="secondary"
                   onClick={() => {
                     setQrCodeUrl(null)
                     setPromotionalImageUrl(null)
                   }}
-                  className="px-4 py-3 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 font-semibold"
                 >
                   닫기
-                </button>
+                </UIButton>
               </div>
             </div>
           </div>
@@ -1726,13 +1025,9 @@ export default function AdminPage() {
                         )}
                         <div className="flex-1 space-y-2">
                           <div className="flex items-center gap-2">
-                            <span className={`px-2 py-1 rounded text-xs font-medium ${
-                              job.status === 'DONE'
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-red-100 text-red-800'
-                            }`}>
-                              {job.status}
-                            </span>
+                            <UIBadge variant={job.status === 'DONE' ? 'success' : 'error'}>
+                              {job.status === 'DONE' ? '완료' : '실패'}
+                            </UIBadge>
                             <span className="text-sm text-gray-600">
                               {new Date(job.createdAt).toLocaleString()}
                             </span>
@@ -1781,12 +1076,14 @@ export default function AdminPage() {
                 </div>
               )}
 
-              <button
+              <UIButton
+                variant="secondary"
+                fullWidth
                 onClick={() => setShowPrintHistory(false)}
-                className="w-full mt-6 px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
+                className="mt-6"
               >
-                Close
-              </button>
+                닫기
+              </UIButton>
             </div>
           </div>
         )}
@@ -1794,12 +1091,14 @@ export default function AdminPage() {
         {selectedImageForPreview && (
           <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center p-4 z-50" onClick={() => setSelectedImageForPreview(null)}>
             <div className="relative max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-              <button
+              <UIButton
+                variant="ghost"
+                size="sm"
                 onClick={() => setSelectedImageForPreview(null)}
-                className="absolute -top-12 right-0 text-white hover:text-gray-300 text-xl font-bold"
+                className="absolute -top-12 right-0 text-white hover:text-gray-300"
               >
-                ✕ Close
-              </button>
+                닫기
+              </UIButton>
               <div className="bg-white rounded-lg overflow-hidden">
                 <div className="relative w-full aspect-[1000/1500]">
                   <Image
