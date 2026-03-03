@@ -1,25 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import path from 'path'
-import fs from 'fs/promises'
 import sharp from 'sharp'
 import { findEventBySlug, findPrinterById, createPrintJob } from '@/lib/models'
 import { printImage } from '@/lib/printer'
 import { applyPrinterCorrection } from '@/lib/image-correction'
+import { uploadToBlob, readImageBuffer } from '@/lib/blob'
 import { DeviceInfo } from '@/lib/types'
-
-function resolveImagePath(imageUrl: string): string {
-  if (imageUrl.startsWith('/api/serve-image/')) {
-    const filename = imageUrl.replace('/api/serve-image/', '')
-    return path.join('/tmp/uploads', filename)
-  }
-  if (imageUrl.startsWith('/uploads/')) {
-    return path.join(process.cwd(), 'public', imageUrl)
-  }
-  if (imageUrl.startsWith('/tmp')) {
-    return imageUrl
-  }
-  return path.join(process.cwd(), 'public', imageUrl)
-}
 
 // Extract IP address from request
 function getClientIp(request: NextRequest): string {
@@ -86,20 +71,14 @@ export async function POST(request: NextRequest) {
 
       try {
         if (printer.printMethod === 'polling') {
-          // Polling: apply image correction, save corrected image, create PENDING job
-          let imagePath: string
+          // Polling: apply image correction, upload corrected image, create PENDING job
+          let imageBuffer: Buffer
           if (imageUrl.startsWith('data:')) {
             const base64Data = imageUrl.split(',')[1]
-            const buffer = Buffer.from(base64Data, 'base64')
-            const tempDir = '/tmp/uploads'
-            await fs.mkdir(tempDir, { recursive: true })
-            imagePath = path.join(tempDir, `print-${Date.now()}.jpg`)
-            await fs.writeFile(imagePath, buffer)
+            imageBuffer = Buffer.from(base64Data, 'base64')
           } else {
-            imagePath = resolveImagePath(imageUrl)
+            imageBuffer = await readImageBuffer(imageUrl)
           }
-
-          let imageBuffer = await fs.readFile(imagePath)
 
           // Rotate landscape images for 4x6 printing
           const metadata = await sharp(imageBuffer).metadata()
@@ -117,12 +96,9 @@ export async function POST(request: NextRequest) {
             }))
           }
 
-          // Save corrected image
+          // Upload corrected image to Blob
           const correctedFilename = `corrected-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`
-          const uploadDir = '/tmp/uploads'
-          await fs.mkdir(uploadDir, { recursive: true })
-          await fs.writeFile(path.join(uploadDir, correctedFilename), imageBuffer)
-          const correctedUrl = `/api/serve-image/${correctedFilename}`
+          const correctedUrl = await uploadToBlob(correctedFilename, imageBuffer)
 
           const printJob = await createPrintJob({
             eventId: event._id!.toString(),

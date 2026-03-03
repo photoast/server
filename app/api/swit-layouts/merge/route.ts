@@ -219,18 +219,11 @@ export async function POST(request: NextRequest) {
       .jpeg({ quality: 95 })
       .toBuffer()
 
-    // Save result
+    // Save result to Blob
     const filename = `swit-merged-${layoutId}-${Date.now()}.jpg`
-    const isVercel = process.env.VERCEL === '1'
-
-    if (isVercel) {
-      const base64 = result.toString('base64')
-      return NextResponse.json({ url: `data:image/jpeg;base64,${base64}` })
-    }
-
-    const savedPath = path.join(process.cwd(), 'public', 'uploads', filename)
-    fs.writeFileSync(savedPath, result)
-    return NextResponse.json({ url: `/uploads/${filename}` })
+    const { uploadToBlob } = await import('@/lib/blob')
+    const url = await uploadToBlob(filename, result)
+    return NextResponse.json({ url })
   } catch (err: any) {
     console.error('Merge error:', err)
     return NextResponse.json({ error: err.message || 'Merge failed' }, { status: 500 })

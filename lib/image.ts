@@ -928,27 +928,6 @@ export async function saveUploadedFile(
   filename: string
 ): Promise<string> {
   const buffer = Buffer.from(await file.arrayBuffer())
-
-  // In Vercel (serverless), use /tmp directory (temporary, cleared on function restart)
-  // In local development, use public/uploads (persistent)
-  const isVercel = process.env.VERCEL === '1'
-
-  if (isVercel) {
-    // Vercel: Use /tmp directory (writable but temporary)
-    const uploadDir = '/tmp/uploads'
-    await fs.mkdir(uploadDir, { recursive: true })
-    const filepath = path.join(uploadDir, filename)
-    await fs.writeFile(filepath, buffer)
-
-    console.warn('⚠️ File saved to /tmp (temporary). Consider using Vercel Blob Storage for production.')
-    return `/api/serve-image/${filename}` // Return API route URL
-  } else {
-    // Local: Use public/uploads directory
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads')
-    await fs.mkdir(uploadDir, { recursive: true })
-    const filepath = path.join(uploadDir, filename)
-    await fs.writeFile(filepath, buffer)
-
-    return `/uploads/${filename}` // Return URL path for public files
-  }
+  const { uploadToBlob } = await import('./blob')
+  return uploadToBlob(filename, buffer)
 }

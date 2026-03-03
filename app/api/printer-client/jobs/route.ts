@@ -12,13 +12,14 @@ export async function GET(request: NextRequest) {
     const jobs = await getPendingJobsByPrinterId(printer._id!.toString())
 
     const baseUrl = request.nextUrl.origin
-    const response = jobs.map(job => ({
-      jobId: job._id!.toString(),
-      imageUrl: job.printedImageUrl
-        ? `${baseUrl}${job.printedImageUrl}`
-        : `${baseUrl}${job.imageUrl}`,
-      createdAt: job.createdAt.toISOString(),
-    }))
+    const response = jobs.map(job => {
+      const imgUrl = job.printedImageUrl || job.imageUrl
+      return {
+        jobId: job._id!.toString(),
+        imageUrl: imgUrl.startsWith('http') ? imgUrl : `${baseUrl}${imgUrl}`,
+        createdAt: job.createdAt.toISOString(),
+      }
+    })
 
     return NextResponse.json({ jobs: response })
   } catch (error) {

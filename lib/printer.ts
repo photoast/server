@@ -21,29 +21,31 @@ export async function printImage(
     console.log(`====================================`)
     console.log(`Image URL: ${imageUrl.substring(0, 100)}${imageUrl.length > 100 ? '...' : ''}`)
 
-    // data URL (base64) 처리 — Vercel 환경
-    if (imageUrl.startsWith('data:')) {
-      console.log(`Image Type: Data URL (base64), converting to temporary file`)
-
-      const base64Data = imageUrl.split(',')[1]
-      const buffer = Buffer.from(base64Data, 'base64')
-
-      const timestamp = Date.now()
+    // blob URL 또는 외부 URL → 임시 파일로 다운로드
+    if (imageUrl.startsWith('https://') || imageUrl.startsWith('http://')) {
+      console.log(`Image Type: External URL, downloading to temporary file`)
+      const res = await fetch(imageUrl)
+      if (!res.ok) throw new Error(`Failed to fetch image: ${imageUrl}`)
+      const buffer = Buffer.from(await res.arrayBuffer())
       const tempDir = '/tmp/uploads'
       await fs.mkdir(tempDir, { recursive: true })
-      imagePath = path.join(tempDir, `print-${timestamp}.jpg`)
+      imagePath = path.join(tempDir, `print-${Date.now()}.jpg`)
       await fs.writeFile(imagePath, buffer)
-
-      console.log(`Temporary file saved: ${imagePath}`)
+    } else if (imageUrl.startsWith('data:')) {
+      // data URL (base64) 처리
+      console.log(`Image Type: Data URL (base64), converting to temporary file`)
+      const base64Data = imageUrl.split(',')[1]
+      const buffer = Buffer.from(base64Data, 'base64')
+      const tempDir = '/tmp/uploads'
+      await fs.mkdir(tempDir, { recursive: true })
+      imagePath = path.join(tempDir, `print-${Date.now()}.jpg`)
+      await fs.writeFile(imagePath, buffer)
     } else if (imageUrl.startsWith('/api/serve-image/')) {
-      // Vercel: /api/serve-image/filename → /tmp/uploads/filename
       const filename = imageUrl.replace('/api/serve-image/', '')
       imagePath = path.join('/tmp/uploads', filename)
     } else if (imageUrl.startsWith('/uploads/')) {
-      // 로컬: /uploads/filename → public/uploads/filename
       imagePath = path.join(process.cwd(), 'public', imageUrl)
     } else if (imageUrl.startsWith('/tmp')) {
-      // 절대 경로 (Vercel 레거시)
       imagePath = imageUrl
     } else {
       imagePath = path.join(process.cwd(), 'public', imageUrl)
