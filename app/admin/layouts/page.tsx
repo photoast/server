@@ -33,6 +33,8 @@ function LayoutsPageInner() {
   const [copyLink, setCopyLink] = useState('')
   const [draggedId, setDraggedId] = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
+  const [editingNameId, setEditingNameId] = useState<string | null>(null)
+  const [editingNameValue, setEditingNameValue] = useState('')
 
   useEffect(() => {
     // Fetch all events for the dropdown
@@ -167,6 +169,18 @@ function LayoutsPageInner() {
     setDragOverId(null)
   }
 
+  const handleRenameSave = async (layoutId: string) => {
+    const trimmed = editingNameValue.trim()
+    if (!trimmed) { setEditingNameId(null); return }
+    await fetch(`/api/swit-layouts/${layoutId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: trimmed }),
+    })
+    setEditingNameId(null)
+    await loadLayouts()
+  }
+
   const copyUserLink = (layout: SwitLayout) => {
     // We need the event slug. Find it.
     const ev = events.find(e => e._id === layout.eventId)
@@ -294,7 +308,27 @@ function LayoutsPageInner() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <p className="font-semibold text-sm text-gray-800 truncate">{layout.name}</p>
+                        {editingNameId === layout._id ? (
+                          <input
+                            autoFocus
+                            className="font-semibold text-sm text-gray-800 bg-white border border-blue-400 rounded-lg px-2 py-0.5 outline-none w-48"
+                            value={editingNameValue}
+                            onChange={e => setEditingNameValue(e.target.value)}
+                            onBlur={() => handleRenameSave(layout._id)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') handleRenameSave(layout._id)
+                              if (e.key === 'Escape') setEditingNameId(null)
+                            }}
+                          />
+                        ) : (
+                          <p
+                            className="font-semibold text-sm text-gray-800 truncate cursor-pointer hover:text-blue-600"
+                            onClick={(e) => { e.stopPropagation(); setEditingNameId(layout._id); setEditingNameValue(layout.name) }}
+                            title="클릭하여 이름 변경"
+                          >
+                            {layout.name}
+                          </p>
+                        )}
                         {layout.visible === false && (
                           <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded shrink-0">미노출</span>
                         )}

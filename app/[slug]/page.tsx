@@ -1596,6 +1596,11 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                     <p className="mt-3 text-xs text-red-500">일부 인쇄가 실패했습니다. 관리자에게 문의해 주세요.</p>
                   )}
                 </div>
+                {previewUrl && (
+                  <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100">
+                    <img src={previewUrl} alt="인쇄 사진" className="w-full" />
+                  </div>
+                )}
                 {!allFailed && (
                   <UIButton fullWidth variant="download" onClick={handleDownload}>
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
