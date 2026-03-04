@@ -66,21 +66,29 @@ function detectColorRegions(
   const { data } = ctx.getImageData(0, 0, nw, nh)
 
   const ci = (Math.round(clickIY) * nw + Math.round(clickIX)) * 4
-  const tr = data[ci], tg = data[ci + 1], tb = data[ci + 2]
-  const sampledColor = `#${tr.toString(16).padStart(2, '0')}${tg.toString(16).padStart(2, '0')}${tb.toString(16).padStart(2, '0')}`.toUpperCase()
+  const tr = data[ci], tg = data[ci + 1], tb = data[ci + 2], ta = data[ci + 3]
+  const isTransparentClick = ta < 128
+  const sampledColor = isTransparentClick
+    ? 'transparent'
+    : `#${tr.toString(16).padStart(2, '0')}${tg.toString(16).padStart(2, '0')}${tb.toString(16).padStart(2, '0')}`.toUpperCase()
 
   // Build match mask
   const total = nw * nh
   const matches = new Uint8Array(total)
   for (let i = 0; i < total; i++) {
     const off = i * 4
-    if (data[off + 3] < 128) continue // skip transparent
-    const diff = Math.max(
-      Math.abs(data[off] - tr),
-      Math.abs(data[off + 1] - tg),
-      Math.abs(data[off + 2] - tb),
-    )
-    if (diff <= tolerance) matches[i] = 1
+    if (isTransparentClick) {
+      // 투명 영역 탐지: 알파값이 낮은 픽셀 매칭
+      if (data[off + 3] < 128) matches[i] = 1
+    } else {
+      if (data[off + 3] < 128) continue // skip transparent
+      const diff = Math.max(
+        Math.abs(data[off] - tr),
+        Math.abs(data[off + 1] - tg),
+        Math.abs(data[off + 2] - tb),
+      )
+      if (diff <= tolerance) matches[i] = 1
+    }
   }
 
   // Union-Find connected components (4-connectivity)
