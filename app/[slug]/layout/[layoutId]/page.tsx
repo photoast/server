@@ -609,20 +609,6 @@ export default function SwitLayoutPage({
                 사진 저장
               </UIButton>
             )}
-            {printJobIds.length > 0 && (
-              <UIButton
-                fullWidth
-                variant="secondary"
-                onClick={() => {
-                  const url = `${window.location.origin}/result/${printJobIds[0]}`
-                  navigator.clipboard?.writeText(url)
-                    .then(() => alert('결과 링크가 복사되었습니다'))
-                    .catch(() => prompt('결과 링크:', url))
-                }}
-              >
-                결과 링크 복사
-              </UIButton>
-            )}
             <UIButton fullWidth variant="secondary" onClick={() => router.push(`/${params.slug}`)}>새로운 사진 만들기</UIButton>
           </div>
         </div>
