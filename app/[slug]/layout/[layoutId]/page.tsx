@@ -570,99 +570,61 @@ export default function SwitLayoutPage({
     const allFailed = allJobsSettled && printJobStatuses.every(j => j.status === 'FAILED')
     const maxQueue = Math.max(...printJobStatuses.filter(j => j.status === 'PENDING').map(j => j.queuePosition || 0), 0)
 
-    // Determine display state
-    let statusBg = 'bg-yellow-50'
-    let iconBg = 'bg-yellow-100'
-    let iconColor = 'text-yellow-600'
-    let title = '인쇄 대기 중'
-    let subtitle = maxQueue > 1 ? `대기 ${maxQueue}번째` : '곧 인쇄가 시작됩니다'
-    let icon = (
-      <svg className={`w-7 h-7 ${iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    )
+    let statusType: 'processing' | 'success' | 'error' = 'processing'
+    let statusMessage = maxQueue > 1 ? `인쇄 대기 중 · 대기 ${maxQueue}번째` : '인쇄 대기 중 · 곧 인쇄가 시작됩니다'
 
     if (allDone) {
-      statusBg = 'bg-green-50'
-      iconBg = 'bg-green-100'
-      iconColor = 'text-green-600'
-      title = '인쇄 완료'
-      subtitle = '출력이 완료되었습니다'
-      icon = (
-        <svg className="w-7 h-7 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-        </svg>
-      )
+      statusType = 'success'
+      statusMessage = '인쇄가 완료되었습니다'
     } else if (allFailed) {
-      statusBg = 'bg-red-50'
-      iconBg = 'bg-red-100'
-      iconColor = 'text-red-600'
-      title = '인쇄 실패'
-      subtitle = '관리자에게 문의해 주세요'
-      icon = (
-        <svg className="w-7 h-7 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-        </svg>
-      )
+      statusType = 'error'
+      statusMessage = '인쇄에 실패했습니다. 관리자에게 문의해 주세요.'
     } else if (!hasPending && printJobStatuses.length === 0) {
-      // No polling data yet or email printer (immediate DONE)
-      statusBg = 'bg-green-50'
-      iconBg = 'bg-green-100'
-      title = '프린트 전송 완료'
-      subtitle = '잠시 후 출력됩니다'
-      icon = (
-        <svg className="w-7 h-7 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-        </svg>
-      )
+      statusType = 'success'
+      statusMessage = '프린트 전송 완료 · 잠시 후 출력됩니다'
+    } else if (hasFailed && !allFailed) {
+      statusType = 'error'
+      statusMessage = '일부 인쇄가 실패했습니다. 관리자에게 문의해 주세요.'
     }
 
     return (
-      <div className="min-h-dvh bg-gray-50 flex items-center justify-center px-4">
-        <div className="w-full max-w-sm space-y-5">
-          <div className={`${statusBg} rounded-2xl p-8 text-center`}>
-            <div className={`w-14 h-14 ${iconBg} rounded-full flex items-center justify-center mx-auto mb-4`}>
-              {icon}
-            </div>
-            <h2 className="text-xl font-bold text-gray-900 mb-2">{title}</h2>
-            <p className="text-sm text-gray-500">{subtitle}</p>
-            {hasPending && (
-              <div className="mt-4 flex items-center justify-center gap-2">
-                <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
-                <span className="text-xs text-gray-400">상태 확인 중...</span>
-              </div>
-            )}
-            {hasFailed && !allFailed && (
-              <p className="mt-3 text-xs text-red-500">일부 인쇄가 실패했습니다. 관리자에게 문의해 주세요.</p>
-            )}
-          </div>
+      <div className="min-h-dvh bg-gray-50 flex flex-col items-center px-4 py-8">
+        <div className="w-full max-w-sm space-y-6">
+          <UISectionHeading title="완료" subtitle="사진이 준비되었습니다" />
+
+          <UIStatusBanner type={statusType} message={statusMessage} />
+
           {mergedUrl && (
-            <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100">
-              <img src={mergedUrl} alt="인쇄 사진" className="w-full" />
+            <div className="flex justify-center">
+              <img src={mergedUrl} alt="인쇄 사진" className="rounded-lg shadow-lg object-contain" style={{ maxHeight: '40vh', maxWidth: '100%' }} />
             </div>
           )}
-          {!allFailed && (
-            <UIButton fullWidth variant="download" onClick={handleDownload}>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-              사진 저장
-            </UIButton>
-          )}
-          {printJobIds.length > 0 && (
-            <button
-              onClick={() => {
-                const url = `${window.location.origin}/result/${printJobIds[0]}`
-                navigator.clipboard?.writeText(url)
-                  .then(() => alert('결과 링크가 복사되었습니다'))
-                  .catch(() => prompt('결과 링크:', url))
-              }}
-              className="w-full py-3 rounded-2xl border border-gray-200 bg-white text-gray-700 font-semibold text-sm hover:bg-gray-50 transition-colors"
-            >
-              결과 링크 복사
-            </button>
-          )}
-          <UIButton fullWidth variant="secondary" onClick={() => router.push(`/${params.slug}`)}>새로운 사진 만들기</UIButton>
+
+          <div className="space-y-3">
+            {!allFailed && (
+              <UIButton fullWidth variant="download" onClick={handleDownload}>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                사진 저장
+              </UIButton>
+            )}
+            {printJobIds.length > 0 && (
+              <UIButton
+                fullWidth
+                variant="secondary"
+                onClick={() => {
+                  const url = `${window.location.origin}/result/${printJobIds[0]}`
+                  navigator.clipboard?.writeText(url)
+                    .then(() => alert('결과 링크가 복사되었습니다'))
+                    .catch(() => prompt('결과 링크:', url))
+                }}
+              >
+                결과 링크 복사
+              </UIButton>
+            )}
+            <UIButton fullWidth variant="secondary" onClick={() => router.push(`/${params.slug}`)}>새로운 사진 만들기</UIButton>
+          </div>
         </div>
       </div>
     )
