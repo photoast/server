@@ -667,6 +667,7 @@ export default function SwitLayoutPage({
           {/* Step: Fill Photos */}
           {step === 'fill-photos' && !mergedUrl && (
             <SwitUserEditor
+              key={layout._id}
               layout={layout}
               eventSlug={params.slug}
               backgroundColor={selectedColor}
