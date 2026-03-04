@@ -662,7 +662,7 @@ export default function SwitLayoutPage({
               결과 링크 복사
             </button>
           )}
-          <UIButton fullWidth variant="secondary" onClick={handleReset}>새로운 사진 만들기</UIButton>
+          <UIButton fullWidth variant="secondary" onClick={() => router.push(`/${params.slug}`)}>새로운 사진 만들기</UIButton>
         </div>
       </div>
     )
@@ -675,11 +675,13 @@ export default function SwitLayoutPage({
 
   const stepBarSteps = showColorStep
     ? [
+        { id: 'layout', label: '레이아웃' },
         { id: 'fill-photos', label: '사진' },
         { id: 'select-bg-color', label: '배경색' },
         { id: 'payment', label: '완료' },
       ]
     : [
+        { id: 'layout', label: '레이아웃' },
         { id: 'fill-photos', label: '사진' },
         { id: 'payment', label: '완료' },
       ]
