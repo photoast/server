@@ -103,6 +103,20 @@ export const DEFAULT_LAYOUT_TEMPLATES: DefaultLayoutTemplate[] = [
     backgroundColorCustomizable: true,
   },
   {
+    name: '인스타그램',
+    nameEn: 'Instagram',
+    printSize: '4x6',
+    canvasWidth: 1200,
+    canvasHeight: 1800,
+    // 사진: 풀너비, 헤더(100px) 아래부터 액션바(90px)+하단(186px) 위까지 = 1424px
+    slots: [
+      { x: 0, y: 100, width: 1200, height: 1424, aspectRatio: 'free' },
+    ],
+    frameLayers: [],
+    backgroundColor: '#FFFFFF',
+    backgroundColorCustomizable: false,
+  },
+  {
     name: '1×4 네컷',
     nameEn: 'Four-Cut',
     printSize: '4x6',

@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { Stage, Layer, Rect, Image as KonvaImage, Transformer, Text } from 'react-konva'
+import { Stage, Layer, Rect, Image as KonvaImage, Transformer, Text, Line } from 'react-konva'
 import type Konva from 'konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { SwitSlot, SwitLayout, SwitFrameLayer } from '@/lib/types'
@@ -183,7 +183,57 @@ export default function SwitSlotEditor({ layout, onSave }: Props) {
   const [bgColor, setBgColor] = useState(layout.backgroundColor || '#FFFFFF')
   const [bgCustomizable, setBgCustomizable] = useState(layout.backgroundColorCustomizable ?? true)
 
+  // --- Undo / Redo ---
+  type Snapshot = { slots: SwitSlot[]; frameLayers: SwitFrameLayer[] }
+  const undoStack = useRef<Snapshot[]>([])
+  const redoStack = useRef<Snapshot[]>([])
+  const lastSnapshotRef = useRef<string>(JSON.stringify({ slots: layout.slots, frameLayers: layout.frameLayers || [] }))
+
+  const pushUndo = useCallback(() => {
+    const current: Snapshot = { slots, frameLayers }
+    const key = JSON.stringify(current)
+    if (key === lastSnapshotRef.current) return // 변화 없으면 스킵
+    undoStack.current.push(JSON.parse(lastSnapshotRef.current))
+    if (undoStack.current.length > 50) undoStack.current.shift()
+    redoStack.current = []
+    lastSnapshotRef.current = key
+  }, [slots, frameLayers])
+
+  // slots/frameLayers 변경 감지하여 자동으로 undo 스택 기록
+  const prevSlotsRef = useRef(slots)
+  const prevLayersRef = useRef(frameLayers)
+  useEffect(() => {
+    if (prevSlotsRef.current !== slots || prevLayersRef.current !== frameLayers) {
+      pushUndo()
+      prevSlotsRef.current = slots
+      prevLayersRef.current = frameLayers
+    }
+  }, [slots, frameLayers, pushUndo])
+
+  const undo = useCallback(() => {
+    if (undoStack.current.length === 0) return
+    const prev = undoStack.current.pop()!
+    redoStack.current.push(JSON.parse(lastSnapshotRef.current))
+    lastSnapshotRef.current = JSON.stringify(prev)
+    prevSlotsRef.current = prev.slots
+    prevLayersRef.current = prev.frameLayers
+    setSlots(prev.slots)
+    setFrameLayers(prev.frameLayers)
+  }, [])
+
+  const redo = useCallback(() => {
+    if (redoStack.current.length === 0) return
+    const next = redoStack.current.pop()!
+    undoStack.current.push(JSON.parse(lastSnapshotRef.current))
+    lastSnapshotRef.current = JSON.stringify(next)
+    prevSlotsRef.current = next.slots
+    prevLayersRef.current = next.frameLayers
+    setSlots(next.slots)
+    setFrameLayers(next.frameLayers)
+  }, [])
+
   const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'slot' | 'frame'; id: string; name: string } | null>(null)
+  const [layerDeleteConfirm, setLayerDeleteConfirm] = useState<{ type: 'slot' | 'frame'; id: string; name: string } | null>(null)
 
   // Slot detection from frame layer
   const [editorMode, setEditorMode] = useState<'draw' | 'colorPick'>('draw')
@@ -192,6 +242,7 @@ export default function SwitSlotEditor({ layout, onSave }: Props) {
   const [detectedRegions, setDetectedRegions] = useState<DetectedRegion[]>([])
   const [sampledColor, setSampledColor] = useState<string | null>(null)
   const [previewMode, setPreviewMode] = useState(false)
+  const [showGrid, setShowGrid] = useState(false)
 
   const stageRef = useRef<Konva.Stage>(null)
   const trRef = useRef<Konva.Transformer>(null)
@@ -262,6 +313,19 @@ export default function SwitSlotEditor({ layout, onSave }: Props) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       // Escape cancels color pick mode
+      // Undo: Ctrl+Z / Cmd+Z
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        undo()
+        return
+      }
+      // Redo: Ctrl+Shift+Z / Cmd+Shift+Z / Ctrl+Y
+      if (((e.ctrlKey || e.metaKey) && e.key === 'z' && e.shiftKey) || ((e.ctrlKey || e.metaKey) && e.key === 'y')) {
+        e.preventDefault()
+        redo()
+        return
+      }
+
       if (e.key === 'Escape' && (editorMode === 'colorPick' || detectedRegions.length > 0)) {
         setEditorMode('draw')
         setDetectedRegions([])
@@ -289,7 +353,7 @@ export default function SwitSlotEditor({ layout, onSave }: Props) {
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [selectedSlotId, selectedFrameLayerId, slots, frameLayers, editorMode, detectedRegions.length])
+  }, [selectedSlotId, selectedFrameLayerId, slots, frameLayers, editorMode, detectedRegions.length, undo, redo])
 
   // Track Shift key for proportional resize
   useEffect(() => {
@@ -528,6 +592,71 @@ export default function SwitSlotEditor({ layout, onSave }: Props) {
     }
   }
 
+  // --- Instagram frame generation ---
+  const [igForm, setIgForm] = useState({ username: '', qrUrl: '', caption: '', likesText: '', qrLabel: '' })
+  const [igGenerating, setIgGenerating] = useState(false)
+  const [showIgDialog, setShowIgDialog] = useState(false)
+
+  const handleGenerateInstagramFrame = async () => {
+    if (!igForm.username.trim()) return
+    setIgGenerating(true)
+    try {
+      const res = await fetch(`/api/swit-layouts/${layout._id}/instagram-frame`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: igForm.username.trim(),
+          qrUrl: igForm.qrUrl.trim() || undefined,
+          caption: igForm.caption.trim() || undefined,
+          likesText: igForm.likesText.trim() || undefined,
+          qrLabel: igForm.qrLabel.trim() || undefined,
+        }),
+      })
+      if (!res.ok) throw new Error('Generation failed')
+      const data = await res.json()
+      setFrameLayers(data.frameLayers)
+      setShowIgDialog(false)
+    } catch {
+      alert('인스타그램 프레임 생성 실패')
+    } finally {
+      setIgGenerating(false)
+    }
+  }
+
+  // --- Text overlay tool ---
+  const TEXT_COLORS = ['#FFFFFF', '#000000', '#ED4956', '#E1306C', '#833AB4', '#405DE6', '#5B51D8', '#00B2FF', '#58C322', '#FCAF45', '#F77737', '#FD1D1D']
+  const [showTextDialog, setShowTextDialog] = useState(false)
+  const [textGenerating, setTextGenerating] = useState(false)
+  const [textForm, setTextForm] = useState({
+    text: '',
+    fontSize: 64,
+    color: '#FFFFFF',
+    bgStyle: 'none' as 'none' | 'solid' | 'translucent',
+    bgColor: '#000000',
+    bold: true,
+  })
+
+  const handleGenerateText = async () => {
+    if (!textForm.text.trim()) return
+    setTextGenerating(true)
+    try {
+      const res = await fetch(`/api/swit-layouts/${layout._id}/text-overlay`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(textForm),
+      })
+      if (!res.ok) throw new Error('Failed')
+      const data = await res.json()
+      setFrameLayers(data.frameLayers)
+      setShowTextDialog(false)
+      setTextForm(f => ({ ...f, text: '' }))
+    } catch {
+      alert('텍스트 생성 실패')
+    } finally {
+      setTextGenerating(false)
+    }
+  }
+
   const deleteFrameLayer = async (layerId: string) => {
     try {
       const res = await fetch(`/api/swit-layouts/${layout._id}/frame`, {
@@ -761,6 +890,22 @@ export default function SwitSlotEditor({ layout, onSave }: Props) {
           />
         </label>
 
+        {/* Instagram frame generator */}
+        <button
+          onClick={() => setShowIgDialog(true)}
+          className="px-3 py-1.5 text-xs rounded-xl font-semibold bg-gradient-to-r from-purple-500 via-pink-500 to-orange-400 text-white hover:opacity-90 transition-opacity"
+        >
+          IG 프레임
+        </button>
+
+        {/* Text overlay tool */}
+        <button
+          onClick={() => setShowTextDialog(true)}
+          className="px-3 py-1.5 text-xs rounded-xl font-semibold bg-gray-800 text-white hover:bg-gray-700 transition-colors"
+        >
+          Aa 텍스트
+        </button>
+
         {selectedSlotId && (
           <>
             <button onClick={duplicateSlot}
@@ -812,6 +957,15 @@ export default function SwitSlotEditor({ layout, onSave }: Props) {
               : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
           }`}>
           {previewMode ? '편집 모드' : '미리보기'}
+        </button>
+
+        <button onClick={() => setShowGrid(g => !g)}
+          className={`px-3 py-1.5 text-xs rounded-xl font-semibold transition-colors ${
+            showGrid
+              ? 'bg-indigo-500 text-white'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}>
+          {showGrid ? '격자 끄기' : '# 격자'}
         </button>
 
         <button onClick={handleSave} disabled={saving}
@@ -960,6 +1114,30 @@ export default function SwitSlotEditor({ layout, onSave }: Props) {
                   fill="rgba(251,146,60,0.15)" stroke="#f97316" strokeWidth={2}
                   dash={[8, 4]} listening={false} />
               ))}
+
+              {/* Grid overlay */}
+              {showGrid && !previewMode && (() => {
+                const gridLines: React.ReactNode[] = []
+                const gridSizes = [
+                  { step: layout.canvasWidth / 2, color: 'rgba(255,0,0,0.4)', width: 1 },    // 중심선
+                  { step: layout.canvasWidth / 4, color: 'rgba(0,120,255,0.3)', width: 0.7 },  // 4등분
+                  { step: layout.canvasWidth / 8, color: 'rgba(0,0,0,0.12)', width: 0.5 },     // 8등분
+                ]
+                for (const { step, color, width } of gridSizes) {
+                  const stepPx = step * scale
+                  // 세로선
+                  for (let x = stepPx; x < DISPLAY_W; x += stepPx) {
+                    gridLines.push(<Line key={`gv-${step}-${x}`} points={[x, 0, x, displayH]} stroke={color} strokeWidth={width} listening={false} />)
+                  }
+                  // 가로선
+                  const stepH = step * (layout.canvasHeight / layout.canvasWidth)
+                  const stepHPx = stepH * scale
+                  for (let y = stepHPx; y < displayH; y += stepHPx) {
+                    gridLines.push(<Line key={`gh-${step}-${y}`} points={[0, y, DISPLAY_W, y]} stroke={color} strokeWidth={width} listening={false} />)
+                  }
+                }
+                return gridLines
+              })()}
 
               {!previewMode && (
                 <Transformer ref={trRef} keepRatio={shiftHeld} rotateEnabled={true}
@@ -1259,6 +1437,15 @@ export default function SwitSlotEditor({ layout, onSave }: Props) {
                       ⧉
                     </button>
 
+                    {/* Delete */}
+                    <button onClick={e => {
+                      e.stopPropagation()
+                      setLayerDeleteConfirm({ id: item.id, type: item.type, name: item.name })
+                    }}
+                      className="text-[10px] text-gray-300 hover:text-red-500 shrink-0 transition-colors" title="삭제">
+                      ✕
+                    </button>
+
                     <span className="text-[10px] text-gray-400 shrink-0 tabular-nums">z{item.zIndex}</span>
                   </div>
                 )
@@ -1337,6 +1524,233 @@ export default function SwitSlotEditor({ layout, onSave }: Props) {
               }}
                 className="flex-1 px-4 py-2 text-sm rounded-xl bg-red-500 text-white hover:bg-red-600 font-semibold">
                 삭제
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Layer delete confirm dialog */}
+      {layerDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setLayerDeleteConfirm(null)}>
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-[320px]" onClick={e => e.stopPropagation()}>
+            <p className="text-sm font-semibold text-gray-800 mb-1">레이어 삭제</p>
+            <p className="text-xs text-gray-500 mb-4">
+              <span className="font-semibold text-gray-700">{layerDeleteConfirm.name}</span> 레이어를 삭제할까요?
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setLayerDeleteConfirm(null)}
+                className="flex-1 px-4 py-2 text-sm rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 font-semibold">
+                취소
+              </button>
+              <button onClick={() => {
+                if (layerDeleteConfirm.type === 'slot') {
+                  setSlots(prev => prev.filter(s => s.id !== layerDeleteConfirm.id))
+                  if (selectedSlotId === layerDeleteConfirm.id) setSelectedSlotId(null)
+                } else {
+                  deleteFrameLayer(layerDeleteConfirm.id)
+                }
+                setLayerDeleteConfirm(null)
+              }}
+                className="flex-1 px-4 py-2 text-sm rounded-xl bg-red-500 text-white hover:bg-red-600 font-semibold">
+                삭제
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Instagram frame dialog */}
+      {showIgDialog && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40" onClick={() => setShowIgDialog(false)}>
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-[420px] max-w-[90vw] max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-2.5 mb-4">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 flex items-center justify-center text-sm">📸</div>
+              <div>
+                <h3 className="text-base font-bold">인스타그램 프레임</h3>
+                <p className="text-[10px] text-gray-400">프레임과 QR코드가 자동 생성됩니다</p>
+              </div>
+            </div>
+
+            <div className="space-y-3 mb-5">
+              <div>
+                <label className="text-[11px] font-semibold text-gray-500 mb-1 block">인스타 아이디 *</label>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-400 font-medium">@</span>
+                  <input type="text" value={igForm.username}
+                    onChange={e => setIgForm(f => ({ ...f, username: e.target.value }))}
+                    onKeyDown={e => { if (e.key === 'Enter') handleGenerateInstagramFrame() }}
+                    placeholder="instagram_id"
+                    className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300"
+                    autoFocus />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-semibold text-gray-500 mb-1 block">QR코드 URL</label>
+                <input type="text" value={igForm.qrUrl}
+                  onChange={e => setIgForm(f => ({ ...f, qrUrl: e.target.value }))}
+                  placeholder={igForm.username ? `instagram.com/${igForm.username.replace(/^@/, '')}` : 'https://instagram.com/...'}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300" />
+                <p className="text-[10px] text-gray-400 mt-0.5">비워두면 인스타 프로필 링크 사용</p>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-semibold text-gray-500 mb-1 block">캡션</label>
+                <input type="text" value={igForm.caption}
+                  onChange={e => setIgForm(f => ({ ...f, caption: e.target.value }))}
+                  placeholder="사진을 찍었어요"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[11px] font-semibold text-gray-500 mb-1 block">좋아요 텍스트</label>
+                  <input type="text" value={igForm.likesText}
+                    onChange={e => setIgForm(f => ({ ...f, likesText: e.target.value }))}
+                    placeholder="좋아요 999개"
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300" />
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold text-gray-500 mb-1 block">QR 라벨</label>
+                  <input type="text" value={igForm.qrLabel}
+                    onChange={e => setIgForm(f => ({ ...f, qrLabel: e.target.value }))}
+                    placeholder="QR로 팔로우"
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300" />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button onClick={() => setShowIgDialog(false)}
+                className="flex-1 px-4 py-2 text-sm rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 font-semibold">
+                취소
+              </button>
+              <button onClick={handleGenerateInstagramFrame}
+                disabled={!igForm.username.trim() || igGenerating}
+                className="flex-1 px-4 py-2 text-sm rounded-xl bg-gradient-to-r from-purple-500 via-pink-500 to-orange-400 text-white font-semibold disabled:opacity-50 hover:opacity-90">
+                {igGenerating ? '생성 중...' : '프레임 생성'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Text overlay dialog */}
+      {showTextDialog && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40" onClick={() => setShowTextDialog(false)}>
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-[420px] max-w-[90vw]" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-2.5 mb-4">
+              <div className="w-8 h-8 rounded-lg bg-gray-800 flex items-center justify-center text-sm text-white font-bold">Aa</div>
+              <div>
+                <h3 className="text-base font-bold">텍스트 추가</h3>
+                <p className="text-[10px] text-gray-400">레이어로 추가되어 위치/크기/회전 조절 가능</p>
+              </div>
+            </div>
+
+            {/* 미리보기 */}
+            <div
+              className="rounded-xl p-4 mb-4 min-h-[80px] flex items-center justify-center"
+              style={{ backgroundColor: textForm.bgStyle !== 'none' ? '#F3F4F6' : '#1F2937' }}
+            >
+              <p
+                className="text-center whitespace-pre-wrap break-words"
+                style={{
+                  fontSize: Math.min(textForm.fontSize * 0.5, 36),
+                  fontWeight: textForm.bold ? 700 : 400,
+                  color: textForm.color,
+                  backgroundColor: textForm.bgStyle === 'solid' ? textForm.bgColor : textForm.bgStyle === 'translucent' ? textForm.bgColor + '99' : 'transparent',
+                  padding: textForm.bgStyle !== 'none' ? '4px 12px' : 0,
+                  borderRadius: 8,
+                }}
+              >
+                {textForm.text || '텍스트를 입력하세요'}
+              </p>
+            </div>
+
+            <div className="space-y-3 mb-5">
+              {/* 텍스트 입력 */}
+              <textarea
+                value={textForm.text}
+                onChange={e => setTextForm(f => ({ ...f, text: e.target.value }))}
+                placeholder="텍스트를 입력하세요"
+                rows={2}
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-300 resize-none"
+                autoFocus
+              />
+
+              {/* 폰트 크기 */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px] font-semibold text-gray-500">크기</label>
+                  <span className="text-[11px] text-gray-400">{textForm.fontSize}px</span>
+                </div>
+                <input type="range" min={24} max={160} value={textForm.fontSize}
+                  onChange={e => setTextForm(f => ({ ...f, fontSize: parseInt(e.target.value) }))}
+                  className="w-full h-1.5 accent-gray-700" />
+              </div>
+
+              {/* 색상 선택 */}
+              <div>
+                <label className="text-[11px] font-semibold text-gray-500 mb-1.5 block">텍스트 색상</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {TEXT_COLORS.map(c => (
+                    <button key={c} onClick={() => setTextForm(f => ({ ...f, color: c }))}
+                      className={`w-7 h-7 rounded-full border-2 transition-transform ${textForm.color === c ? 'border-blue-500 scale-110' : 'border-gray-200'}`}
+                      style={{ backgroundColor: c }} />
+                  ))}
+                </div>
+              </div>
+
+              {/* 배경 스타일 */}
+              <div>
+                <label className="text-[11px] font-semibold text-gray-500 mb-1.5 block">배경</label>
+                <div className="flex gap-1.5">
+                  {([['none', '없음'], ['solid', '채움'], ['translucent', '반투명']] as const).map(([val, label]) => (
+                    <button key={val}
+                      onClick={() => setTextForm(f => ({ ...f, bgStyle: val }))}
+                      className={`flex-1 py-1.5 text-xs rounded-xl font-semibold transition-colors ${
+                        textForm.bgStyle === val ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 배경 색상 (배경이 있을 때만) */}
+              {textForm.bgStyle !== 'none' && (
+                <div>
+                  <label className="text-[11px] font-semibold text-gray-500 mb-1.5 block">배경 색상</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {TEXT_COLORS.map(c => (
+                      <button key={c} onClick={() => setTextForm(f => ({ ...f, bgColor: c }))}
+                        className={`w-7 h-7 rounded-full border-2 transition-transform ${textForm.bgColor === c ? 'border-blue-500 scale-110' : 'border-gray-200'}`}
+                        style={{ backgroundColor: c }} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 볼드 토글 */}
+              <button
+                onClick={() => setTextForm(f => ({ ...f, bold: !f.bold }))}
+                className={`px-3 py-1.5 text-xs rounded-xl font-semibold transition-colors ${
+                  textForm.bold ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600'
+                }`}>
+                B 볼드
+              </button>
+            </div>
+
+            <div className="flex gap-2">
+              <button onClick={() => setShowTextDialog(false)}
+                className="flex-1 px-4 py-2 text-sm rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 font-semibold">
+                취소
+              </button>
+              <button onClick={handleGenerateText}
+                disabled={!textForm.text.trim() || textGenerating}
+                className="flex-1 px-4 py-2 text-sm rounded-xl bg-gray-800 text-white font-semibold disabled:opacity-50 hover:bg-gray-700">
+                {textGenerating ? '생성 중...' : '텍스트 추가'}
               </button>
             </div>
           </div>

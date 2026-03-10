@@ -104,7 +104,12 @@ export default function AdminPage() {
   const [stickerUploading, setStickerUploading] = useState(false)
 
   // Event layouts (SwitLayout-based)
-  const [eventLayouts, setEventLayouts] = useState<Record<string, { _id: string; name: string; printSize: string; slots: any[]; isPreset?: boolean; order?: number }[]>>({})
+  const [eventLayouts, setEventLayouts] = useState<Record<string, { _id: string; name: string; printSize: string; slots: any[]; isPreset?: boolean; order?: number; visible?: boolean }[]>>({})
+  const [dragLayoutId, setDragLayoutId] = useState<string | null>(null)
+  const [dragOverLayoutId, setDragOverLayoutId] = useState<string | null>(null)
+  const [showLayoutCreate, setShowLayoutCreate] = useState(false)
+  const [newLayoutName, setNewLayoutName] = useState('')
+  const [newLayoutSize, setNewLayoutSize] = useState<'4x6' | '2x6' | '6x4'>('4x6')
 
   useEffect(() => {
     checkAuth()
@@ -848,52 +853,133 @@ export default function AdminPage() {
           {/* Layout Management */}
           <UICard>
             <div className="flex items-center justify-between mb-3">
-              <UISectionHeading title="레이아웃 관리" subtitle="레이아웃을 편집, 삭제, 복제할 수 있습니다" />
-              <a href={`/admin/layouts?eventId=${event._id}&eventName=${encodeURIComponent(event.name)}`}>
-                <UIButton variant="secondary" size="sm">편집기 열기</UIButton>
-              </a>
+              <UISectionHeading title="레이아웃 관리" subtitle="드래그로 순서 변경 · 클릭하여 편집" />
+              <UIButton size="sm" onClick={() => setShowLayoutCreate(prev => !prev)}>
+                {showLayoutCreate ? '취소' : '+ 새 레이아웃'}
+              </UIButton>
             </div>
-            <div className="space-y-1.5">
+
+            {showLayoutCreate && (
+              <form onSubmit={async (e) => {
+                e.preventDefault()
+                if (!newLayoutName.trim()) return
+                await fetch('/api/swit-layouts', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ eventId: event._id, name: newLayoutName.trim(), printSize: newLayoutSize }),
+                })
+                setNewLayoutName('')
+                setShowLayoutCreate(false)
+                fetchEventLayouts(event._id)
+              }} className="mb-3 p-3 bg-gray-50 rounded-xl space-y-2">
+                <input
+                  value={newLayoutName} onChange={e => setNewLayoutName(e.target.value)}
+                  placeholder="레이아웃 이름" required
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-300"
+                />
+                <div className="flex gap-2">
+                  {(['4x6', '2x6', '6x4'] as const).map(s => (
+                    <button key={s} type="button" onClick={() => setNewLayoutSize(s)}
+                      className={`flex-1 py-2 text-xs font-semibold rounded-xl border transition-colors ${newLayoutSize === s ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-gray-200 text-gray-500'}`}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+                <UIButton type="submit" size="sm">생성</UIButton>
+              </form>
+            )}
+
+            <div className="space-y-1">
               {layouts
                 .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-                .map((layout) => (
-                <div key={layout._id} className="flex items-center gap-2 p-2 border rounded hover:bg-gray-50">
-                  <div className="flex-1 min-w-0">
-                    <span className="text-sm font-medium text-gray-800">{layout.name}</span>
-                    {layout.isPreset && (
-                      <span className="ml-1.5 text-[10px] font-semibold text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded">프리셋</span>
-                    )}
-                    <span className="text-xs text-gray-400 ml-2">{layout.printSize} · {layout.slots.length}칸</span>
-                    {printerSupportedSizes && !printerSupportedSizes.includes(layout.printSize) && (
-                      <span className="ml-1.5 text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">프린터 미지원</span>
-                    )}
+                .map((layout, idx, arr) => (
+                <div
+                  key={layout._id}
+                  draggable
+                  onDragStart={e => { setDragLayoutId(layout._id); e.dataTransfer.effectAllowed = 'move' }}
+                  onDragOver={e => { e.preventDefault(); setDragOverLayoutId(layout._id) }}
+                  onDragLeave={() => setDragOverLayoutId(null)}
+                  onDrop={async (e) => {
+                    e.preventDefault()
+                    setDragOverLayoutId(null)
+                    if (!dragLayoutId || dragLayoutId === layout._id) { setDragLayoutId(null); return }
+                    const sorted = [...arr]
+                    const fromIdx = sorted.findIndex(l => l._id === dragLayoutId)
+                    const toIdx = sorted.findIndex(l => l._id === layout._id)
+                    if (fromIdx < 0 || toIdx < 0) return
+                    const [moved] = sorted.splice(fromIdx, 1)
+                    sorted.splice(toIdx, 0, moved)
+                    const reordered = sorted.map((l, i) => ({ ...l, order: i }))
+                    setEventLayouts(prev => ({ ...prev, [event._id]: reordered }))
+                    setDragLayoutId(null)
+                    await fetch('/api/swit-layouts/reorder', {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ orderedIds: reordered.map(l => l._id) }),
+                    })
+                  }}
+                  onDragEnd={() => { setDragLayoutId(null); setDragOverLayoutId(null) }}
+                  className={`flex items-center gap-2 p-2.5 rounded-xl border-2 transition-all ${
+                    dragLayoutId === layout._id ? 'opacity-40 border-gray-200'
+                    : dragOverLayoutId === layout._id ? 'border-blue-400 bg-blue-50/60'
+                    : layout.visible === false ? 'border-transparent hover:border-gray-200 bg-gray-50 opacity-50'
+                    : 'border-transparent hover:border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  {/* Drag handle */}
+                  <div className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 shrink-0">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                      <circle cx="5" cy="3" r="1.5"/><circle cx="11" cy="3" r="1.5"/>
+                      <circle cx="5" cy="8" r="1.5"/><circle cx="11" cy="8" r="1.5"/>
+                      <circle cx="5" cy="13" r="1.5"/><circle cx="11" cy="13" r="1.5"/>
+                    </svg>
                   </div>
-                  <button
-                    onClick={async () => {
-                      await fetch(`/api/swit-layouts/${layout._id}/duplicate`, { method: 'POST' })
+
+                  {/* Click to edit */}
+                  <a href={`/admin/layouts/${layout._id}/edit`} className="flex-1 min-w-0 cursor-pointer">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm font-semibold text-gray-800 hover:text-blue-600 transition-colors">{layout.name}</span>
+                      {layout.visible === false && (
+                        <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">미노출</span>
+                      )}
+                      {layout.isPreset && (
+                        <span className="text-[10px] font-semibold text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded">프리셋</span>
+                      )}
+                      {printerSupportedSizes && !printerSupportedSizes.includes(layout.printSize) && (
+                        <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">프린터 미지원</span>
+                      )}
+                    </div>
+                    <span className="text-[11px] text-gray-400">{layout.printSize} · {layout.slots.length}칸</span>
+                  </a>
+
+                  {/* Actions */}
+                  <div className="flex gap-1 shrink-0">
+                    <a href={`/admin/layouts/${layout._id}/edit`} onClick={e => e.stopPropagation()}
+                      className="px-2 py-1 text-[11px] rounded-lg font-semibold bg-blue-500 text-white hover:bg-blue-600">편집</a>
+                    <button onClick={async (e) => {
+                      e.stopPropagation(); e.preventDefault()
+                      const newVisible = layout.visible === false ? true : false
+                      await fetch(`/api/swit-layouts/${layout._id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ visible: newVisible }) })
                       fetchEventLayouts(event._id)
-                    }}
-                    className="text-xs text-gray-500 hover:text-blue-600 px-2 py-1"
-                  >
-                    복제
-                  </button>
-                  <button
-                    onClick={async () => {
-                      if (!confirm(`"${layout.name}" 레이아웃을 삭제하시겠어요?`)) return
+                    }} className={`px-2 py-1 text-[11px] rounded-lg font-semibold transition-colors ${
+                      layout.visible === false ? 'bg-gray-200 text-gray-500 hover:bg-gray-300' : 'bg-green-50 text-green-600 hover:bg-green-100'
+                    }`}>{layout.visible === false ? '미노출' : '노출'}</button>
+                    <button onClick={async (e) => { e.stopPropagation(); e.preventDefault(); await fetch(`/api/swit-layouts/${layout._id}/duplicate`, { method: 'POST' }); fetchEventLayouts(event._id) }}
+                      className="px-2 py-1 text-[11px] rounded-lg font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200">복제</button>
+                    <button onClick={async (e) => {
+                      e.stopPropagation(); e.preventDefault()
+                      if (!confirm(`"${layout.name}" 삭제?`)) return
                       await fetch(`/api/swit-layouts/${layout._id}`, { method: 'DELETE' })
                       fetchEventLayouts(event._id)
-                    }}
-                    className="text-xs text-red-400 hover:text-red-600 px-2 py-1"
-                  >
-                    삭제
-                  </button>
+                    }} className="px-2 py-1 text-[11px] rounded-lg font-semibold bg-red-50 text-red-500 hover:bg-red-100">삭제</button>
+                  </div>
                 </div>
               ))}
               {layouts.length === 0 && (
                 <p className="text-xs text-gray-400 py-2">레이아웃이 없습니다</p>
               )}
             </div>
-            <p className="text-xs text-gray-500 mt-2">{layouts.length}개 레이아웃</p>
+            <p className="text-xs text-gray-400 mt-2">{layouts.length}개 레이아웃</p>
           </UICard>
 
           {/* Recent Print Jobs */}

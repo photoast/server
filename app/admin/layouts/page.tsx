@@ -2,12 +2,9 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
-import dynamic from 'next/dynamic'
 import Link from 'next/link'
-import type { SwitLayout, SwitSlot, SwitFrameLayer } from '@/lib/types'
+import type { SwitLayout } from '@/lib/types'
 import { UIButton, UICard, UIFormField, UITextInput, UIStatusBanner } from '@/app/components/ui'
-
-const SwitSlotEditor = dynamic(() => import('@/app/components/SwitSlotEditor'), { ssr: false })
 
 const PRINT_SIZES = ['4x6', '2x6', '6x4'] as const
 
@@ -24,7 +21,6 @@ function LayoutsPageInner() {
 
   const [events, setEvents] = useState<EventOption[]>([])
   const [layouts, setLayouts] = useState<SwitLayout[]>([])
-  const [selectedLayout, setSelectedLayout] = useState<SwitLayout | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [showCreate, setShowCreate] = useState(false)
@@ -87,23 +83,7 @@ function LayoutsPageInner() {
   const handleDelete = async (id: string) => {
     if (!confirm('이 레이아웃을 삭제하시겠어요?')) return
     await fetch(`/api/swit-layouts/${id}`, { method: 'DELETE' })
-    if (selectedLayout?._id === id) setSelectedLayout(null)
     await loadLayouts()
-  }
-
-  const handleSaveSlots = async (slots: SwitSlot[], frameLayers: SwitFrameLayer[], bgColor: string, bgCustomizable: boolean) => {
-    if (!selectedLayout) return
-    const res = await fetch(`/api/swit-layouts/${selectedLayout._id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slots, frameLayers, backgroundColor: bgColor, backgroundColorCustomizable: bgCustomizable }),
-    })
-    if (res.ok) {
-      const updated = await res.json()
-      setSelectedLayout(updated)
-      await loadLayouts()
-      alert('저장되었습니다!')
-    }
   }
 
   const handleToggleVisible = async (layout: SwitLayout) => {
@@ -288,9 +268,7 @@ function LayoutsPageInner() {
                         ? 'opacity-40 border-gray-200 bg-gray-50'
                         : dragOverId === layout._id
                           ? 'border-blue-400 bg-blue-50/60'
-                          : selectedLayout?._id === layout._id
-                            ? 'border-blue-400 bg-blue-50'
-                            : layout.visible === false
+                          : layout.visible === false
                               ? 'border-transparent hover:border-gray-200 bg-gray-50 opacity-50'
                               : 'border-transparent hover:border-gray-200 bg-white'
                     }`}
@@ -354,12 +332,11 @@ function LayoutsPageInner() {
                       >
                         {layout.visible === false ? '미노출' : '노출'}
                       </button>
-                      <button
-                        onClick={() => setSelectedLayout(layout)}
-                        className="px-3 py-1.5 text-xs rounded-xl bg-blue-500 text-white hover:bg-blue-600 font-semibold"
-                      >
-                        편집
-                      </button>
+                      <Link href={`/admin/layouts/${layout._id}/edit`}>
+                        <button className="px-3 py-1.5 text-xs rounded-xl bg-blue-500 text-white hover:bg-blue-600 font-semibold">
+                          편집
+                        </button>
+                      </Link>
                       <button
                         onClick={async () => {
                           await fetch(`/api/swit-layouts/${layout._id}/duplicate`, { method: 'POST' })
@@ -397,19 +374,6 @@ function LayoutsPageInner() {
               )}
             </UICard>
 
-            {/* Slot Editor */}
-            {selectedLayout && (
-              <UICard>
-                <h2 className="text-lg font-bold text-gray-900 mb-4">
-                  슬롯 편집: {selectedLayout.name}
-                </h2>
-                <SwitSlotEditor
-                  key={selectedLayout._id}
-                  layout={selectedLayout}
-                  onSave={handleSaveSlots}
-                />
-              </UICard>
-            )}
           </>
         )}
       </div>
