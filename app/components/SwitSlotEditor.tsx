@@ -1119,9 +1119,10 @@ export default function SwitSlotEditor({ layout, onSave }: Props) {
               {showGrid && !previewMode && (() => {
                 const gridLines: React.ReactNode[] = []
                 const gridSizes = [
-                  { step: layout.canvasWidth / 2, color: 'rgba(255,0,0,0.4)', width: 1 },    // 중심선
-                  { step: layout.canvasWidth / 4, color: 'rgba(0,120,255,0.3)', width: 0.7 },  // 4등분
-                  { step: layout.canvasWidth / 8, color: 'rgba(0,0,0,0.12)', width: 0.5 },     // 8등분
+                  { step: layout.canvasWidth / 2, color: 'rgba(255,0,0,0.4)', width: 1 },      // 중심선
+                  { step: layout.canvasWidth / 6, color: 'rgba(0,120,255,0.25)', width: 0.7 },  // 6등분
+                  { step: layout.canvasWidth / 12, color: 'rgba(0,0,0,0.1)', width: 0.5 },     // 12등분
+                  { step: layout.canvasWidth / 24, color: 'rgba(0,0,0,0.06)', width: 0.3 },    // 24등분
                 ]
                 for (const { step, color, width } of gridSizes) {
                   const stepPx = step * scale
