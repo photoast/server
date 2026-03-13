@@ -22,7 +22,7 @@ const H = 1800
 const SIDE_PAD = 24
 const HEADER_H = 100
 const ACTION_H = 90
-const BOTTOM_H = 186
+const BOTTOM_H = 230
 
 const PHOTO_Y = HEADER_H
 const PHOTO_H = H - HEADER_H - ACTION_H - BOTTOM_H  // 1424
