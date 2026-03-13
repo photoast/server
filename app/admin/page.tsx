@@ -110,7 +110,7 @@ export default function AdminPage() {
 
   // Event editing states
   const [editingEventId, setEditingEventId] = useState<string | null>(null)
-  const [editingField, setEditingField] = useState<'name' | null>(null)
+  const [editingField, setEditingField] = useState<'name' | 'slug' | null>(null)
   const [tempValue, setTempValue] = useState('')
 
   // Sticker management
@@ -365,7 +365,7 @@ export default function AdminPage() {
     }
   }
 
-  const handleUpdateEvent = async (eventId: string, updates: { name?: string; printerId?: string; availableLayouts?: string[]; price?: number; puzzleEnabled?: boolean; backgroundColors?: string[]; donation?: Event['donation'] }) => {
+  const handleUpdateEvent = async (eventId: string, updates: { name?: string; slug?: string; printerId?: string; availableLayouts?: string[]; price?: number; puzzleEnabled?: boolean; backgroundColors?: string[]; donation?: Event['donation'] }) => {
     try {
       const updateRes = await fetch(`/api/events/${eventId}`, {
         method: 'PATCH',
@@ -782,7 +782,37 @@ export default function AdminPage() {
                   <span className="ml-1.5 text-gray-300 text-sm font-normal">편집</span>
                 </h1>
               )}
-              <p className="text-sm text-gray-400 mt-0.5">{event.slug}</p>
+              {editingEventId === event._id && editingField === 'slug' ? (
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-sm text-gray-400">/</span>
+                  <UITextInput
+                    value={tempValue}
+                    onChange={e => setTempValue(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                    className="text-sm flex-1"
+                    autoFocus
+                  />
+                  <UIButton size="sm" onClick={async () => {
+                    await handleUpdateEvent(event._id, { slug: tempValue })
+                    setEditingEventId(null)
+                    setEditingField(null)
+                  }}>저장</UIButton>
+                  <UIButton variant="secondary" size="sm" onClick={() => {
+                    setEditingEventId(null)
+                    setEditingField(null)
+                  }}>취소</UIButton>
+                </div>
+              ) : (
+                <p
+                  className="text-sm text-gray-400 mt-0.5 cursor-pointer hover:text-blue-400 transition-colors"
+                  onClick={() => {
+                    setEditingEventId(event._id)
+                    setEditingField('slug')
+                    setTempValue(event.slug)
+                  }}
+                >
+                  /{event.slug} <span className="text-gray-300 text-xs">편집</span>
+                </p>
+              )}
             </div>
           </div>
 

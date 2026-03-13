@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { findEventById, updateEvent, deleteEvent } from '@/lib/models'
+import { findEventById, findEventBySlug, updateEvent, deleteEvent } from '@/lib/models'
 import { checkAuth } from '@/lib/middleware'
 
 // GET event by ID
@@ -39,10 +39,21 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const { name, printerId, availableLayouts, price, puzzleEnabled, backgroundColors, donation } = body
+    const { name, slug, printerId, availableLayouts, price, puzzleEnabled, backgroundColors, donation } = body
 
     const updates: any = {}
     if (name) updates.name = name
+    if (slug !== undefined) {
+      const sanitized = slug.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+      if (!sanitized) {
+        return NextResponse.json({ error: 'Invalid slug' }, { status: 400 })
+      }
+      const existing = await findEventBySlug(sanitized)
+      if (existing && existing._id?.toString() !== params.id) {
+        return NextResponse.json({ error: 'Slug already in use' }, { status: 409 })
+      }
+      updates.slug = sanitized
+    }
     if (printerId !== undefined) updates.printerId = printerId
     if (availableLayouts !== undefined) updates.availableLayouts = availableLayouts
     if (price !== undefined) updates.price = price
