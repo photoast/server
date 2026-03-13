@@ -11,8 +11,12 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const [printJobs, printers] = await Promise.all([
-      getPrintJobsByEventId(params.eventId),
+    const { searchParams } = new URL(request.url)
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1'))
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '50')))
+
+    const [{ jobs: printJobs, total }, printers] = await Promise.all([
+      getPrintJobsByEventId(params.eventId, { page, limit }),
       getAllPrinters(),
     ])
 
@@ -23,7 +27,13 @@ export async function GET(
       printerName: job.printerId ? printerMap.get(job.printerId) || null : null,
     }))
 
-    return NextResponse.json(enriched)
+    return NextResponse.json({
+      jobs: enriched,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    })
   } catch (error) {
     console.error('Error fetching print jobs:', error)
     return NextResponse.json(

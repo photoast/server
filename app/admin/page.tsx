@@ -90,6 +90,9 @@ export default function AdminPage() {
   // Print history
   const [showPrintHistory, setShowPrintHistory] = useState(false)
   const [printJobs, setPrintJobs] = useState<PrintJob[]>([])
+  const [printJobsTotal, setPrintJobsTotal] = useState(0)
+  const [printJobsPage, setPrintJobsPage] = useState(1)
+  const [printJobsTotalPages, setPrintJobsTotalPages] = useState(1)
   const [selectedEventForHistory, setSelectedEventForHistory] = useState<Event | null>(null)
   const [recentPrintJobs, setRecentPrintJobs] = useState<PrintJob[]>([])
   const [selectedImageForPreview, setSelectedImageForPreview] = useState<string | null>(null)
@@ -128,8 +131,11 @@ export default function AdminPage() {
     if (!detailEvent) { setRecentPrintJobs([]); return }
     const fetchRecent = async () => {
       try {
-        const res = await fetch(`/api/print-jobs/${detailEvent._id}`)
-        if (res.ok) setRecentPrintJobs(await res.json())
+        const res = await fetch(`/api/print-jobs/${detailEvent._id}?limit=10`)
+        if (res.ok) {
+          const data = await res.json()
+          setRecentPrintJobs(data.jobs ?? data)
+        }
       } catch {}
     }
     fetchRecent()
@@ -560,15 +566,16 @@ export default function AdminPage() {
     }
   }
 
-  const viewPrintHistory = async (event: Event) => {
+  const fetchPrintHistory = async (event: Event, page = 1) => {
     try {
-      const res = await fetch(`/api/print-jobs/${event._id}`)
+      const res = await fetch(`/api/print-jobs/${event._id}?page=${page}&limit=20`)
       if (!res.ok) throw new Error('Failed to fetch print history')
 
-      const jobs = await res.json()
-      setPrintJobs(jobs)
-      setSelectedEventForHistory(event)
-      setShowPrintHistory(true)
+      const data = await res.json()
+      setPrintJobs(data.jobs ?? data)
+      setPrintJobsTotal(data.total ?? 0)
+      setPrintJobsPage(data.page ?? 1)
+      setPrintJobsTotalPages(data.totalPages ?? 1)
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to fetch print history'
       setError(errorMessage)
@@ -577,6 +584,12 @@ export default function AdminPage() {
         eventName: event.name,
       })
     }
+  }
+
+  const viewPrintHistory = async (event: Event) => {
+    setSelectedEventForHistory(event)
+    setShowPrintHistory(true)
+    await fetchPrintHistory(event, 1)
   }
 
   if (!authenticated) {
@@ -1110,7 +1123,7 @@ export default function AdminPage() {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 overflow-y-auto z-40" onClick={() => setShowPrintHistory(false)}>
         <div className="bg-white rounded-lg p-8 max-w-4xl w-full my-8" onClick={(e) => e.stopPropagation()}>
-          <h3 className="text-2xl font-bold mb-4">Print History - {selectedEventForHistory.name}</h3>
+          <h3 className="text-2xl font-bold mb-4">Print History - {selectedEventForHistory.name} <span className="text-base font-normal text-gray-400">({printJobsTotal}건)</span></h3>
           {printJobs.length === 0 ? (
             <p className="text-center text-gray-500 py-8">No print jobs yet</p>
           ) : (
@@ -1205,7 +1218,28 @@ export default function AdminPage() {
               ))}
             </div>
           )}
-          <UIButton variant="secondary" fullWidth onClick={() => setShowPrintHistory(false)} className="mt-6">
+          {printJobsTotalPages > 1 && (
+            <div className="flex items-center justify-center gap-3 mt-4">
+              <button
+                onClick={() => fetchPrintHistory(selectedEventForHistory, printJobsPage - 1)}
+                disabled={printJobsPage <= 1}
+                className="px-3 py-1 text-sm rounded border disabled:opacity-30 hover:bg-gray-100"
+              >
+                이전
+              </button>
+              <span className="text-sm text-gray-600">
+                {printJobsPage} / {printJobsTotalPages}
+              </span>
+              <button
+                onClick={() => fetchPrintHistory(selectedEventForHistory, printJobsPage + 1)}
+                disabled={printJobsPage >= printJobsTotalPages}
+                className="px-3 py-1 text-sm rounded border disabled:opacity-30 hover:bg-gray-100"
+              >
+                다음
+              </button>
+            </div>
+          )}
+          <UIButton variant="secondary" fullWidth onClick={() => setShowPrintHistory(false)} className="mt-4">
             닫기
           </UIButton>
         </div>

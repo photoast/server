@@ -48,22 +48,46 @@ export async function createPrintJob(job: Omit<PrintJob, '_id' | 'createdAt'>): 
   return { _id: result.insertedId, ...doc } as PrintJob
 }
 
-export async function getPrintJobsByEventId(eventId: string): Promise<PrintJob[]> {
+export async function getPrintJobsByEventId(
+  eventId: string,
+  options?: { page?: number; limit?: number }
+): Promise<{ jobs: PrintJob[]; total: number }> {
   const db = await getDb()
-  return db.collection<PrintJob>(COLLECTIONS.printJobs)
-    .find({ eventId })
-    .sort({ createdAt: -1 })
-    .allowDiskUse()
-    .toArray()
+  const col = db.collection<PrintJob>(COLLECTIONS.printJobs)
+  const filter = { eventId }
+  const page = options?.page ?? 1
+  const limit = options?.limit ?? 50
+
+  const [jobs, total] = await Promise.all([
+    col.find(filter)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .toArray(),
+    col.countDocuments(filter),
+  ])
+
+  return { jobs, total }
 }
 
-export async function getAllPrintJobs(): Promise<PrintJob[]> {
+export async function getAllPrintJobs(
+  options?: { page?: number; limit?: number }
+): Promise<{ jobs: PrintJob[]; total: number }> {
   const db = await getDb()
-  return db.collection<PrintJob>(COLLECTIONS.printJobs)
-    .find()
-    .sort({ createdAt: -1 })
-    .allowDiskUse()
-    .toArray()
+  const col = db.collection<PrintJob>(COLLECTIONS.printJobs)
+  const page = options?.page ?? 1
+  const limit = options?.limit ?? 50
+
+  const [jobs, total] = await Promise.all([
+    col.find()
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .toArray(),
+    col.countDocuments(),
+  ])
+
+  return { jobs, total }
 }
 
 export async function findPrintJobById(jobId: string): Promise<PrintJob | null> {
@@ -76,6 +100,7 @@ export async function getPendingJobsByPrinterId(printerId: string): Promise<Prin
   return db.collection<PrintJob>(COLLECTIONS.printJobs)
     .find({ printerId, status: 'PENDING' })
     .sort({ createdAt: 1 })
+    .allowDiskUse()
     .toArray()
 }
 
