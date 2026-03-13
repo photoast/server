@@ -95,6 +95,7 @@ export default function AdminPage() {
   const [printJobsTotalPages, setPrintJobsTotalPages] = useState(1)
   const [selectedEventForHistory, setSelectedEventForHistory] = useState<Event | null>(null)
   const [recentPrintJobs, setRecentPrintJobs] = useState<PrintJob[]>([])
+  const [recentPrintJobsTotal, setRecentPrintJobsTotal] = useState(0)
   const [selectedImageForPreview, setSelectedImageForPreview] = useState<string | null>(null)
 
   // Event editing states
@@ -131,10 +132,11 @@ export default function AdminPage() {
     if (!detailEvent) { setRecentPrintJobs([]); return }
     const fetchRecent = async () => {
       try {
-        const res = await fetch(`/api/print-jobs/${detailEvent._id}?limit=10`)
+        const res = await fetch(`/api/print-jobs/${detailEvent._id}?limit=5`)
         if (res.ok) {
           const data = await res.json()
           setRecentPrintJobs(data.jobs ?? data)
+          setRecentPrintJobsTotal(data.total ?? 0)
         }
       } catch {}
     }
@@ -998,7 +1000,7 @@ export default function AdminPage() {
           {/* Recent Print Jobs */}
           <UICard>
             <div className="flex items-center justify-between mb-3">
-              <UISectionHeading title="최근 인쇄" subtitle={`총 ${recentPrintJobs.length}건`} />
+              <UISectionHeading title="최근 인쇄" subtitle={`총 ${recentPrintJobsTotal}건`} />
               {recentPrintJobs.length > 0 && (
                 <UIButton variant="secondary" size="sm" onClick={() => viewPrintHistory(event)}>
                   전체 보기
@@ -1009,7 +1011,7 @@ export default function AdminPage() {
               <p className="text-xs text-gray-400 py-2">인쇄 기록이 없습니다</p>
             ) : (
               <div className="space-y-2">
-                {recentPrintJobs.slice(0, 5).map(job => (
+                {recentPrintJobs.map(job => (
                   <div key={job._id} className="flex items-center gap-3 p-2 border rounded-lg">
                     <div
                       className="relative w-10 h-14 bg-gray-100 rounded flex-shrink-0 cursor-pointer overflow-hidden"
