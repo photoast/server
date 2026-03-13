@@ -616,7 +616,7 @@ export default function SwitLayoutPage({
               <p className="text-base font-bold text-gray-900">
                 🎉 {event.donation.message || '오늘 사진이 마음에 드셨다면, 작은 응원 부탁드려요!'} 💕
               </p>
-              {event.donation.link ? (
+              {event.donation.link && (
                 <a
                   href={event.donation.link}
                   target="_blank"
@@ -625,7 +625,8 @@ export default function SwitLayoutPage({
                 >
                   ☕ 후원하기
                 </a>
-              ) : (
+              )}
+              {event.donation.account && (
                 <div className="bg-white/70 rounded-xl py-3 px-4 inline-flex items-center gap-2.5">
                   <div className="text-left">
                     <p className="text-[11px] text-gray-400 leading-none mb-1">{event.donation.bank}{event.donation.holder ? ` · ${event.donation.holder}` : ''}</p>
