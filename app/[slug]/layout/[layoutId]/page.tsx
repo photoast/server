@@ -608,36 +608,20 @@ export default function SwitLayoutPage({
             </div>
           )}
 
-          <div className="space-y-3">
-            {!allFailed && (
-              <UIButton fullWidth variant="download" onClick={handleDownload}>
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-                사진 저장
-              </UIButton>
-            )}
-            <UIButton fullWidth variant="secondary" onClick={() => router.push(`/${params.slug}`)}>새로운 사진 만들기</UIButton>
-          </div>
-
           {/* 후원 안내 */}
           {event?.donation?.enabled && (
-            <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-2xl p-5 border border-yellow-100/60 text-center space-y-3">
-              <p className="text-[15px] font-semibold text-gray-800">
-                {event.donation.message || '오늘 사진이 마음에 드셨다면, 작은 응원 부탁드려요!'}
-              </p>
-              <p className="text-xs text-gray-500 leading-relaxed">
-                여러분의 후원이 더 좋은 포토부스를 만드는 힘이 됩니다
+            <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-2xl p-5 border border-yellow-200/80 text-center space-y-3">
+              <p className="text-base font-bold text-gray-900">
+                🎉 {event.donation.message || '오늘 사진이 마음에 드셨다면, 작은 응원 부탁드려요!'} 💕
               </p>
               {event.donation.link ? (
                 <a
                   href={event.donation.link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-yellow-400 text-yellow-900 hover:bg-yellow-500 active:scale-95 transition-all font-bold text-sm shadow-sm"
+                  className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-yellow-400 text-yellow-900 hover:bg-yellow-500 active:scale-95 transition-all font-bold text-[15px] shadow-md"
                 >
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"/><path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd"/></svg>
-                  후원하기
+                  ☕ 후원하기
                 </a>
               ) : (
                 <div className="bg-white/70 rounded-xl py-3 px-4 inline-flex items-center gap-2.5">
@@ -660,6 +644,18 @@ export default function SwitLayoutPage({
               )}
             </div>
           )}
+
+          <div className="space-y-3">
+            {!allFailed && (
+              <UIButton fullWidth variant="download" onClick={handleDownload}>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                사진 저장
+              </UIButton>
+            )}
+            <UIButton fullWidth variant="secondary" onClick={() => router.push(`/${params.slug}`)}>새로운 사진 만들기</UIButton>
+          </div>
         </div>
       </div>
     )
