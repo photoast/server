@@ -94,6 +94,8 @@ export default function AdminPage() {
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null)
   const [promotionalImageUrl, setPromotionalImageUrl] = useState<string | null>(null)
   const [generatingPromo, setGeneratingPromo] = useState(false)
+  const [qrPromoShowUrl, setQrPromoShowUrl] = useState(true)
+  const [qrPromoShowDonation, setQrPromoShowDonation] = useState(false)
 
   // Print history
   const [showPrintHistory, setShowPrintHistory] = useState(false)
@@ -384,17 +386,17 @@ export default function AdminPage() {
     }
   }
 
-  const generateQR = async (event: Event) => {
+  const generateQR = async (event: Event, showUrl = qrPromoShowUrl, showDonation = qrPromoShowDonation) => {
     const url = `${window.location.origin}/${event.slug}`
-    const qr = await QRCode.toDataURL(url, { width: 600, margin: 2 })
+    const qr = await QRCode.toDataURL(url, { width: 800, margin: 1 })
     setQrCodeUrl(qr)
     setSelectedEvent(event)
 
     // Generate 4x6 promotional image (1200x1800px)
-    await generate4x6PromotionalImage(qr, event)
+    await generate4x6PromotionalImage(qr, event, showUrl, showDonation)
   }
 
-  const generate4x6PromotionalImage = async (qrDataUrl: string, event: Event) => {
+  const generate4x6PromotionalImage = async (qrDataUrl: string, event: Event, showUrl: boolean, showDonation: boolean) => {
     setGeneratingPromo(true)
 
     try {
@@ -413,6 +415,8 @@ export default function AdminPage() {
         qrImage.src = qrDataUrl
       })
 
+      const font = '-apple-system, "Helvetica Neue", Arial, sans-serif'
+
       // Helper: rounded rect path
       const roundRect = (x: number, y: number, w: number, h: number, r: number) => {
         ctx.beginPath()
@@ -428,89 +432,179 @@ export default function AdminPage() {
         ctx.closePath()
       }
 
-      // ── Background: clean white
-      ctx.fillStyle = '#FAFAFA'
+      // ── Background: soft gradient
+      const bgGrad = ctx.createLinearGradient(0, 0, 0, H)
+      bgGrad.addColorStop(0, '#F8F0FF')
+      bgGrad.addColorStop(0.5, '#FFFFFF')
+      bgGrad.addColorStop(1, '#FFF5F0')
+      ctx.fillStyle = bgGrad
       ctx.fillRect(0, 0, W, H)
 
-      // ── Top area: event name (large, bold, centered)
-      const topY = 200
-      ctx.fillStyle = '#191F28'
-      ctx.font = 'bold 72px -apple-system, "Helvetica Neue", Arial, sans-serif'
+      // ── Decorative top accent bar
+      const accentGrad = ctx.createLinearGradient(0, 0, W, 0)
+      accentGrad.addColorStop(0, '#8B5CF6')
+      accentGrad.addColorStop(0.5, '#EC4899')
+      accentGrad.addColorStop(1, '#F97316')
+      ctx.fillStyle = accentGrad
+      ctx.fillRect(0, 0, W, 12)
+
+      // ── "FREE" badge
+      const badgeY = 80
+      const badgeW = 260
+      const badgeH = 64
+      const badgeX = (W - badgeW) / 2
+      const badgeGrad = ctx.createLinearGradient(badgeX, badgeY, badgeX + badgeW, badgeY)
+      badgeGrad.addColorStop(0, '#8B5CF6')
+      badgeGrad.addColorStop(1, '#EC4899')
+      roundRect(badgeX, badgeY, badgeW, badgeH, badgeH / 2)
+      ctx.fillStyle = badgeGrad
+      ctx.fill()
+      ctx.fillStyle = '#FFFFFF'
+      ctx.font = `bold 32px ${font}`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
-      ctx.fillText(event.name, W / 2, topY)
+      ctx.fillText('✦ FREE ✦', W / 2, badgeY + badgeH / 2)
 
-      // Subtitle
-      ctx.fillStyle = '#8B95A1'
-      ctx.font = '36px -apple-system, "Helvetica Neue", Arial, sans-serif'
-      ctx.fillText('무료 즉석 포토 프린트', W / 2, topY + 70)
+      // ── Event name (large)
+      const titleY = badgeY + badgeH + 60
+      ctx.fillStyle = '#1A1A2E'
+      ctx.font = `bold 80px ${font}`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(event.name, W / 2, titleY)
 
-      // ── Divider line
-      ctx.strokeStyle = '#E5E8EB'
+      // ── Subtitle
+      ctx.fillStyle = '#6B7280'
+      ctx.font = `500 40px ${font}`
+      ctx.fillText('무료 즉석 포토 프린트', W / 2, titleY + 72)
+
+      // ── Decorative divider with diamond
+      const divY = titleY + 140
+      ctx.strokeStyle = '#E5E7EB'
       ctx.lineWidth = 2
       ctx.beginPath()
-      ctx.moveTo(200, topY + 140)
-      ctx.lineTo(W - 200, topY + 140)
+      ctx.moveTo(160, divY)
+      ctx.lineTo(W / 2 - 20, divY)
       ctx.stroke()
+      ctx.beginPath()
+      ctx.moveTo(W / 2 + 20, divY)
+      ctx.lineTo(W - 160, divY)
+      ctx.stroke()
+      // Diamond
+      ctx.fillStyle = '#8B5CF6'
+      ctx.beginPath()
+      ctx.moveTo(W / 2, divY - 8)
+      ctx.lineTo(W / 2 + 8, divY)
+      ctx.lineTo(W / 2, divY + 8)
+      ctx.lineTo(W / 2 - 8, divY)
+      ctx.closePath()
+      ctx.fill()
 
-      // ── QR code area (centered, generous size)
-      const qrSize = 560
+      // ── QR code area (large, centered)
+      const qrSize = 640
       const qrX = (W - qrSize) / 2
-      const qrY = topY + 200
+      const qrY = divY + 50
 
-      // Subtle card behind QR
+      // Card behind QR with shadow
       ctx.save()
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.06)'
-      ctx.shadowBlur = 40
-      ctx.shadowOffsetY = 8
-      const cardPad = 50
-      roundRect(qrX - cardPad, qrY - cardPad, qrSize + cardPad * 2, qrSize + cardPad * 2, 24)
+      ctx.shadowColor = 'rgba(139, 92, 246, 0.12)'
+      ctx.shadowBlur = 50
+      ctx.shadowOffsetY = 10
+      const cardPad = 48
+      roundRect(qrX - cardPad, qrY - cardPad, qrSize + cardPad * 2, qrSize + cardPad * 2, 28)
       ctx.fillStyle = '#FFFFFF'
       ctx.fill()
+      // Card border
+      ctx.strokeStyle = '#F3E8FF'
+      ctx.lineWidth = 3
+      ctx.stroke()
       ctx.restore()
 
       // QR code
       ctx.drawImage(qrImage, qrX, qrY, qrSize, qrSize)
 
-      // "QR 스캔" label below QR
-      const belowQrY = qrY + qrSize + cardPad + 50
-      ctx.fillStyle = '#4E5968'
-      ctx.font = 'bold 32px -apple-system, "Helvetica Neue", Arial, sans-serif'
+      // ── Below QR: scan instruction
+      let currentY = qrY + qrSize + cardPad + 46
+      ctx.fillStyle = '#4B5563'
+      ctx.font = `bold 38px ${font}`
       ctx.textAlign = 'center'
-      ctx.fillText('QR 코드를 스캔하세요', W / 2, belowQrY)
+      ctx.fillText('📱 QR 코드를 스캔하세요!', W / 2, currentY)
+      currentY += 16
 
-      // ── Steps: minimal numbered list
-      const stepsStartY = belowQrY + 80
+      // ── URL display (optional)
+      if (showUrl) {
+        currentY += 40
+        const eventUrl = `${window.location.host}/${event.slug}`
+        ctx.fillStyle = '#9CA3AF'
+        ctx.font = `32px ${font}`
+        ctx.fillText(eventUrl, W / 2, currentY)
+        currentY += 16
+      }
+
+      // ── Steps
+      currentY += 48
       const steps = [
-        'QR 코드 스캔 또는 링크 접속',
-        '레이아웃 선택 후 사진 추가',
-        '완성 후 프린트 버튼 클릭',
+        'QR 스캔 후 레이아웃 선택',
+        '사진을 찍고 꾸미기',
+        '프린트 버튼으로 즉시 출력!',
       ]
-      const stepGap = 64
+      const stepGap = 60
 
       steps.forEach((text, i) => {
-        const y = stepsStartY + i * stepGap
+        const y = currentY + i * stepGap
 
-        // Number circle
-        const circleR = 20
-        const circleX = 180
-        roundRect(circleX - circleR, y - circleR, circleR * 2, circleR * 2, circleR)
-        ctx.fillStyle = '#191F28'
+        // Number pill
+        const pillW = 36, pillH = 36
+        const pillX = 200
+        roundRect(pillX - pillW / 2, y - pillH / 2, pillW, pillH, pillH / 2)
+        const pillGrad = ctx.createLinearGradient(pillX - pillW / 2, y, pillX + pillW / 2, y)
+        pillGrad.addColorStop(0, '#8B5CF6')
+        pillGrad.addColorStop(1, '#EC4899')
+        ctx.fillStyle = pillGrad
         ctx.fill()
 
         ctx.fillStyle = '#FFFFFF'
-        ctx.font = 'bold 24px -apple-system, "Helvetica Neue", Arial, sans-serif'
+        ctx.font = `bold 22px ${font}`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
-        ctx.fillText(String(i + 1), circleX, y)
+        ctx.fillText(String(i + 1), pillX, y)
 
         // Step text
-        ctx.fillStyle = '#4E5968'
-        ctx.font = '32px -apple-system, "Helvetica Neue", Arial, sans-serif'
+        ctx.fillStyle = '#374151'
+        ctx.font = `500 34px ${font}`
         ctx.textAlign = 'left'
         ctx.textBaseline = 'middle'
-        ctx.fillText(text, circleX + 40, y)
+        ctx.fillText(text, pillX + 32, y)
       })
+
+      currentY += stepGap * 2
+
+      // ── Donation info (optional)
+      if (showDonation && event.donation?.enabled && event.donation.account) {
+        currentY += 54
+        // Donation box
+        const boxW = W - 160
+        const boxX = 80
+        const boxH = 90
+        roundRect(boxX, currentY, boxW, boxH, 16)
+        ctx.fillStyle = '#FEF3C7'
+        ctx.fill()
+        ctx.strokeStyle = '#FCD34D'
+        ctx.lineWidth = 2
+        ctx.stroke()
+
+        const don = event.donation
+        const donText = `💛 후원계좌: ${don.bank || ''} ${don.account} ${don.holder ? `(${don.holder})` : ''}`
+        ctx.fillStyle = '#92400E'
+        ctx.font = `600 30px ${font}`
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText(donText, W / 2, currentY + boxH / 2)
+      }
+
+      // ── Bottom decorative bar
+      ctx.fillStyle = accentGrad
+      ctx.fillRect(0, H - 12, W, 12)
 
       const blob = await new Promise<Blob>((resolve, reject) => {
         canvas.toBlob((b) => {
@@ -1179,10 +1273,41 @@ export default function AdminPage() {
       }}>
         <div className="bg-white rounded-lg p-6 max-w-2xl w-full my-8" onClick={(e) => e.stopPropagation()}>
           <h3 className="text-2xl font-bold mb-4 text-center">{selectedEvent.name} - QR 홍보 이미지</h3>
+          {/* Options */}
+          <div className="flex flex-wrap gap-4 mb-4 justify-center">
+            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={qrPromoShowUrl}
+                onChange={e => {
+                  setQrPromoShowUrl(e.target.checked)
+                  if (qrCodeUrl && selectedEvent) generateQR(selectedEvent, e.target.checked, qrPromoShowDonation)
+                }}
+                className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+              />
+              URL 표시
+            </label>
+            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={qrPromoShowDonation}
+                onChange={e => {
+                  setQrPromoShowDonation(e.target.checked)
+                  if (qrCodeUrl && selectedEvent) generateQR(selectedEvent, qrPromoShowUrl, e.target.checked)
+                }}
+                disabled={!selectedEvent?.donation?.enabled}
+                className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 disabled:opacity-40"
+              />
+              <span className={!selectedEvent?.donation?.enabled ? 'text-gray-400' : ''}>
+                후원계좌 표시{!selectedEvent?.donation?.enabled && ' (후원 미설정)'}
+              </span>
+            </label>
+          </div>
+
           {generatingPromo ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
-              <span className="ml-4 text-gray-600">4×6 홍보 이미지 생성 중...</span>
+              <span className="ml-4 text-gray-600">홍보 이미지 생성 중...</span>
             </div>
           ) : promotionalImageUrl ? (
             <div className="mb-6">
