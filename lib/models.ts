@@ -53,6 +53,7 @@ export async function getPrintJobsByEventId(eventId: string): Promise<PrintJob[]
   return db.collection<PrintJob>(COLLECTIONS.printJobs)
     .find({ eventId })
     .sort({ createdAt: -1 })
+    .allowDiskUse()
     .toArray()
 }
 
@@ -61,6 +62,7 @@ export async function getAllPrintJobs(): Promise<PrintJob[]> {
   return db.collection<PrintJob>(COLLECTIONS.printJobs)
     .find()
     .sort({ createdAt: -1 })
+    .allowDiskUse()
     .toArray()
 }
 

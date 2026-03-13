@@ -62,6 +62,15 @@ export async function POST(request: NextRequest) {
         }
       : undefined
 
+    // base64 imageUrl이면 Blob에 업로드하여 URL로 변환 (DB 용량 절약)
+    let storedImageUrl = imageUrl
+    if (imageUrl.startsWith('data:')) {
+      const base64Data = imageUrl.split(',')[1]
+      const buf = Buffer.from(base64Data, 'base64')
+      const filename = `original-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`
+      storedImageUrl = await uploadToBlob(filename, buf)
+    }
+
     const jobIds: string[] = []
     const errors: string[] = []
 
@@ -103,7 +112,7 @@ export async function POST(request: NextRequest) {
           const printJob = await createPrintJob({
             eventId: event._id!.toString(),
             printerId: printer._id!.toString(),
-            imageUrl,
+            imageUrl: storedImageUrl,
             printedImageUrl: correctedUrl,
             status: 'PENDING',
             deviceInfo,
@@ -119,10 +128,19 @@ export async function POST(request: NextRequest) {
             printerEmail: printer.email,
           })
 
+          // printedImageUrl이 base64면 Blob에 업로드
+          let storedPrintedUrl = result.printedImageUrl
+          if (storedPrintedUrl && storedPrintedUrl.startsWith('data:')) {
+            const b64 = storedPrintedUrl.split(',')[1]
+            const buf = Buffer.from(b64, 'base64')
+            const fn = `printed-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`
+            storedPrintedUrl = await uploadToBlob(fn, buf)
+          }
+
           const printJob = await createPrintJob({
             eventId: event._id!.toString(),
-            imageUrl,
-            printedImageUrl: result.printedImageUrl,
+            imageUrl: storedImageUrl,
+            printedImageUrl: storedPrintedUrl,
             status: result.success ? 'DONE' : 'FAILED',
             deviceInfo,
             errorMessage: result.error,
