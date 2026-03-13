@@ -456,24 +456,13 @@ export default function AdminPage() {
       ctx.fillStyle = accentGrad
       ctx.fillRect(0, 0, W, 14)
 
-      // ── Calculate total content height to center vertically
       const hasDonation = showDonation && event.donation?.enabled && event.donation.account
-      const qrSize = 640
-      const cardPad = 44
-      const stepGap = 70
-      // Heights: title(96) + gap(24) + subtitle(48) + gap(20) + badge(64) + gap(30) + divider(16) + gap(30)
-      //        + qrCard(qrSize+cardPad*2) + gap(40) + scanText(50) + urlLine?(52) + gap(30)
-      //        + steps(3*stepGap) + donation?(96+40)
-      const headerH = 96 + 24 + 48 + 20 + 64 + 30 + 16 + 30
-      const qrCardH = qrSize + cardPad * 2 + 40 + 50 + (showUrl ? 52 : 0) + 30
-      const stepsH = stepGap * 3
-      const donationH = hasDonation ? 136 : 0
-      const bottomH = 50 // Photo Toast text
-      const totalH = headerH + qrCardH + stepsH + donationH + bottomH
-      const startY = Math.max(40, (H - totalH) / 2)
+      const qrSize = 620
+      const cardPad = 40
+      const stepGap = 72
 
       // ── Event name
-      let y = startY + 48
+      let y = 100
       ctx.fillStyle = '#1A1A2E'
       ctx.font = `bold 96px ${font}`
       ctx.textAlign = 'center'
@@ -481,13 +470,13 @@ export default function AdminPage() {
       ctx.fillText(event.name, W / 2, y)
 
       // ── Subtitle
-      y += 80
+      y += 90
       ctx.fillStyle = '#6B7280'
       ctx.font = `600 48px ${font}`
       ctx.fillText('📸 무료 핸드폰 사진 이벤트 🎉', W / 2, y)
 
       // ── "무료" badge
-      y += 64
+      y += 76
       const freeW = 420
       const freeH = 64
       const freeX = (W - freeW) / 2
@@ -502,7 +491,7 @@ export default function AdminPage() {
       ctx.fillText('✨ 참여비 무료 · 인쇄 무료 ✨', W / 2, y)
 
       // ── Divider
-      y += 56
+      y += 66
       ctx.strokeStyle = '#E5E7EB'
       ctx.lineWidth = 2
       ctx.beginPath()
@@ -523,7 +512,7 @@ export default function AdminPage() {
       ctx.fill()
 
       // ── QR code area
-      y += 36
+      y += 50
       const qrX = (W - qrSize) / 2
       const qrY = y
 
@@ -546,7 +535,7 @@ export default function AdminPage() {
       // ── Logo in center of QR
       const hasLogo = logoImage.complete && logoImage.naturalWidth > 0
       if (hasLogo) {
-        const logoSize = 130
+        const logoSize = 120
         const logoPad = 12
         const logoX = qrX + (qrSize - logoSize) / 2
         const logoY2 = qrY + (qrSize - logoSize) / 2
@@ -558,7 +547,7 @@ export default function AdminPage() {
       }
 
       // ── Scan instruction
-      y = qrY + qrSize + cardPad + 46
+      y = qrY + qrSize + cardPad + 56
       ctx.fillStyle = '#374151'
       ctx.font = `bold 48px ${font}`
       ctx.textAlign = 'center'
@@ -566,7 +555,7 @@ export default function AdminPage() {
 
       // ── URL display
       if (showUrl) {
-        y += 52
+        y += 58
         const eventUrl = `${window.location.host}/${event.slug}`
         ctx.fillStyle = '#7C3AED'
         ctx.font = `600 42px ${font}`
@@ -574,7 +563,7 @@ export default function AdminPage() {
       }
 
       // ── Steps
-      y += 66
+      y += 76
       const steps = [
         'QR 스캔 후 레이아웃 선택',
         '사진을 선택하고 꾸미기',
@@ -584,7 +573,6 @@ export default function AdminPage() {
       steps.forEach((text, i) => {
         const sy = y + i * stepGap
 
-        // Number pill
         const pillW = 44, pillH = 44
         const pillX = 150
         roundRect(pillX - pillW / 2, sy - pillH / 2, pillW, pillH, pillH / 2)
@@ -607,15 +595,13 @@ export default function AdminPage() {
         ctx.fillText(text, pillX + 38, sy)
       })
 
-      y += stepGap * 2
-
-      // ── Donation info
+      // ── Donation info (pinned to bottom)
       if (hasDonation) {
-        y += 46
         const boxW = W - 160
         const boxX = 80
-        const boxH = 90
-        roundRect(boxX, y, boxW, boxH, 16)
+        const boxH = 86
+        const boxY = H - 70 - boxH // above the Photo Toast text
+        roundRect(boxX, boxY, boxW, boxH, 16)
         ctx.fillStyle = '#FEF3C7'
         ctx.fill()
         ctx.strokeStyle = '#FCD34D'
@@ -625,17 +611,17 @@ export default function AdminPage() {
         const don = event.donation!
         const donText = `💛 후원계좌: ${don.bank || ''} ${don.account} ${don.holder ? `(${don.holder})` : ''}`
         ctx.fillStyle = '#92400E'
-        ctx.font = `600 30px ${font}`
+        ctx.font = `600 28px ${font}`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
-        ctx.fillText(donText, W / 2, y + boxH / 2)
+        ctx.fillText(donText, W / 2, boxY + boxH / 2)
       }
 
       // ── Bottom: Photo Toast + accent bar
       ctx.fillStyle = '#D1D5DB'
-      ctx.font = `500 26px ${font}`
+      ctx.font = `500 24px ${font}`
       ctx.textAlign = 'center'
-      ctx.fillText('Photo Toast', W / 2, H - 40)
+      ctx.fillText('Photo Toast', W / 2, H - 34)
       ctx.fillStyle = accentGrad
       ctx.fillRect(0, H - 14, W, 14)
 
