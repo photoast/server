@@ -1582,8 +1582,9 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                 {event?.donation?.enabled && (
                   <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-2xl p-5 border border-yellow-200/80 text-center space-y-3">
                     <p className="text-base font-bold text-gray-900">
-                      🎉 {event.donation.message || '오늘 사진이 마음에 드셨다면, 작은 응원 부탁드려요!'} 💕
+                      🎉 {event.donation.message || '즐거우셨다면 자유롭게 응원해주세요!'} 💕
                     </p>
+                    <p className="text-xs text-gray-400">부담 없이, 마음만으로도 충분해요 ☺️</p>
                     {event.donation.link && (
                       <a
                         href={event.donation.link}
