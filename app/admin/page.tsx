@@ -415,6 +415,14 @@ export default function AdminPage() {
         qrImage.src = qrDataUrl
       })
 
+      // Load logo image
+      const logoImage = document.createElement('img')
+      await new Promise((resolve, reject) => {
+        logoImage.onload = () => resolve(true)
+        logoImage.onerror = () => resolve(false) // logo is optional
+        logoImage.src = '/logo.png'
+      })
+
       const font = '-apple-system, "Helvetica Neue", Arial, sans-serif'
 
       // Helper: rounded rect path
@@ -446,40 +454,54 @@ export default function AdminPage() {
       accentGrad.addColorStop(0.5, '#EC4899')
       accentGrad.addColorStop(1, '#F97316')
       ctx.fillStyle = accentGrad
-      ctx.fillRect(0, 0, W, 12)
+      ctx.fillRect(0, 0, W, 14)
 
-      // ── "FREE" badge
-      const badgeY = 80
-      const badgeW = 260
-      const badgeH = 64
+      // ── Logo + "FREE" badge row
+      let topY = 50
+      const logoSize = 80
+      if (logoImage.complete && logoImage.naturalWidth > 0) {
+        // Draw circular logo
+        ctx.save()
+        ctx.beginPath()
+        ctx.arc(W / 2, topY + logoSize / 2, logoSize / 2, 0, Math.PI * 2)
+        ctx.closePath()
+        ctx.clip()
+        ctx.drawImage(logoImage, W / 2 - logoSize / 2, topY, logoSize, logoSize)
+        ctx.restore()
+        topY += logoSize + 20
+      }
+
+      // FREE badge
+      const badgeW = 300
+      const badgeH = 72
       const badgeX = (W - badgeW) / 2
-      const badgeGrad = ctx.createLinearGradient(badgeX, badgeY, badgeX + badgeW, badgeY)
+      const badgeGrad = ctx.createLinearGradient(badgeX, topY, badgeX + badgeW, topY)
       badgeGrad.addColorStop(0, '#8B5CF6')
       badgeGrad.addColorStop(1, '#EC4899')
-      roundRect(badgeX, badgeY, badgeW, badgeH, badgeH / 2)
+      roundRect(badgeX, topY, badgeW, badgeH, badgeH / 2)
       ctx.fillStyle = badgeGrad
       ctx.fill()
       ctx.fillStyle = '#FFFFFF'
-      ctx.font = `bold 32px ${font}`
+      ctx.font = `bold 36px ${font}`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
-      ctx.fillText('✦ FREE ✦', W / 2, badgeY + badgeH / 2)
+      ctx.fillText('✦ FREE ✦', W / 2, topY + badgeH / 2)
 
-      // ── Event name (large)
-      const titleY = badgeY + badgeH + 60
+      // ── Event name (larger)
+      const titleY = topY + badgeH + 50
       ctx.fillStyle = '#1A1A2E'
-      ctx.font = `bold 80px ${font}`
+      ctx.font = `bold 88px ${font}`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.fillText(event.name, W / 2, titleY)
 
-      // ── Subtitle
+      // ── Subtitle (larger)
       ctx.fillStyle = '#6B7280'
-      ctx.font = `500 40px ${font}`
-      ctx.fillText('무료 즉석 포토 프린트', W / 2, titleY + 72)
+      ctx.font = `600 46px ${font}`
+      ctx.fillText('무료 즉석 포토 프린트', W / 2, titleY + 80)
 
       // ── Decorative divider with diamond
-      const divY = titleY + 140
+      const divY = titleY + 150
       ctx.strokeStyle = '#E5E7EB'
       ctx.lineWidth = 2
       ctx.beginPath()
@@ -490,7 +512,6 @@ export default function AdminPage() {
       ctx.moveTo(W / 2 + 20, divY)
       ctx.lineTo(W - 160, divY)
       ctx.stroke()
-      // Diamond
       ctx.fillStyle = '#8B5CF6'
       ctx.beginPath()
       ctx.moveTo(W / 2, divY - 8)
@@ -503,7 +524,7 @@ export default function AdminPage() {
       // ── QR code area (large, centered)
       const qrSize = 640
       const qrX = (W - qrSize) / 2
-      const qrY = divY + 50
+      const qrY = divY + 46
 
       // Card behind QR with shadow
       ctx.save()
@@ -514,7 +535,6 @@ export default function AdminPage() {
       roundRect(qrX - cardPad, qrY - cardPad, qrSize + cardPad * 2, qrSize + cardPad * 2, 28)
       ctx.fillStyle = '#FFFFFF'
       ctx.fill()
-      // Card border
       ctx.strokeStyle = '#F3E8FF'
       ctx.lineWidth = 3
       ctx.stroke()
@@ -523,39 +543,37 @@ export default function AdminPage() {
       // QR code
       ctx.drawImage(qrImage, qrX, qrY, qrSize, qrSize)
 
-      // ── Below QR: scan instruction
-      let currentY = qrY + qrSize + cardPad + 46
-      ctx.fillStyle = '#4B5563'
-      ctx.font = `bold 38px ${font}`
+      // ── Below QR: scan instruction (larger)
+      let currentY = qrY + qrSize + cardPad + 50
+      ctx.fillStyle = '#374151'
+      ctx.font = `bold 44px ${font}`
       ctx.textAlign = 'center'
       ctx.fillText('📱 QR 코드를 스캔하세요!', W / 2, currentY)
-      currentY += 16
 
-      // ── URL display (optional)
+      // ── URL display (optional, larger)
       if (showUrl) {
-        currentY += 40
+        currentY += 52
         const eventUrl = `${window.location.host}/${event.slug}`
-        ctx.fillStyle = '#9CA3AF'
-        ctx.font = `32px ${font}`
+        ctx.fillStyle = '#7C3AED'
+        ctx.font = `600 38px ${font}`
         ctx.fillText(eventUrl, W / 2, currentY)
-        currentY += 16
       }
 
-      // ── Steps
-      currentY += 48
+      // ── Steps (larger)
+      currentY += 64
       const steps = [
         'QR 스캔 후 레이아웃 선택',
         '사진을 찍고 꾸미기',
         '프린트! 여러 장도 자유롭게 🎉',
       ]
-      const stepGap = 60
+      const stepGap = 66
 
       steps.forEach((text, i) => {
         const y = currentY + i * stepGap
 
         // Number pill
-        const pillW = 36, pillH = 36
-        const pillX = 200
+        const pillW = 40, pillH = 40
+        const pillX = 180
         roundRect(pillX - pillW / 2, y - pillH / 2, pillW, pillH, pillH / 2)
         const pillGrad = ctx.createLinearGradient(pillX - pillW / 2, y, pillX + pillW / 2, y)
         pillGrad.addColorStop(0, '#8B5CF6')
@@ -564,28 +582,27 @@ export default function AdminPage() {
         ctx.fill()
 
         ctx.fillStyle = '#FFFFFF'
-        ctx.font = `bold 22px ${font}`
+        ctx.font = `bold 24px ${font}`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
         ctx.fillText(String(i + 1), pillX, y)
 
-        // Step text
+        // Step text (larger)
         ctx.fillStyle = '#374151'
-        ctx.font = `500 34px ${font}`
+        ctx.font = `600 38px ${font}`
         ctx.textAlign = 'left'
         ctx.textBaseline = 'middle'
-        ctx.fillText(text, pillX + 32, y)
+        ctx.fillText(text, pillX + 36, y)
       })
 
       currentY += stepGap * 2
 
       // ── Donation info (optional)
       if (showDonation && event.donation?.enabled && event.donation.account) {
-        currentY += 54
-        // Donation box
+        currentY += 50
         const boxW = W - 160
         const boxX = 80
-        const boxH = 90
+        const boxH = 96
         roundRect(boxX, currentY, boxW, boxH, 16)
         ctx.fillStyle = '#FEF3C7'
         ctx.fill()
@@ -596,15 +613,19 @@ export default function AdminPage() {
         const don = event.donation
         const donText = `💛 후원계좌: ${don.bank || ''} ${don.account} ${don.holder ? `(${don.holder})` : ''}`
         ctx.fillStyle = '#92400E'
-        ctx.font = `600 30px ${font}`
+        ctx.font = `600 32px ${font}`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
         ctx.fillText(donText, W / 2, currentY + boxH / 2)
       }
 
-      // ── Bottom decorative bar
+      // ── Bottom: logo text + accent bar
+      ctx.fillStyle = '#D1D5DB'
+      ctx.font = `500 26px ${font}`
+      ctx.textAlign = 'center'
+      ctx.fillText('Photo Toast', W / 2, H - 40)
       ctx.fillStyle = accentGrad
-      ctx.fillRect(0, H - 12, W, 12)
+      ctx.fillRect(0, H - 14, W, 14)
 
       const blob = await new Promise<Blob>((resolve, reject) => {
         canvas.toBlob((b) => {
