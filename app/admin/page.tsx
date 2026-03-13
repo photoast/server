@@ -388,7 +388,7 @@ export default function AdminPage() {
 
   const generateQR = async (event: Event, showUrl = qrPromoShowUrl, showDonation = qrPromoShowDonation) => {
     const url = `${window.location.origin}/${event.slug}`
-    const qr = await QRCode.toDataURL(url, { width: 800, margin: 1 })
+    const qr = await QRCode.toDataURL(url, { width: 800, margin: 1, errorCorrectionLevel: 'H' })
     setQrCodeUrl(qr)
     setSelectedEvent(event)
 
@@ -456,51 +456,22 @@ export default function AdminPage() {
       ctx.fillStyle = accentGrad
       ctx.fillRect(0, 0, W, 14)
 
-      // ── Logo
-      let topY = 40
-      const logoSize = 130
-      if (logoImage.complete && logoImage.naturalWidth > 0) {
-        ctx.save()
-        ctx.beginPath()
-        ctx.arc(W / 2, topY + logoSize / 2, logoSize / 2, 0, Math.PI * 2)
-        ctx.closePath()
-        ctx.clip()
-        ctx.drawImage(logoImage, W / 2 - logoSize / 2, topY, logoSize, logoSize)
-        ctx.restore()
-        topY += logoSize + 16
-      }
-
-      // FREE badge
-      const badgeW = 320
-      const badgeH = 78
-      const badgeX = (W - badgeW) / 2
-      const badgeGrad = ctx.createLinearGradient(badgeX, topY, badgeX + badgeW, topY)
-      badgeGrad.addColorStop(0, '#8B5CF6')
-      badgeGrad.addColorStop(1, '#EC4899')
-      roundRect(badgeX, topY, badgeW, badgeH, badgeH / 2)
-      ctx.fillStyle = badgeGrad
-      ctx.fill()
-      ctx.fillStyle = '#FFFFFF'
-      ctx.font = `bold 42px ${font}`
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'middle'
-      ctx.fillText('✦ FREE ✦', W / 2, topY + badgeH / 2)
-
-      // ── Event name
-      const titleY = topY + badgeH + 46
+      // ── Event name (top, large)
+      let topY = 70
       ctx.fillStyle = '#1A1A2E'
       ctx.font = `bold 96px ${font}`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
-      ctx.fillText(event.name, W / 2, titleY)
+      ctx.fillText(event.name, W / 2, topY)
 
-      // ── Subtitle
+      // ── Subtitle with emoji
+      topY += 80
       ctx.fillStyle = '#6B7280'
-      ctx.font = `600 52px ${font}`
-      ctx.fillText('무료 즉석 포토 프린트', W / 2, titleY + 84)
+      ctx.font = `600 48px ${font}`
+      ctx.fillText('📸 무료 핸드폰 사진 이벤트 🎉', W / 2, topY)
 
-      // ── Decorative divider with diamond
-      const divY = titleY + 150
+      // ── Decorative divider
+      const divY = topY + 60
       ctx.strokeStyle = '#E5E7EB'
       ctx.lineWidth = 2
       ctx.beginPath()
@@ -521,16 +492,16 @@ export default function AdminPage() {
       ctx.fill()
 
       // ── QR code area (large, centered)
-      const qrSize = 640
+      const qrSize = 680
       const qrX = (W - qrSize) / 2
-      const qrY = divY + 46
+      const qrY = divY + 40
 
       // Card behind QR with shadow
       ctx.save()
       ctx.shadowColor = 'rgba(139, 92, 246, 0.12)'
       ctx.shadowBlur = 50
       ctx.shadowOffsetY = 10
-      const cardPad = 48
+      const cardPad = 44
       roundRect(qrX - cardPad, qrY - cardPad, qrSize + cardPad * 2, qrSize + cardPad * 2, 28)
       ctx.fillStyle = '#FFFFFF'
       ctx.fill()
@@ -542,6 +513,22 @@ export default function AdminPage() {
       // QR code
       ctx.drawImage(qrImage, qrX, qrY, qrSize, qrSize)
 
+      // ── Logo in center of QR code
+      const hasLogo = logoImage.complete && logoImage.naturalWidth > 0
+      if (hasLogo) {
+        const logoSize = 140
+        const logoPad = 14
+        const logoX = qrX + (qrSize - logoSize) / 2
+        const logoY = qrY + (qrSize - logoSize) / 2
+        // White background circle behind logo
+        ctx.fillStyle = '#FFFFFF'
+        ctx.beginPath()
+        ctx.arc(logoX + logoSize / 2, logoY + logoSize / 2, logoSize / 2 + logoPad, 0, Math.PI * 2)
+        ctx.fill()
+        // Draw logo
+        ctx.drawImage(logoImage, logoX, logoY, logoSize, logoSize)
+      }
+
       // ── Below QR: scan instruction
       let currentY = qrY + qrSize + cardPad + 50
       ctx.fillStyle = '#374151'
@@ -551,28 +538,28 @@ export default function AdminPage() {
 
       // ── URL display (optional)
       if (showUrl) {
-        currentY += 56
+        currentY += 58
         const eventUrl = `${window.location.host}/${event.slug}`
         ctx.fillStyle = '#7C3AED'
         ctx.font = `600 44px ${font}`
         ctx.fillText(eventUrl, W / 2, currentY)
       }
 
-      // ── Steps
-      currentY += 64
+      // ── Steps (bigger text)
+      currentY += 72
       const steps = [
         'QR 스캔 후 레이아웃 선택',
-        '사진을 찍고 꾸미기',
+        '사진을 선택하고 꾸미기',
         '프린트! 여러 장도 자유롭게 🎉',
       ]
-      const stepGap = 66
+      const stepGap = 74
 
       steps.forEach((text, i) => {
         const y = currentY + i * stepGap
 
         // Number pill
-        const pillW = 40, pillH = 40
-        const pillX = 180
+        const pillW = 46, pillH = 46
+        const pillX = 150
         roundRect(pillX - pillW / 2, y - pillH / 2, pillW, pillH, pillH / 2)
         const pillGrad = ctx.createLinearGradient(pillX - pillW / 2, y, pillX + pillW / 2, y)
         pillGrad.addColorStop(0, '#8B5CF6')
@@ -581,24 +568,24 @@ export default function AdminPage() {
         ctx.fill()
 
         ctx.fillStyle = '#FFFFFF'
-        ctx.font = `bold 24px ${font}`
+        ctx.font = `bold 28px ${font}`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
         ctx.fillText(String(i + 1), pillX, y)
 
         // Step text
         ctx.fillStyle = '#374151'
-        ctx.font = `600 42px ${font}`
+        ctx.font = `600 48px ${font}`
         ctx.textAlign = 'left'
         ctx.textBaseline = 'middle'
-        ctx.fillText(text, pillX + 36, y)
+        ctx.fillText(text, pillX + 40, y)
       })
 
       currentY += stepGap * 2
 
       // ── Donation info (optional)
       if (showDonation && event.donation?.enabled && event.donation.account) {
-        currentY += 50
+        currentY += 46
         const boxW = W - 160
         const boxX = 80
         const boxH = 96
@@ -618,7 +605,7 @@ export default function AdminPage() {
         ctx.fillText(donText, W / 2, currentY + boxH / 2)
       }
 
-      // ── Bottom: logo text + accent bar
+      // ── Bottom: Photo Toast + accent bar
       ctx.fillStyle = '#D1D5DB'
       ctx.font = `500 26px ${font}`
       ctx.textAlign = 'center'
