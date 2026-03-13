@@ -1561,7 +1561,10 @@ export default function AdminPage() {
       <div className="max-w-2xl mx-auto">
         <UICard className="mb-6">
           <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-gray-900">Photo Toast Admin</h1>
+            <div className="flex items-center gap-3">
+              <Image src="/logo.png" alt="Photo Toast" width={40} height={40} className="rounded-full" />
+              <h1 className="text-2xl font-bold text-gray-900">Photo Toast Admin</h1>
+            </div>
             <UIButton variant="secondary" size="sm" onClick={handleLogout}>Logout</UIButton>
           </div>
         </UICard>
