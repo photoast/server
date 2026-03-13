@@ -546,7 +546,7 @@ export default function AdminPage() {
       const steps = [
         'QR 스캔 후 레이아웃 선택',
         '사진을 찍고 꾸미기',
-        '프린트 버튼으로 즉시 출력!',
+        '프린트! 여러 장도 자유롭게 🎉',
       ]
       const stepGap = 60
 

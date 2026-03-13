@@ -602,6 +602,8 @@ export default function SwitLayoutPage({
 
           <UIStatusBanner type={statusType} message={statusMessage} />
 
+          <p className="text-center text-sm text-gray-500">📸 자유롭게 여러 장 뽑아도 괜찮아요! 마음껏 즐겨주세요</p>
+
           {mergedUrl && (
             <div className="flex justify-center">
               <img src={mergedUrl} alt="인쇄 사진" className="rounded-lg shadow-lg object-contain" style={{ maxHeight: '40vh', maxWidth: '100%' }} />
