@@ -420,7 +420,7 @@ export default function AdminPage() {
       await new Promise((resolve, reject) => {
         logoImage.onload = () => resolve(true)
         logoImage.onerror = () => resolve(false) // logo is optional
-        logoImage.src = '/logo.png'
+        logoImage.src = '/logo-without-bg.png'
       })
 
       const font = '-apple-system, "Helvetica Neue", Arial, sans-serif'
@@ -1582,7 +1582,7 @@ export default function AdminPage() {
         <UICard className="mb-6">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-3">
-              <Image src="/logo.png" alt="Photo Toast" width={40} height={40} className="rounded-full" />
+              <Image src="/logo-without-bg.png" alt="Photo Toast" width={40} height={40} />
               <h1 className="text-2xl font-bold text-gray-900">Photo Toast Admin</h1>
             </div>
             <UIButton variant="secondary" size="sm" onClick={handleLogout}>Logout</UIButton>
