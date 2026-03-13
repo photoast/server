@@ -470,6 +470,21 @@ export default function AdminPage() {
       ctx.font = `600 48px ${font}`
       ctx.fillText('📸 무료 핸드폰 사진 이벤트 🎉', W / 2, topY)
 
+      // ── "완전 무료" highlight badge
+      topY += 62
+      const freeW = 380
+      const freeH = 64
+      const freeX = (W - freeW) / 2
+      const freeGrad = ctx.createLinearGradient(freeX, topY, freeX + freeW, topY)
+      freeGrad.addColorStop(0, '#8B5CF6')
+      freeGrad.addColorStop(1, '#EC4899')
+      roundRect(freeX, topY, freeW, freeH, freeH / 2)
+      ctx.fillStyle = freeGrad
+      ctx.fill()
+      ctx.fillStyle = '#FFFFFF'
+      ctx.font = `bold 36px ${font}`
+      ctx.fillText('✨ 참여비 무료 · 인쇄 무료 ✨', W / 2, topY + freeH / 2)
+
       // ── Decorative divider
       const divY = topY + 60
       ctx.strokeStyle = '#E5E7EB'
