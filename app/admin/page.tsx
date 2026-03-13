@@ -492,7 +492,7 @@ export default function AdminPage() {
       ctx.fillText('🎊  참여비 무료 · 인쇄 무료 · 몇 장이든 무료  🎊', W / 2, y)
 
       // ── QR code area
-      y += 80
+      y += freeH / 2 + 50
       const qrX = (W - qrSize) / 2
       const qrY = y
 
