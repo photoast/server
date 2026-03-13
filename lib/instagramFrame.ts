@@ -1,5 +1,6 @@
 import sharp from 'sharp'
 import QRCode from 'qrcode'
+import { KOREAN_FONT_FAMILY } from './setupFonts'
 
 /**
  * 인스타그램 스타일 프레임 생성기
@@ -65,7 +66,7 @@ export async function generateInstagramFrame(options: InstagramFrameOptions): Pr
     caption = '사진을 찍었어요',
     likesText = '좋아요 999개',
     qrLabel = 'QR로 팔로우',
-    fontFamily = '-apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif',
+    fontFamily = KOREAN_FONT_FAMILY,
   } = options
 
   const cleanName = username.replace(/^@/, '')

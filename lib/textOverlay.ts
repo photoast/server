@@ -1,4 +1,5 @@
 import sharp from 'sharp'
+import { KOREAN_FONT_FAMILY } from './setupFonts'
 
 /**
  * 텍스트 오버레이 PNG 생성기
@@ -38,7 +39,7 @@ export async function generateTextOverlay(options: TextOverlayOptions): Promise<
     bgColor = '#000000',
     align = 'center',
     bold = true,
-    fontFamily = '-apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif',
+    fontFamily = KOREAN_FONT_FAMILY,
     maxWidth = 1000,
   } = options
 

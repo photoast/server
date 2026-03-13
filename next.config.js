@@ -14,6 +14,10 @@ const nextConfig = {
       bodySizeLimit: '100mb',
     },
   },
+  // Vercel 서버리스 번들에 한글 폰트 파일 포함
+  outputFileTracingIncludes: {
+    '/api/**': ['./lib/fonts/**/*'],
+  },
 }
 
 module.exports = nextConfig
