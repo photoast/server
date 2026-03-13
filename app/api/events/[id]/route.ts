@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { findEventById, updateEvent } from '@/lib/models'
+import { findEventById, updateEvent, deleteEvent } from '@/lib/models'
 import { checkAuth } from '@/lib/middleware'
 
 // GET event by ID
@@ -61,6 +61,31 @@ export async function PATCH(
     console.error('Error updating event:', error)
     return NextResponse.json(
       { error: 'Failed to update event' },
+      { status: 500 }
+    )
+  }
+}
+
+// DELETE event
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    if (!checkAuth(request)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const deleted = await deleteEvent(params.id)
+    if (!deleted) {
+      return NextResponse.json({ error: 'Event not found' }, { status: 404 })
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('Error deleting event:', error)
+    return NextResponse.json(
+      { error: 'Failed to delete event' },
       { status: 500 }
     )
   }

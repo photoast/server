@@ -693,6 +693,17 @@ export default function AdminPage() {
               window.open(`${window.location.origin}/${event.slug}`, '_blank')
             }}>링크 열기</UIButton>
             <UIButton size="sm" variant="secondary" onClick={() => viewPrintHistory(event)}>인쇄 기록</UIButton>
+            <UIButton size="sm" variant="secondary" onClick={async () => {
+              if (!confirm(`"${event.name}" 이벤트를 삭제하시겠어요?\n연관된 인쇄 기록과 레이아웃도 모두 삭제됩니다.`)) return
+              try {
+                const res = await fetch(`/api/events/${event._id}`, { method: 'DELETE' })
+                if (!res.ok) throw new Error('삭제 실패')
+                setDetailEvent(null)
+                fetchEvents()
+              } catch (err: any) {
+                setError(err.message || '이벤트 삭제 실패')
+              }
+            }} className="!text-red-500 !hover:bg-red-50">삭제</UIButton>
           </div>
 
           {/* Printer Selection */}

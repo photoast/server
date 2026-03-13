@@ -39,6 +39,20 @@ export async function updateEvent(id: string, updates: Partial<Event>): Promise<
   return result.matchedCount > 0
 }
 
+export async function deleteEvent(id: string): Promise<boolean> {
+  const db = await getDb()
+  const result = await db.collection(COLLECTIONS.events).deleteOne({ _id: new ObjectId(id) })
+  if (result.deletedCount > 0) {
+    // 연관된 printJobs, layouts도 삭제
+    await Promise.all([
+      db.collection(COLLECTIONS.printJobs).deleteMany({ eventId: id }),
+      db.collection(COLLECTIONS.layouts).deleteMany({ eventId: id }),
+    ])
+    return true
+  }
+  return false
+}
+
 // ==================== Print Jobs ====================
 
 export async function createPrintJob(job: Omit<PrintJob, '_id' | 'createdAt'>): Promise<PrintJob> {
