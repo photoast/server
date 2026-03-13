@@ -948,15 +948,51 @@ export default function AdminPage() {
                         }}
                         className="flex-1"
                       />
-                      <UITextInput
-                        placeholder="송금 링크 (토스, 카카오페이 등)"
-                        defaultValue={event.donation?.link || ''}
-                        onBlur={e => {
-                          const prev = event.donation || { enabled: true, bank: '', account: '' }
-                          handleUpdateEvent(event._id, { donation: { ...prev, link: e.target.value || undefined } })
-                        }}
-                        className="flex-1"
-                      />
+                      <div className="flex gap-1 flex-1 items-center">
+                        <UITextInput
+                          placeholder="송금 링크 (토스, 카카오페이 등)"
+                          defaultValue={event.donation?.link || ''}
+                          onBlur={e => {
+                            const prev = event.donation || { enabled: true, bank: '', account: '' }
+                            handleUpdateEvent(event._id, { donation: { ...prev, link: e.target.value || undefined } })
+                          }}
+                          className="flex-1"
+                        />
+                        <button
+                          type="button"
+                          title="토스 딥링크 자동 생성"
+                          onClick={() => {
+                            const don = event.donation
+                            if (!don?.bank || !don?.account) {
+                              alert('은행명과 계좌번호를 먼저 입력해주세요')
+                              return
+                            }
+                            const bankMap: Record<string, string> = {
+                              '카카오뱅크': '카카오', '카카오': '카카오',
+                              'KB': 'KB', 'KB국민': 'KB', '국민': 'KB', '국민은행': 'KB',
+                              '신한': '신한', '신한은행': '신한',
+                              '우리': '우리', '우리은행': '우리',
+                              '하나': '하나', '하나은행': '하나', 'KEB하나': '하나',
+                              '농협': 'NH', 'NH': 'NH', 'NH농협': 'NH',
+                              '기업': 'IBK', 'IBK': 'IBK', '기업은행': 'IBK',
+                              '토스': '토스', '토스뱅크': '토스',
+                              'SC': 'SC', 'SC제일': 'SC', '제일': 'SC',
+                              '씨티': '씨티', '한국씨티': '씨티',
+                              '케이뱅크': '케이', 'K뱅크': '케이',
+                              '새마을': '새마을', '새마을금고': '새마을',
+                              '신협': '신협', '우체국': '우체국',
+                            }
+                            const bankKey = bankMap[don.bank.trim()] || don.bank.trim()
+                            const accountNo = don.account.replace(/-/g, '')
+                            const link = `supertoss://send?bank=${encodeURIComponent(bankKey)}&accountNo=${accountNo}&origin=photobooth`
+                            const prev = { ...don, link }
+                            handleUpdateEvent(event._id, { donation: prev })
+                          }}
+                          className="shrink-0 px-2 py-1.5 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors whitespace-nowrap"
+                        >
+                          토스 생성
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
