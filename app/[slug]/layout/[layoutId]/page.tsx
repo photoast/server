@@ -33,6 +33,7 @@ interface Event {
     account: string
     holder?: string
     message?: string
+    link?: string
   }
 }
 
@@ -622,27 +623,41 @@ export default function SwitLayoutPage({
           {/* 후원 안내 */}
           {event?.donation?.enabled && (
             <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-2xl p-5 border border-yellow-100/60 text-center space-y-3">
-              <div className="flex items-center justify-center gap-1.5">
-                <svg className="w-4 h-4 text-yellow-500" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
-                <p className="text-sm font-semibold text-gray-700">{event.donation.message || '마음에 드셨다면 응원해 주세요'}</p>
-              </div>
-              <div className="bg-white/70 rounded-xl py-3 px-4 inline-flex items-center gap-2.5">
-                <div className="text-left">
-                  <p className="text-[11px] text-gray-400 leading-none mb-1">{event.donation.bank}{event.donation.holder ? ` · ${event.donation.holder}` : ''}</p>
-                  <p className="text-[15px] font-mono font-bold text-gray-800 tracking-wide">{event.donation.account}</p>
-                </div>
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(event.donation!.account.replace(/-/g, ''))
-                    const btn = document.getElementById('copy-account-btn-layout')
-                    if (btn) { btn.textContent = '복사됨'; setTimeout(() => { btn.textContent = '복사' }, 1500) }
-                  }}
-                  id="copy-account-btn-layout"
-                  className="text-xs px-3 py-1.5 rounded-lg bg-yellow-400 text-yellow-900 hover:bg-yellow-500 transition-colors font-semibold shrink-0"
+              <p className="text-[15px] font-semibold text-gray-800">
+                {event.donation.message || '오늘 사진이 마음에 드셨다면, 작은 응원 부탁드려요!'}
+              </p>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                여러분의 후원이 더 좋은 포토부스를 만드는 힘이 됩니다
+              </p>
+              {event.donation.link ? (
+                <a
+                  href={event.donation.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-yellow-400 text-yellow-900 hover:bg-yellow-500 active:scale-95 transition-all font-bold text-sm shadow-sm"
                 >
-                  복사
-                </button>
-              </div>
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"/><path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd"/></svg>
+                  후원하기
+                </a>
+              ) : (
+                <div className="bg-white/70 rounded-xl py-3 px-4 inline-flex items-center gap-2.5">
+                  <div className="text-left">
+                    <p className="text-[11px] text-gray-400 leading-none mb-1">{event.donation.bank}{event.donation.holder ? ` · ${event.donation.holder}` : ''}</p>
+                    <p className="text-[15px] font-mono font-bold text-gray-800 tracking-wide">{event.donation.account}</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(event.donation!.account.replace(/-/g, ''))
+                      const btn = document.getElementById('copy-account-btn-layout')
+                      if (btn) { btn.textContent = '복사됨'; setTimeout(() => { btn.textContent = '복사' }, 1500) }
+                    }}
+                    id="copy-account-btn-layout"
+                    className="text-xs px-3 py-1.5 rounded-lg bg-yellow-400 text-yellow-900 hover:bg-yellow-500 transition-colors font-semibold shrink-0"
+                  >
+                    복사
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

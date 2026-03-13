@@ -117,6 +117,7 @@ export interface Event {
     account: string     // e.g. "3333-36-8761932"
     holder?: string     // 예금주
     message?: string    // 안내 문구
+    link?: string       // 송금 링크 (토스, 카카오페이 등)
   }
   createdAt: Date
 }

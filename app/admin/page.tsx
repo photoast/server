@@ -36,6 +36,7 @@ interface Event {
     account: string
     holder?: string
     message?: string
+    link?: string
   }
   createdAt: string
 }
@@ -850,6 +851,15 @@ export default function AdminPage() {
                         onBlur={e => {
                           const prev = event.donation || { enabled: true, bank: '', account: '' }
                           handleUpdateEvent(event._id, { donation: { ...prev, message: e.target.value || undefined } })
+                        }}
+                        className="flex-1"
+                      />
+                      <UITextInput
+                        placeholder="송금 링크 (토스, 카카오페이 등)"
+                        defaultValue={event.donation?.link || ''}
+                        onBlur={e => {
+                          const prev = event.donation || { enabled: true, bank: '', account: '' }
+                          handleUpdateEvent(event._id, { donation: { ...prev, link: e.target.value || undefined } })
                         }}
                         className="flex-1"
                       />
