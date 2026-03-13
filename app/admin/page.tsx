@@ -456,11 +456,10 @@ export default function AdminPage() {
       ctx.fillStyle = accentGrad
       ctx.fillRect(0, 0, W, 14)
 
-      // ── Logo + "FREE" badge row
-      let topY = 50
-      const logoSize = 80
+      // ── Logo
+      let topY = 40
+      const logoSize = 130
       if (logoImage.complete && logoImage.naturalWidth > 0) {
-        // Draw circular logo
         ctx.save()
         ctx.beginPath()
         ctx.arc(W / 2, topY + logoSize / 2, logoSize / 2, 0, Math.PI * 2)
@@ -468,12 +467,12 @@ export default function AdminPage() {
         ctx.clip()
         ctx.drawImage(logoImage, W / 2 - logoSize / 2, topY, logoSize, logoSize)
         ctx.restore()
-        topY += logoSize + 20
+        topY += logoSize + 16
       }
 
       // FREE badge
-      const badgeW = 300
-      const badgeH = 72
+      const badgeW = 320
+      const badgeH = 78
       const badgeX = (W - badgeW) / 2
       const badgeGrad = ctx.createLinearGradient(badgeX, topY, badgeX + badgeW, topY)
       badgeGrad.addColorStop(0, '#8B5CF6')
@@ -482,23 +481,23 @@ export default function AdminPage() {
       ctx.fillStyle = badgeGrad
       ctx.fill()
       ctx.fillStyle = '#FFFFFF'
-      ctx.font = `bold 36px ${font}`
+      ctx.font = `bold 42px ${font}`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.fillText('✦ FREE ✦', W / 2, topY + badgeH / 2)
 
-      // ── Event name (larger)
-      const titleY = topY + badgeH + 50
+      // ── Event name
+      const titleY = topY + badgeH + 46
       ctx.fillStyle = '#1A1A2E'
-      ctx.font = `bold 88px ${font}`
+      ctx.font = `bold 96px ${font}`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.fillText(event.name, W / 2, titleY)
 
-      // ── Subtitle (larger)
+      // ── Subtitle
       ctx.fillStyle = '#6B7280'
-      ctx.font = `600 46px ${font}`
-      ctx.fillText('무료 즉석 포토 프린트', W / 2, titleY + 80)
+      ctx.font = `600 52px ${font}`
+      ctx.fillText('무료 즉석 포토 프린트', W / 2, titleY + 84)
 
       // ── Decorative divider with diamond
       const divY = titleY + 150
@@ -543,23 +542,23 @@ export default function AdminPage() {
       // QR code
       ctx.drawImage(qrImage, qrX, qrY, qrSize, qrSize)
 
-      // ── Below QR: scan instruction (larger)
+      // ── Below QR: scan instruction
       let currentY = qrY + qrSize + cardPad + 50
       ctx.fillStyle = '#374151'
-      ctx.font = `bold 44px ${font}`
+      ctx.font = `bold 50px ${font}`
       ctx.textAlign = 'center'
       ctx.fillText('📱 QR 코드를 스캔하세요!', W / 2, currentY)
 
-      // ── URL display (optional, larger)
+      // ── URL display (optional)
       if (showUrl) {
-        currentY += 52
+        currentY += 56
         const eventUrl = `${window.location.host}/${event.slug}`
         ctx.fillStyle = '#7C3AED'
-        ctx.font = `600 38px ${font}`
+        ctx.font = `600 44px ${font}`
         ctx.fillText(eventUrl, W / 2, currentY)
       }
 
-      // ── Steps (larger)
+      // ── Steps
       currentY += 64
       const steps = [
         'QR 스캔 후 레이아웃 선택',
@@ -587,9 +586,9 @@ export default function AdminPage() {
         ctx.textBaseline = 'middle'
         ctx.fillText(String(i + 1), pillX, y)
 
-        // Step text (larger)
+        // Step text
         ctx.fillStyle = '#374151'
-        ctx.font = `600 38px ${font}`
+        ctx.font = `600 42px ${font}`
         ctx.textAlign = 'left'
         ctx.textBaseline = 'middle'
         ctx.fillText(text, pillX + 36, y)
