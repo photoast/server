@@ -457,70 +457,50 @@ export default function AdminPage() {
       ctx.fillRect(0, 0, W, 14)
 
       const hasDonation = showDonation && event.donation?.enabled && event.donation.account
-      const qrSize = 580
-      const cardPad = 40
-      const stepGap = 80
+      const qrSize = 700
+      const cardPad = 44
+      const stepGap = 86
 
       // ── Event name
-      let y = 110
+      let y = 120
       ctx.fillStyle = '#1A1A2E'
-      ctx.font = `bold 104px ${font}`
+      ctx.font = `bold 110px ${font}`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.fillText(event.name, W / 2, y)
 
       // ── Subtitle
-      y += 100
+      y += 110
       ctx.fillStyle = '#6B7280'
-      ctx.font = `600 52px ${font}`
+      ctx.font = `600 54px ${font}`
       ctx.fillText('📸 무료 핸드폰 사진 이벤트 🎉', W / 2, y)
 
-      // ── "무료" badge
-      y += 86
-      const freeW = 460
-      const freeH = 72
+      // ── "무료" badge (bigger, bolder)
+      y += 90
+      const freeW = 900
+      const freeH = 84
       const freeX = (W - freeW) / 2
       const freeGrad = ctx.createLinearGradient(freeX, y, freeX + freeW, y)
-      freeGrad.addColorStop(0, '#8B5CF6')
-      freeGrad.addColorStop(1, '#EC4899')
+      freeGrad.addColorStop(0, '#7C3AED')
+      freeGrad.addColorStop(0.5, '#DB2777')
+      freeGrad.addColorStop(1, '#EA580C')
       roundRect(freeX, y - freeH / 2, freeW, freeH, freeH / 2)
       ctx.fillStyle = freeGrad
       ctx.fill()
       ctx.fillStyle = '#FFFFFF'
-      ctx.font = `bold 38px ${font}`
-      ctx.fillText('✨ 참여비 무료 · 인쇄 무료 ✨', W / 2, y)
-
-      // ── Divider
-      y += 76
-      ctx.strokeStyle = '#E5E7EB'
-      ctx.lineWidth = 2
-      ctx.beginPath()
-      ctx.moveTo(160, y)
-      ctx.lineTo(W / 2 - 20, y)
-      ctx.stroke()
-      ctx.beginPath()
-      ctx.moveTo(W / 2 + 20, y)
-      ctx.lineTo(W - 160, y)
-      ctx.stroke()
-      ctx.fillStyle = '#8B5CF6'
-      ctx.beginPath()
-      ctx.moveTo(W / 2, y - 8)
-      ctx.lineTo(W / 2 + 8, y)
-      ctx.lineTo(W / 2, y + 8)
-      ctx.lineTo(W / 2 - 8, y)
-      ctx.closePath()
-      ctx.fill()
+      ctx.font = `bold 44px ${font}`
+      ctx.fillText('🎊  참여비 무료 · 인쇄 무료 · 몇 장이든 무료  🎊', W / 2, y)
 
       // ── QR code area
-      y += 56
+      y += 80
       const qrX = (W - qrSize) / 2
       const qrY = y
 
       // Card behind QR
       ctx.save()
-      ctx.shadowColor = 'rgba(139, 92, 246, 0.12)'
-      ctx.shadowBlur = 50
-      ctx.shadowOffsetY = 10
+      ctx.shadowColor = 'rgba(139, 92, 246, 0.15)'
+      ctx.shadowBlur = 60
+      ctx.shadowOffsetY = 12
       roundRect(qrX - cardPad, qrY - cardPad, qrSize + cardPad * 2, qrSize + cardPad * 2, 28)
       ctx.fillStyle = '#FFFFFF'
       ctx.fill()
@@ -535,8 +515,8 @@ export default function AdminPage() {
       // ── Logo in center of QR
       const hasLogo = logoImage.complete && logoImage.naturalWidth > 0
       if (hasLogo) {
-        const logoSize = 120
-        const logoPad = 12
+        const logoSize = 140
+        const logoPad = 14
         const logoX = qrX + (qrSize - logoSize) / 2
         const logoY2 = qrY + (qrSize - logoSize) / 2
         ctx.fillStyle = '#FFFFFF'
@@ -547,23 +527,23 @@ export default function AdminPage() {
       }
 
       // ── Scan instruction
-      y = qrY + qrSize + cardPad + 60
+      y = qrY + qrSize + cardPad + 66
       ctx.fillStyle = '#374151'
-      ctx.font = `bold 52px ${font}`
+      ctx.font = `bold 54px ${font}`
       ctx.textAlign = 'center'
       ctx.fillText('📱 QR 코드를 스캔하세요!', W / 2, y)
 
       // ── URL display
       if (showUrl) {
-        y += 64
+        y += 68
         const eventUrl = `${window.location.host}/${event.slug}`
         ctx.fillStyle = '#7C3AED'
-        ctx.font = `600 46px ${font}`
+        ctx.font = `600 48px ${font}`
         ctx.fillText(eventUrl, W / 2, y)
       }
 
       // ── Steps
-      y += 84
+      y += 90
       const steps = [
         'QR 스캔 후 레이아웃 선택',
         '사진을 선택하고 꾸미기',
@@ -573,8 +553,8 @@ export default function AdminPage() {
       steps.forEach((text, i) => {
         const sy = y + i * stepGap
 
-        const pillW = 48, pillH = 48
-        const pillX = 140
+        const pillW = 52, pillH = 52
+        const pillX = 120
         roundRect(pillX - pillW / 2, sy - pillH / 2, pillW, pillH, pillH / 2)
         const pillGrad = ctx.createLinearGradient(pillX - pillW / 2, sy, pillX + pillW / 2, sy)
         pillGrad.addColorStop(0, '#8B5CF6')
@@ -583,16 +563,16 @@ export default function AdminPage() {
         ctx.fill()
 
         ctx.fillStyle = '#FFFFFF'
-        ctx.font = `bold 28px ${font}`
+        ctx.font = `bold 30px ${font}`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
         ctx.fillText(String(i + 1), pillX, sy)
 
         ctx.fillStyle = '#374151'
-        ctx.font = `600 50px ${font}`
+        ctx.font = `600 52px ${font}`
         ctx.textAlign = 'left'
         ctx.textBaseline = 'middle'
-        ctx.fillText(text, pillX + 40, sy)
+        ctx.fillText(text, pillX + 42, sy)
       })
 
       // ── Donation info (pinned to bottom)
