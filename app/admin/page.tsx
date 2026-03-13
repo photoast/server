@@ -30,6 +30,13 @@ interface Event {
   puzzleEnabled?: boolean
   price?: number
   backgroundColors?: string[]
+  donation?: {
+    enabled: boolean
+    bank: string
+    account: string
+    holder?: string
+    message?: string
+  }
   createdAt: string
 }
 
@@ -355,7 +362,7 @@ export default function AdminPage() {
     }
   }
 
-  const handleUpdateEvent = async (eventId: string, updates: { name?: string; printerId?: string; availableLayouts?: string[]; price?: number; puzzleEnabled?: boolean; backgroundColors?: string[] }) => {
+  const handleUpdateEvent = async (eventId: string, updates: { name?: string; printerId?: string; availableLayouts?: string[]; price?: number; puzzleEnabled?: boolean; backgroundColors?: string[]; donation?: Event['donation'] }) => {
     try {
       const updateRes = await fetch(`/api/events/${eventId}`, {
         method: 'PATCH',
@@ -784,6 +791,70 @@ export default function AdminPage() {
                 </label>
                 {event.puzzleEnabled && (
                   <span className="text-xs text-gray-400">사용자가 조각 수를 선택합니다</span>
+                )}
+              </div>
+            </UIFormField>
+          </UICard>
+
+          {/* Donation Settings */}
+          <UICard>
+            <UIFormField label="후원 계좌 안내">
+              <div className="space-y-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={event.donation?.enabled ?? false}
+                    onChange={e => {
+                      const prev = event.donation || { enabled: false, bank: '', account: '' }
+                      handleUpdateEvent(event._id, { donation: { ...prev, enabled: e.target.checked } })
+                    }}
+                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">결과 화면에 후원 계좌 표시</span>
+                </label>
+                {event.donation?.enabled && (
+                  <div className="space-y-2 pl-6">
+                    <div className="flex gap-2">
+                      <UITextInput
+                        placeholder="은행명"
+                        defaultValue={event.donation?.bank || ''}
+                        onBlur={e => {
+                          const prev = event.donation || { enabled: true, bank: '', account: '' }
+                          handleUpdateEvent(event._id, { donation: { ...prev, bank: e.target.value } })
+                        }}
+                        className="w-28"
+                      />
+                      <UITextInput
+                        placeholder="계좌번호"
+                        defaultValue={event.donation?.account || ''}
+                        onBlur={e => {
+                          const prev = event.donation || { enabled: true, bank: '', account: '' }
+                          handleUpdateEvent(event._id, { donation: { ...prev, account: e.target.value } })
+                        }}
+                        className="flex-1"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <UITextInput
+                        placeholder="예금주 (선택)"
+                        defaultValue={event.donation?.holder || ''}
+                        onBlur={e => {
+                          const prev = event.donation || { enabled: true, bank: '', account: '' }
+                          handleUpdateEvent(event._id, { donation: { ...prev, holder: e.target.value || undefined } })
+                        }}
+                        className="w-28"
+                      />
+                      <UITextInput
+                        placeholder="안내 문구 (선택)"
+                        defaultValue={event.donation?.message || ''}
+                        onBlur={e => {
+                          const prev = event.donation || { enabled: true, bank: '', account: '' }
+                          handleUpdateEvent(event._id, { donation: { ...prev, message: e.target.value || undefined } })
+                        }}
+                        className="flex-1"
+                      />
+                    </div>
+                  </div>
                 )}
               </div>
             </UIFormField>

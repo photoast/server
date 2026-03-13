@@ -111,6 +111,13 @@ export interface Event {
   puzzleEnabled?: boolean
   price?: number
   backgroundColors?: string[]
+  donation?: {
+    enabled: boolean
+    bank: string        // e.g. "카카오뱅크"
+    account: string     // e.g. "3333-36-8761932"
+    holder?: string     // 예금주
+    message?: string    // 안내 문구
+  }
   createdAt: Date
 }
 
