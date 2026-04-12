@@ -8,7 +8,6 @@ interface TokenResponse {
   access_token: string
   expires_in: number
   refresh_token: string
-  subject_id: string
 }
 
 interface CreateJobResponse {
@@ -17,31 +16,48 @@ interface CreateJobResponse {
 }
 
 /**
- * 리프레시 토큰으로 액세스 토큰 갱신
+ * 리프레시 토큰으로 액세스 토큰 갱신 시도
  */
-async function refreshAccessToken(auth: EpsonApiAuth): Promise<{
+async function tryRefreshToken(auth: EpsonApiAuth): Promise<{
   accessToken: string
   refreshToken: string
   tokenExpiresAt: number
-}> {
-  if (!auth.refreshToken) {
-    throw new Error('리프레시 토큰이 없습니다. 어드민에서 토큰을 입력해주세요.')
+} | null> {
+  if (!auth.refreshToken || !auth.clientId || !auth.clientSecret) {
+    return null
   }
 
-  const res = await fetch(EPSON_AUTH_URL, {
+  // Basic Auth 방식
+  const basicAuth = Buffer.from(`${auth.clientId}:${auth.clientSecret}`).toString('base64')
+  let res = await fetch(EPSON_AUTH_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Authorization': `Basic ${basicAuth}`,
+    },
     body: new URLSearchParams({
       grant_type: 'refresh_token',
       refresh_token: auth.refreshToken,
-      client_id: auth.clientId,
-      client_secret: auth.clientSecret,
     }),
   })
 
+  // Basic Auth 실패 시 body params 방식
   if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`토큰 갱신 실패 [${res.status}]: ${text}. 어드민에서 토큰을 재발급해주세요.`)
+    res = await fetch(EPSON_AUTH_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: auth.refreshToken,
+        client_id: auth.clientId,
+        client_secret: auth.clientSecret,
+      }),
+    })
+  }
+
+  if (!res.ok) {
+    console.error(`[Epson API] Token refresh failed: ${await res.text()}`)
+    return null
   }
 
   const data = (await res.json()) as TokenResponse
@@ -53,29 +69,10 @@ async function refreshAccessToken(auth: EpsonApiAuth): Promise<{
 }
 
 /**
- * 유효한 액세스 토큰 확보 (만료 5분 전 자동 갱신)
- */
-async function ensureValidToken(auth: EpsonApiAuth): Promise<{
-  accessToken: string
-  refreshToken: string
-  tokenExpiresAt: number
-}> {
-  const now = Date.now()
-  const bufferMs = 5 * 60 * 1000
-
-  if (auth.accessToken && auth.tokenExpiresAt && auth.tokenExpiresAt - now > bufferMs) {
-    return {
-      accessToken: auth.accessToken,
-      refreshToken: auth.refreshToken!,
-      tokenExpiresAt: auth.tokenExpiresAt,
-    }
-  }
-
-  return refreshAccessToken(auth)
-}
-
-/**
  * Epson Connect V2 API로 사진 인쇄
+ *
+ * 핵심: accessToken + apiKey만으로 동작
+ * 401 발생 시 refreshToken이 있으면 자동 갱신 시도
  */
 export async function printViaEpsonApi(
   imageBuffer: Buffer,
@@ -87,29 +84,25 @@ export async function printViaEpsonApi(
   updatedAuth: Partial<EpsonApiAuth>
 }> {
   try {
-    if (!auth.accessToken && !auth.refreshToken) {
-      throw new Error('액세스 토큰 또는 리프레시 토큰이 필요합니다. 어드민에서 입력해주세요.')
+    if (!auth.accessToken || !auth.apiKey) {
+      throw new Error('Access Token과 API Key가 필요합니다. 어드민에서 입력해주세요.')
     }
 
-    const token = await ensureValidToken(auth)
-    const updatedAuth: Partial<EpsonApiAuth> = {
-      accessToken: token.accessToken,
-      refreshToken: token.refreshToken,
-      tokenExpiresAt: token.tokenExpiresAt,
-    }
+    let token = auth.accessToken
+    let updatedAuth: Partial<EpsonApiAuth> = {}
 
-    const apiHeaders = {
-      Authorization: `Bearer ${token.accessToken}`,
+    const makeHeaders = () => ({
+      Authorization: `Bearer ${token}`,
       'x-api-key': auth.apiKey,
       'Content-Type': 'application/json',
-    }
+    })
 
     console.log(`[Epson API] Creating print job...`)
 
     // 1. Job 생성
-    const jobRes = await fetch(`${EPSON_API_BASE}/jobs`, {
+    let jobRes = await fetch(`${EPSON_API_BASE}/jobs`, {
       method: 'POST',
-      headers: apiHeaders,
+      headers: makeHeaders(),
       body: JSON.stringify({
         jobName: 'PhotoToast_Print',
         printMode: 'photo',
@@ -124,6 +117,37 @@ export async function printViaEpsonApi(
         },
       }),
     })
+
+    // 401이면 토큰 갱신 후 재시도
+    if (jobRes.status === 401) {
+      console.warn('[Epson API] 401 - attempting token refresh...')
+      const refreshed = await tryRefreshToken(auth)
+      if (refreshed) {
+        token = refreshed.accessToken
+        updatedAuth = {
+          accessToken: refreshed.accessToken,
+          refreshToken: refreshed.refreshToken,
+          tokenExpiresAt: refreshed.tokenExpiresAt,
+        }
+        jobRes = await fetch(`${EPSON_API_BASE}/jobs`, {
+          method: 'POST',
+          headers: makeHeaders(),
+          body: JSON.stringify({
+            jobName: 'PhotoToast_Print',
+            printMode: 'photo',
+            printSettings: {
+              paperSize: 'ps_kg',
+              paperType: 'pt_photopaper',
+              borderless: true,
+              printQuality: 'high',
+              paperSource: 'rear',
+              colorMode: 'color',
+              copies: 1,
+            },
+          }),
+        })
+      }
+    }
 
     if (!jobRes.ok) {
       const text = await jobRes.text()
@@ -155,7 +179,7 @@ export async function printViaEpsonApi(
     const printRes = await fetch(`${EPSON_API_BASE}/jobs/${jobId}/print`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${token.accessToken}`,
+        Authorization: `Bearer ${token}`,
         'x-api-key': auth.apiKey,
       },
     })

@@ -91,10 +91,10 @@ export type PrintMethod = 'email' | 'polling' | 'epson_api'
 
 export interface EpsonApiAuth {
   apiKey: string             // x-api-key 헤더
-  clientId: string           // OAuth client_id (API Key와 별개)
-  clientSecret: string       // OAuth client_secret
-  accessToken?: string       // Bearer 토큰
-  refreshToken?: string      // 리프레시 토큰 (30일 유효)
+  accessToken: string        // Bearer 토큰 (어드민이 직접 입력)
+  refreshToken?: string      // 리프레시 토큰 (선택, 자동 갱신용)
+  clientId?: string          // OAuth client_id (리프레시 시 필요)
+  clientSecret?: string      // OAuth client_secret (리프레시 시 필요)
   tokenExpiresAt?: number    // Unix timestamp (ms)
 }
 
