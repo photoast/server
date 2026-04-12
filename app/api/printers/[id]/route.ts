@@ -24,12 +24,13 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     const body = await request.json()
-    const { name, printMethod, email, supportedSizes, borderCorrectionEnabled, shrinkPercent, verticalOffsetPx } = body
+    const { name, printMethod, email, epsonAuth, supportedSizes, borderCorrectionEnabled, shrinkPercent, verticalOffsetPx } = body
 
     const updates: any = {}
     if (name !== undefined) updates.name = name
     if (printMethod !== undefined) updates.printMethod = printMethod
     if (email !== undefined) updates.email = email
+    if (epsonAuth !== undefined) updates.epsonAuth = epsonAuth
     if (supportedSizes !== undefined) updates.supportedSizes = supportedSizes
     if (borderCorrectionEnabled !== undefined) updates.borderCorrectionEnabled = borderCorrectionEnabled
     if (shrinkPercent !== undefined) updates.shrinkPercent = shrinkPercent

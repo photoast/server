@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import sharp from 'sharp'
-import { findEventBySlug, findPrinterById, createPrintJob } from '@/lib/models'
+import { findEventBySlug, findPrinterById, createPrintJob, updatePrinter } from '@/lib/models'
 import { printImage } from '@/lib/printer'
+import { printViaEpsonApi } from '@/lib/epson-api'
 import { applyPrinterCorrection } from '@/lib/image-correction'
 import { uploadToBlob, readImageBuffer } from '@/lib/blob'
 import { DeviceInfo } from '@/lib/types'
@@ -119,6 +120,66 @@ export async function POST(request: NextRequest) {
           })
           jobIds.push(printJob._id?.toString() || '')
           console.log(`[Print API] Print job ${i + 1}/${printQuantity} created as PENDING (polling)`)
+        } else if (printer.printMethod === 'epson_api') {
+          // Epson Connect API: create job → upload → print
+          if (!printer.epsonAuth?.clientId) {
+            throw new Error('Epson API 인증 정보가 설정되지 않았습니다')
+          }
+
+          let imageBuffer: Buffer
+          if (imageUrl.startsWith('data:')) {
+            const base64Data = imageUrl.split(',')[1]
+            imageBuffer = Buffer.from(base64Data, 'base64')
+          } else {
+            imageBuffer = await readImageBuffer(imageUrl)
+          }
+
+          // Rotate landscape images for 4x6 printing
+          const metaApi = await sharp(imageBuffer).metadata()
+          if ((metaApi.width || 0) > (metaApi.height || 0)) {
+            imageBuffer = Buffer.from(await sharp(imageBuffer).rotate(90).jpeg({ quality: 100 }).toBuffer())
+          }
+
+          // Apply printer correction
+          if (printer.borderCorrectionEnabled) {
+            imageBuffer = Buffer.from(await applyPrinterCorrection(imageBuffer, {
+              canvasWidth: 1200,
+              canvasHeight: 1800,
+              shrinkPercent: printer.shrinkPercent,
+              verticalOffsetPx: printer.verticalOffsetPx,
+            }))
+          }
+
+          // Upload corrected image to Blob for record
+          const correctedFilename = `corrected-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`
+          const correctedUrl = await uploadToBlob(correctedFilename, imageBuffer)
+
+          const result = await printViaEpsonApi(imageBuffer, printer.epsonAuth)
+
+          // 토큰이 갱신되었으면 DB 업데이트
+          if (result.updatedAuth && Object.keys(result.updatedAuth).length > 0) {
+            await updatePrinter(printer._id!.toString(), {
+              epsonAuth: { ...printer.epsonAuth, ...result.updatedAuth },
+            })
+          }
+
+          const printJob = await createPrintJob({
+            eventId: event._id!.toString(),
+            printerId: printer._id!.toString(),
+            imageUrl: storedImageUrl,
+            printedImageUrl: correctedUrl,
+            status: result.success ? 'DONE' : 'FAILED',
+            deviceInfo,
+            errorMessage: result.error,
+          })
+
+          if (result.success) {
+            jobIds.push(printJob._id?.toString() || '')
+            console.log(`[Print API] Print job ${i + 1}/${printQuantity} succeeded via Epson API`)
+          } else {
+            errors.push(`Copy ${i + 1}: ${result.error || 'Epson API print failed'}`)
+            console.error(`[Print API] Print job ${i + 1}/${printQuantity} failed via Epson API:`, result.error)
+          }
         } else {
           // Email: send via Epson Email Print
           const result = await printImage(imageUrl, {

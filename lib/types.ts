@@ -87,14 +87,25 @@ export interface Sticker {
   createdAt: Date
 }
 
-export type PrintMethod = 'email' | 'polling'
+export type PrintMethod = 'email' | 'polling' | 'epson_api'
+
+export interface EpsonApiAuth {
+  clientId: string
+  clientSecret: string
+  printerEmail: string       // Epson Connect 프린터 이메일 (인증용)
+  accessToken?: string
+  refreshToken?: string
+  tokenExpiresAt?: number    // Unix timestamp (ms)
+  subjectId?: string         // Epson Connect device subject ID
+}
 
 export interface Printer {
   _id?: ObjectId
   name: string              // e.g. "사무실 Epson L3150"
-  printMethod: PrintMethod  // 'email' | 'polling'
+  printMethod: PrintMethod  // 'email' | 'polling' | 'epson_api'
   email?: string            // Epson Connect 이메일 주소 (email 방식일 때 필수)
   apiKey?: string           // polling 프린터 인증용 UUID
+  epsonAuth?: EpsonApiAuth  // Epson Connect API 인증 정보
   supportedSizes: PrintSize[] // e.g. ['4x6', '6x4'] — 프린터가 지원하는 인쇄 규격
   borderCorrectionEnabled: boolean
   shrinkPercent: number     // default: 97.5

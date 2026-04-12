@@ -26,6 +26,7 @@ export async function POST(request: NextRequest) {
       name,
       printMethod = 'email',
       email,
+      epsonAuth,
       supportedSizes = ['4x6', '6x4'],
       borderCorrectionEnabled = true,
       shrinkPercent = 97.5,
@@ -38,12 +39,16 @@ export async function POST(request: NextRequest) {
     if (printMethod === 'email' && !email) {
       return NextResponse.json({ error: 'Email is required for email print method' }, { status: 400 })
     }
+    if (printMethod === 'epson_api' && (!epsonAuth?.clientId || !epsonAuth?.clientSecret || !epsonAuth?.printerEmail)) {
+      return NextResponse.json({ error: 'Epson API 인증 정보(Client ID, Secret, Printer Email)가 필요합니다' }, { status: 400 })
+    }
 
     const printer = await createPrinter({
       name,
       printMethod,
       email: printMethod === 'email' ? email : undefined,
       apiKey: printMethod === 'polling' ? randomUUID() : undefined,
+      epsonAuth: printMethod === 'epson_api' ? epsonAuth : undefined,
       supportedSizes,
       borderCorrectionEnabled,
       shrinkPercent,

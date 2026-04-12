@@ -6,7 +6,17 @@ import QRCode from 'qrcode'
 import { logClientError } from '@/lib/errorLogger'
 import { UIButton, UICard, UIFormField, UITextInput, UIStatusBanner, UIBadge, UISectionHeading } from '@/app/components/ui'
 
-type PrintMethod = 'email' | 'polling'
+type PrintMethod = 'email' | 'polling' | 'epson_api'
+
+interface EpsonApiAuth {
+  clientId: string
+  clientSecret: string
+  printerEmail: string
+  accessToken?: string
+  refreshToken?: string
+  tokenExpiresAt?: number
+  subjectId?: string
+}
 
 interface Printer {
   _id: string
@@ -14,6 +24,7 @@ interface Printer {
   printMethod: PrintMethod
   email?: string
   apiKey?: string
+  epsonAuth?: EpsonApiAuth
   supportedSizes: string[]
   borderCorrectionEnabled: boolean
   shrinkPercent: number
@@ -79,6 +90,7 @@ export default function AdminPage() {
   const [newPrinterName, setNewPrinterName] = useState('')
   const [newPrinterMethod, setNewPrinterMethod] = useState<PrintMethod>('email')
   const [newPrinterEmail, setNewPrinterEmail] = useState('')
+  const [newPrinterEpsonAuth, setNewPrinterEpsonAuth] = useState<Partial<EpsonApiAuth>>({})
   const [newPrinterSupportedSizes, setNewPrinterSupportedSizes] = useState<string[]>(['4x6', '6x4'])
   const [editingPrinter, setEditingPrinter] = useState<Printer | null>(null)
 
@@ -217,6 +229,7 @@ export default function AdminPage() {
           name: newPrinterName,
           printMethod: newPrinterMethod,
           email: newPrinterMethod === 'email' ? newPrinterEmail : undefined,
+          epsonAuth: newPrinterMethod === 'epson_api' ? newPrinterEpsonAuth : undefined,
           supportedSizes: newPrinterSupportedSizes,
           borderCorrectionEnabled: true,
           shrinkPercent: 97.5,
@@ -229,6 +242,7 @@ export default function AdminPage() {
       }
       setNewPrinterName('')
       setNewPrinterEmail('')
+      setNewPrinterEpsonAuth({})
       setNewPrinterMethod('email')
       setNewPrinterSupportedSizes(['4x6', '6x4'])
       setShowPrinterForm(false)
@@ -848,7 +862,7 @@ export default function AdminPage() {
                 <option value="">프린터 선택...</option>
                 {printers.map(p => (
                   <option key={p._id} value={p._id}>
-                    {p.name} ({p.printMethod === 'email' ? '이메일' : '폴링'})
+                    {p.name} ({p.printMethod === 'email' ? '이메일' : p.printMethod === 'epson_api' ? 'API' : '폴링'})
                   </option>
                 ))}
               </select>
@@ -861,7 +875,7 @@ export default function AdminPage() {
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-gray-800">{printer.name}</span>
                     <UIBadge variant={printer.printMethod === 'email' ? 'default' : 'info'}>
-                      {printer.printMethod === 'email' ? '이메일' : '폴링'}
+                      {printer.printMethod === 'email' ? '이메일' : printer.printMethod === 'epson_api' ? 'API' : '폴링'}
                     </UIBadge>
                   </div>
                   {printer.email && <p className="text-xs text-gray-500">{printer.email}</p>}
@@ -1637,7 +1651,7 @@ export default function AdminPage() {
               </UIFormField>
               <UIFormField label="인쇄 방식">
                 <div className="flex gap-2">
-                  {(['email', 'polling'] as const).map(method => (
+                  {(['email', 'polling', 'epson_api'] as const).map(method => (
                     <button
                       key={method}
                       type="button"
@@ -1648,7 +1662,7 @@ export default function AdminPage() {
                           : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
                       }`}
                     >
-                      {method === 'email' ? '이메일 프린트' : 'DB 폴링'}
+                      {method === 'email' ? '이메일' : method === 'polling' ? 'DB 폴링' : 'Epson API'}
                     </button>
                   ))}
                 </div>
@@ -1663,6 +1677,36 @@ export default function AdminPage() {
                     required
                   />
                 </UIFormField>
+              )}
+              {newPrinterMethod === 'epson_api' && (
+                <div className="space-y-3">
+                  <UIFormField label="Client ID" hint="Epson Developer Portal에서 발급">
+                    <UITextInput
+                      value={newPrinterEpsonAuth.clientId || ''}
+                      onChange={e => setNewPrinterEpsonAuth(prev => ({ ...prev, clientId: e.target.value }))}
+                      placeholder="Client ID"
+                      required
+                    />
+                  </UIFormField>
+                  <UIFormField label="Client Secret">
+                    <UITextInput
+                      type="password"
+                      value={newPrinterEpsonAuth.clientSecret || ''}
+                      onChange={e => setNewPrinterEpsonAuth(prev => ({ ...prev, clientSecret: e.target.value }))}
+                      placeholder="Client Secret"
+                      required
+                    />
+                  </UIFormField>
+                  <UIFormField label="프린터 이메일" hint="Epson Connect에 등록된 프린터 이메일">
+                    <UITextInput
+                      type="email"
+                      value={newPrinterEpsonAuth.printerEmail || ''}
+                      onChange={e => setNewPrinterEpsonAuth(prev => ({ ...prev, printerEmail: e.target.value }))}
+                      placeholder="abc123@print.epsonconnect.com"
+                      required
+                    />
+                  </UIFormField>
+                </div>
               )}
               <UIFormField label="지원 규격">
                 <div className="flex gap-2">
@@ -1696,7 +1740,7 @@ export default function AdminPage() {
 
               <UIFormField label="인쇄 방식">
                 <div className="flex gap-2">
-                  {(['email', 'polling'] as const).map(method => (
+                  {(['email', 'polling', 'epson_api'] as const).map(method => (
                     <button
                       key={method}
                       type="button"
@@ -1707,7 +1751,7 @@ export default function AdminPage() {
                           : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
                       }`}
                     >
-                      {method === 'email' ? '이메일 프린트' : 'DB 폴링'}
+                      {method === 'email' ? '이메일' : method === 'polling' ? 'DB 폴링' : 'Epson API'}
                     </button>
                   ))}
                 </div>
@@ -1722,6 +1766,50 @@ export default function AdminPage() {
                     placeholder="abc123@print.epsonconnect.com"
                   />
                 </UIFormField>
+              )}
+
+              {editingPrinter.printMethod === 'epson_api' && (
+                <div className="space-y-3">
+                  <UIFormField label="Client ID" hint="Epson Developer Portal에서 발급">
+                    <UITextInput
+                      defaultValue={editingPrinter.epsonAuth?.clientId || ''}
+                      onBlur={e => {
+                        const auth = editingPrinter.epsonAuth || { clientId: '', clientSecret: '', printerEmail: '' }
+                        handleUpdatePrinter(editingPrinter._id, { epsonAuth: { ...auth, clientId: e.target.value } } as any)
+                      }}
+                      placeholder="Client ID"
+                    />
+                  </UIFormField>
+                  <UIFormField label="Client Secret">
+                    <UITextInput
+                      type="password"
+                      defaultValue={editingPrinter.epsonAuth?.clientSecret || ''}
+                      onBlur={e => {
+                        const auth = editingPrinter.epsonAuth || { clientId: '', clientSecret: '', printerEmail: '' }
+                        handleUpdatePrinter(editingPrinter._id, { epsonAuth: { ...auth, clientSecret: e.target.value } } as any)
+                      }}
+                      placeholder="Client Secret"
+                    />
+                  </UIFormField>
+                  <UIFormField label="프린터 이메일" hint="Epson Connect에 등록된 프린터 이메일">
+                    <UITextInput
+                      type="email"
+                      defaultValue={editingPrinter.epsonAuth?.printerEmail || ''}
+                      onBlur={e => {
+                        const auth = editingPrinter.epsonAuth || { clientId: '', clientSecret: '', printerEmail: '' }
+                        handleUpdatePrinter(editingPrinter._id, { epsonAuth: { ...auth, printerEmail: e.target.value } } as any)
+                      }}
+                      placeholder="abc123@print.epsonconnect.com"
+                    />
+                  </UIFormField>
+                  {editingPrinter.epsonAuth?.accessToken && (
+                    <div className="text-xs text-green-600 bg-green-50 px-3 py-2 rounded-lg">
+                      인증됨 {editingPrinter.epsonAuth.tokenExpiresAt
+                        ? `(만료: ${new Date(editingPrinter.epsonAuth.tokenExpiresAt).toLocaleString()})`
+                        : ''}
+                    </div>
+                  )}
+                </div>
               )}
 
               <UIFormField label="지원 규격">
@@ -1856,7 +1944,7 @@ export default function AdminPage() {
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold text-gray-900">{printer.name}</span>
                     <UIBadge variant={printer.printMethod === 'polling' ? 'info' : 'default'}>
-                      {printer.printMethod === 'email' ? '이메일' : '폴링'}
+                      {printer.printMethod === 'email' ? '이메일' : printer.printMethod === 'epson_api' ? 'API' : '폴링'}
                     </UIBadge>
                   </div>
                   {printer.email && <p className="text-xs text-gray-400 mt-0.5">{printer.email}</p>}
@@ -1915,7 +2003,7 @@ export default function AdminPage() {
                   <option value="">나중에 설정</option>
                   {printers.map(p => (
                     <option key={p._id} value={p._id}>
-                      {p.name} ({p.printMethod === 'email' ? '이메일' : '폴링'})
+                      {p.name} ({p.printMethod === 'email' ? '이메일' : p.printMethod === 'epson_api' ? 'API' : '폴링'})
                     </option>
                   ))}
                 </select>
