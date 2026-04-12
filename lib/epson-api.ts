@@ -1,7 +1,14 @@
 import { EpsonApiAuth } from './types'
 
-const EPSON_AUTH_URL = 'https://api.epsonconnect.com/api/1/printing/oauth2/auth/token?dc=v2'
-const EPSON_API_BASE = 'https://api.epsonconnect.com/api/1/printing'
+/**
+ * Epson Connect V2 API
+ * Spec: docs/epson-openapi-spec
+ * Auth: https://auth.epsonconnect.com/auth/token (OAuth2 authorization code flow)
+ * API:  https://api.epsonconnect.com/api/2/printing/...
+ */
+
+const EPSON_AUTH_URL = 'https://auth.epsonconnect.com/auth/token'
+const EPSON_API_BASE = 'https://api.epsonconnect.com/api/2/printing'
 
 interface TokenResponse {
   token_type: string
@@ -12,12 +19,12 @@ interface TokenResponse {
 }
 
 interface CreateJobResponse {
-  id: string
-  upload_uri: string
+  jobId: string
+  uploadUri: string
 }
 
 /**
- * Epson Connect API 인증 (최초 토큰 발급)
+ * Epson Connect API 인증 (최초 토큰 발급 - password grant)
  */
 export async function authenticateEpson(auth: EpsonApiAuth): Promise<{
   accessToken: string
@@ -52,7 +59,7 @@ export async function authenticateEpson(auth: EpsonApiAuth): Promise<{
 }
 
 /**
- * 토큰 리프레시
+ * 토큰 리프레시 (refresh_token 만료: 30일)
  */
 export async function refreshEpsonToken(auth: EpsonApiAuth): Promise<{
   accessToken: string
@@ -76,7 +83,6 @@ export async function refreshEpsonToken(auth: EpsonApiAuth): Promise<{
   })
 
   if (!res.ok) {
-    // 리프레시 실패 시 새로 인증
     console.warn('[Epson API] Token refresh failed, re-authenticating...')
     return authenticateEpson(auth)
   }
@@ -100,7 +106,7 @@ export async function ensureValidToken(auth: EpsonApiAuth): Promise<{
   subjectId: string
 }> {
   const now = Date.now()
-  const bufferMs = 5 * 60 * 1000 // 5분 여유
+  const bufferMs = 5 * 60 * 1000
 
   if (auth.accessToken && auth.tokenExpiresAt && auth.tokenExpiresAt - now > bufferMs) {
     return {
@@ -115,7 +121,11 @@ export async function ensureValidToken(auth: EpsonApiAuth): Promise<{
 }
 
 /**
- * Epson Connect API로 사진 인쇄
+ * Epson Connect V2 API로 사진 인쇄
+ *
+ * Flow: 토큰 확보 → Job 생성 → 이미지 업로드 → 인쇄 명령
+ * Endpoint: POST /api/2/printing/jobs
+ * Headers: Authorization: Bearer {token}, x-api-key: {apiKey}
  */
 export async function printViaEpsonApi(
   imageBuffer: Buffer,
@@ -136,28 +146,28 @@ export async function printViaEpsonApi(
       subjectId: token.subjectId,
     }
 
-    const deviceId = token.subjectId
-    const headers = {
+    const apiHeaders = {
       Authorization: `Bearer ${token.accessToken}`,
+      'x-api-key': auth.clientId,
       'Content-Type': 'application/json',
     }
 
-    console.log(`[Epson API] Creating print job for device ${deviceId}...`)
+    console.log(`[Epson API] Creating print job...`)
 
-    // 2. Job 생성
-    const jobRes = await fetch(`${EPSON_API_BASE}/printers/${deviceId}/jobs`, {
+    // 2. Job 생성 (V2: /printing/jobs, camelCase fields)
+    const jobRes = await fetch(`${EPSON_API_BASE}/jobs`, {
       method: 'POST',
-      headers,
+      headers: apiHeaders,
       body: JSON.stringify({
-        job_name: 'PhotoToast_Print',
-        print_mode: 'photo',
-        print_setting: {
-          media_size: 'ms_kg',
-          media_type: 'mt_photopaper',
+        jobName: 'PhotoToast_Print',
+        printMode: 'photo',
+        printSettings: {
+          paperSize: 'ps_kg',       // 4x6 인치
+          paperType: 'pt_photopaper',
           borderless: true,
-          print_quality: 'high',
-          source: 'rear',
-          color_mode: 'color',
+          printQuality: 'high',
+          paperSource: 'rear',
+          colorMode: 'color',
           copies: 1,
         },
       }),
@@ -168,11 +178,12 @@ export async function printViaEpsonApi(
       throw new Error(`Job 생성 실패 [${jobRes.status}]: ${text}`)
     }
 
-    const { id: jobId, upload_uri: uploadUri } = (await jobRes.json()) as CreateJobResponse
+    const { jobId, uploadUri } = (await jobRes.json()) as CreateJobResponse
     console.log(`[Epson API] Job created: ${jobId}`)
 
-    // 3. 이미지 업로드
-    const uploadUrl = `${uploadUri}&File=1.jpg`
+    // 3. 이미지 업로드 (uploadUri에 File 파라미터 추가)
+    const separator = uploadUri.includes('?') ? '&' : '?'
+    const uploadUrl = `${uploadUri}${separator}File=1.jpg`
     const uploadRes = await fetch(uploadUrl, {
       method: 'POST',
       headers: {
@@ -188,10 +199,13 @@ export async function printViaEpsonApi(
     }
     console.log(`[Epson API] Image uploaded`)
 
-    // 4. 인쇄 실행
-    const printRes = await fetch(`${EPSON_API_BASE}/printers/${deviceId}/jobs/${jobId}/print`, {
+    // 4. 인쇄 실행 (V2: /printing/jobs/{jobId}/print)
+    const printRes = await fetch(`${EPSON_API_BASE}/jobs/${jobId}/print`, {
       method: 'POST',
-      headers,
+      headers: {
+        Authorization: `Bearer ${token.accessToken}`,
+        'x-api-key': auth.clientId,
+      },
     })
 
     if (!printRes.ok) {
