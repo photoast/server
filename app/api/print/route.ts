@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import sharp from 'sharp'
-import { findEventBySlug, findPrinterById, createPrintJob, updatePrinter } from '@/lib/models'
+import { findEventBySlug, findPrinterById, createPrintJob, updatePrinter, createErrorLog } from '@/lib/models'
 import { printImage } from '@/lib/printer'
 import { printViaEpsonApi } from '@/lib/epson-api'
 import { applyPrinterCorrection } from '@/lib/image-correction'
@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
           console.log(`[Print API] Print job ${i + 1}/${printQuantity} created as PENDING (polling)`)
         } else if (printer.printMethod === 'epson_api') {
           // Epson Connect API: create job → upload → print
-          if (!printer.epsonAuth?.clientId) {
+          if (!printer.epsonAuth?.apiKey) {
             throw new Error('Epson API 인증 정보가 설정되지 않았습니다')
           }
 
@@ -179,6 +179,7 @@ export async function POST(request: NextRequest) {
           } else {
             errors.push(`Copy ${i + 1}: ${result.error || 'Epson API print failed'}`)
             console.error(`[Print API] Print job ${i + 1}/${printQuantity} failed via Epson API:`, result.error)
+            createErrorLog({ level: 'error', message: `Epson API 인쇄 실패: ${result.error}`, eventSlug: slug, additionalData: { printerId: printer._id?.toString(), copy: i + 1 } })
           }
         } else {
           // Email: send via Epson Email Print
@@ -213,11 +214,13 @@ export async function POST(request: NextRequest) {
           } else {
             errors.push(`Copy ${i + 1}: ${result.error || 'Print job failed'}`)
             console.error(`[Print API] Print job ${i + 1}/${printQuantity} failed:`, result.error)
+            createErrorLog({ level: 'error', message: `이메일 인쇄 실패: ${result.error}`, eventSlug: slug, additionalData: { printerId: printer._id?.toString(), copy: i + 1 } })
           }
         }
       } catch (err: any) {
         errors.push(`Copy ${i + 1}: ${err.message || 'Unknown error'}`)
         console.error(`[Print API] Print job ${i + 1}/${printQuantity} error:`, err)
+        createErrorLog({ level: 'error', message: `인쇄 오류: ${err.message}`, stack: err.stack, eventSlug: slug, additionalData: { printerId: printer._id?.toString(), printMethod: printer.printMethod, copy: i + 1 } })
       }
     }
 

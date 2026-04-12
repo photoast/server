@@ -1,19 +1,12 @@
 import { EpsonApiAuth } from './types'
 
-/**
- * Epson Connect V2 API
- * Spec: docs/epson-openapi-spec
- * Auth: https://auth.epsonconnect.com/auth/token (OAuth2 authorization code flow)
- * API:  https://api.epsonconnect.com/api/2/printing/...
- */
-
 const EPSON_AUTH_URL = 'https://auth.epsonconnect.com/auth/token'
 const EPSON_API_BASE = 'https://api.epsonconnect.com/api/2/printing'
 
 interface TokenResponse {
   token_type: string
   access_token: string
-  expires_in: number // seconds
+  expires_in: number
   refresh_token: string
   subject_id: string
 }
@@ -24,51 +17,15 @@ interface CreateJobResponse {
 }
 
 /**
- * Epson Connect API 인증 (최초 토큰 발급 - password grant)
+ * 리프레시 토큰으로 액세스 토큰 갱신
  */
-export async function authenticateEpson(auth: EpsonApiAuth): Promise<{
+async function refreshAccessToken(auth: EpsonApiAuth): Promise<{
   accessToken: string
   refreshToken: string
   tokenExpiresAt: number
-  subjectId: string
-}> {
-  const res = await fetch(EPSON_AUTH_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'password',
-      username: auth.printerEmail,
-      password: '',
-      client_id: auth.clientId,
-      client_secret: auth.clientSecret,
-    }),
-  })
-
-  if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`Epson 인증 실패 [${res.status}]: ${text}`)
-  }
-
-  const data = (await res.json()) as TokenResponse
-  return {
-    accessToken: data.access_token,
-    refreshToken: data.refresh_token,
-    tokenExpiresAt: Date.now() + data.expires_in * 1000,
-    subjectId: data.subject_id,
-  }
-}
-
-/**
- * 토큰 리프레시 (refresh_token 만료: 30일)
- */
-export async function refreshEpsonToken(auth: EpsonApiAuth): Promise<{
-  accessToken: string
-  refreshToken: string
-  tokenExpiresAt: number
-  subjectId: string
 }> {
   if (!auth.refreshToken) {
-    return authenticateEpson(auth)
+    throw new Error('리프레시 토큰이 없습니다. 어드민에서 토큰을 입력해주세요.')
   }
 
   const res = await fetch(EPSON_AUTH_URL, {
@@ -77,14 +34,14 @@ export async function refreshEpsonToken(auth: EpsonApiAuth): Promise<{
     body: new URLSearchParams({
       grant_type: 'refresh_token',
       refresh_token: auth.refreshToken,
-      client_id: auth.clientId,
+      client_id: auth.apiKey,
       client_secret: auth.clientSecret,
     }),
   })
 
   if (!res.ok) {
-    console.warn('[Epson API] Token refresh failed, re-authenticating...')
-    return authenticateEpson(auth)
+    const text = await res.text()
+    throw new Error(`토큰 갱신 실패 [${res.status}]: ${text}. 어드민에서 토큰을 재발급해주세요.`)
   }
 
   const data = (await res.json()) as TokenResponse
@@ -92,18 +49,16 @@ export async function refreshEpsonToken(auth: EpsonApiAuth): Promise<{
     accessToken: data.access_token,
     refreshToken: data.refresh_token,
     tokenExpiresAt: Date.now() + data.expires_in * 1000,
-    subjectId: data.subject_id,
   }
 }
 
 /**
- * 유효한 액세스 토큰을 보장 (만료 5분 전에 리프레시)
+ * 유효한 액세스 토큰 확보 (만료 5분 전 자동 갱신)
  */
-export async function ensureValidToken(auth: EpsonApiAuth): Promise<{
+async function ensureValidToken(auth: EpsonApiAuth): Promise<{
   accessToken: string
   refreshToken: string
   tokenExpiresAt: number
-  subjectId: string
 }> {
   const now = Date.now()
   const bufferMs = 5 * 60 * 1000
@@ -113,19 +68,14 @@ export async function ensureValidToken(auth: EpsonApiAuth): Promise<{
       accessToken: auth.accessToken,
       refreshToken: auth.refreshToken!,
       tokenExpiresAt: auth.tokenExpiresAt,
-      subjectId: auth.subjectId!,
     }
   }
 
-  return refreshEpsonToken(auth)
+  return refreshAccessToken(auth)
 }
 
 /**
  * Epson Connect V2 API로 사진 인쇄
- *
- * Flow: 토큰 확보 → Job 생성 → 이미지 업로드 → 인쇄 명령
- * Endpoint: POST /api/2/printing/jobs
- * Headers: Authorization: Bearer {token}, x-api-key: {apiKey}
  */
 export async function printViaEpsonApi(
   imageBuffer: Buffer,
@@ -137,24 +87,26 @@ export async function printViaEpsonApi(
   updatedAuth: Partial<EpsonApiAuth>
 }> {
   try {
-    // 1. 토큰 확보
+    if (!auth.accessToken && !auth.refreshToken) {
+      throw new Error('액세스 토큰 또는 리프레시 토큰이 필요합니다. 어드민에서 입력해주세요.')
+    }
+
     const token = await ensureValidToken(auth)
     const updatedAuth: Partial<EpsonApiAuth> = {
       accessToken: token.accessToken,
       refreshToken: token.refreshToken,
       tokenExpiresAt: token.tokenExpiresAt,
-      subjectId: token.subjectId,
     }
 
     const apiHeaders = {
       Authorization: `Bearer ${token.accessToken}`,
-      'x-api-key': auth.clientId,
+      'x-api-key': auth.apiKey,
       'Content-Type': 'application/json',
     }
 
     console.log(`[Epson API] Creating print job...`)
 
-    // 2. Job 생성 (V2: /printing/jobs, camelCase fields)
+    // 1. Job 생성
     const jobRes = await fetch(`${EPSON_API_BASE}/jobs`, {
       method: 'POST',
       headers: apiHeaders,
@@ -162,7 +114,7 @@ export async function printViaEpsonApi(
         jobName: 'PhotoToast_Print',
         printMode: 'photo',
         printSettings: {
-          paperSize: 'ps_kg',       // 4x6 인치
+          paperSize: 'ps_kg',
           paperType: 'pt_photopaper',
           borderless: true,
           printQuality: 'high',
@@ -181,7 +133,7 @@ export async function printViaEpsonApi(
     const { jobId, uploadUri } = (await jobRes.json()) as CreateJobResponse
     console.log(`[Epson API] Job created: ${jobId}`)
 
-    // 3. 이미지 업로드 (uploadUri에 File 파라미터 추가)
+    // 2. 이미지 업로드
     const separator = uploadUri.includes('?') ? '&' : '?'
     const uploadUrl = `${uploadUri}${separator}File=1.jpg`
     const uploadRes = await fetch(uploadUrl, {
@@ -199,12 +151,12 @@ export async function printViaEpsonApi(
     }
     console.log(`[Epson API] Image uploaded`)
 
-    // 4. 인쇄 실행 (V2: /printing/jobs/{jobId}/print)
+    // 3. 인쇄 실행
     const printRes = await fetch(`${EPSON_API_BASE}/jobs/${jobId}/print`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token.accessToken}`,
-        'x-api-key': auth.clientId,
+        'x-api-key': auth.apiKey,
       },
     })
 

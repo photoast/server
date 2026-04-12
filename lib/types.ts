@@ -90,13 +90,11 @@ export interface Sticker {
 export type PrintMethod = 'email' | 'polling' | 'epson_api'
 
 export interface EpsonApiAuth {
-  clientId: string
-  clientSecret: string
-  printerEmail: string       // Epson Connect 프린터 이메일 (인증용)
-  accessToken?: string
-  refreshToken?: string
+  apiKey: string             // x-api-key 헤더 (= Developer Portal API Key)
+  clientSecret: string       // 토큰 리프레시용
+  accessToken?: string       // Bearer 토큰 (어드민이 직접 입력 또는 자동 갱신)
+  refreshToken?: string      // 리프레시 토큰 (어드민이 직접 입력)
   tokenExpiresAt?: number    // Unix timestamp (ms)
-  subjectId?: string         // Epson Connect device subject ID
 }
 
 export interface Printer {

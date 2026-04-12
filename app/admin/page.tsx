@@ -9,13 +9,11 @@ import { UIButton, UICard, UIFormField, UITextInput, UIStatusBanner, UIBadge, UI
 type PrintMethod = 'email' | 'polling' | 'epson_api'
 
 interface EpsonApiAuth {
-  clientId: string
+  apiKey: string
   clientSecret: string
-  printerEmail: string
   accessToken?: string
   refreshToken?: string
   tokenExpiresAt?: number
-  subjectId?: string
 }
 
 interface Printer {
@@ -1680,11 +1678,11 @@ export default function AdminPage() {
               )}
               {newPrinterMethod === 'epson_api' && (
                 <div className="space-y-3">
-                  <UIFormField label="Client ID" hint="Epson Developer Portal에서 발급">
+                  <UIFormField label="API Key" hint="Epson Developer Portal에서 발급">
                     <UITextInput
-                      value={newPrinterEpsonAuth.clientId || ''}
-                      onChange={e => setNewPrinterEpsonAuth(prev => ({ ...prev, clientId: e.target.value }))}
-                      placeholder="Client ID"
+                      value={newPrinterEpsonAuth.apiKey || ''}
+                      onChange={e => setNewPrinterEpsonAuth(prev => ({ ...prev, apiKey: e.target.value }))}
+                      placeholder="API Key"
                       required
                     />
                   </UIFormField>
@@ -1697,13 +1695,18 @@ export default function AdminPage() {
                       required
                     />
                   </UIFormField>
-                  <UIFormField label="프린터 이메일" hint="Epson Connect에 등록된 프린터 이메일">
+                  <UIFormField label="Access Token" hint="인증 후 발급된 토큰">
                     <UITextInput
-                      type="email"
-                      value={newPrinterEpsonAuth.printerEmail || ''}
-                      onChange={e => setNewPrinterEpsonAuth(prev => ({ ...prev, printerEmail: e.target.value }))}
-                      placeholder="abc123@print.epsonconnect.com"
-                      required
+                      value={newPrinterEpsonAuth.accessToken || ''}
+                      onChange={e => setNewPrinterEpsonAuth(prev => ({ ...prev, accessToken: e.target.value || undefined }))}
+                      placeholder="Access Token (선택)"
+                    />
+                  </UIFormField>
+                  <UIFormField label="Refresh Token" hint="토큰 자동 갱신용 (30일 유효)">
+                    <UITextInput
+                      value={newPrinterEpsonAuth.refreshToken || ''}
+                      onChange={e => setNewPrinterEpsonAuth(prev => ({ ...prev, refreshToken: e.target.value || undefined }))}
+                      placeholder="Refresh Token"
                     />
                   </UIFormField>
                 </div>
@@ -1770,14 +1773,14 @@ export default function AdminPage() {
 
               {editingPrinter.printMethod === 'epson_api' && (
                 <div className="space-y-3">
-                  <UIFormField label="Client ID" hint="Epson Developer Portal에서 발급">
+                  <UIFormField label="API Key" hint="Epson Developer Portal에서 발급">
                     <UITextInput
-                      defaultValue={editingPrinter.epsonAuth?.clientId || ''}
+                      defaultValue={editingPrinter.epsonAuth?.apiKey || ''}
                       onBlur={e => {
-                        const auth = editingPrinter.epsonAuth || { clientId: '', clientSecret: '', printerEmail: '' }
-                        handleUpdatePrinter(editingPrinter._id, { epsonAuth: { ...auth, clientId: e.target.value } } as any)
+                        const auth = editingPrinter.epsonAuth || { apiKey: '', clientSecret: '' }
+                        handleUpdatePrinter(editingPrinter._id, { epsonAuth: { ...auth, apiKey: e.target.value } } as any)
                       }}
-                      placeholder="Client ID"
+                      placeholder="API Key"
                     />
                   </UIFormField>
                   <UIFormField label="Client Secret">
@@ -1785,26 +1788,35 @@ export default function AdminPage() {
                       type="password"
                       defaultValue={editingPrinter.epsonAuth?.clientSecret || ''}
                       onBlur={e => {
-                        const auth = editingPrinter.epsonAuth || { clientId: '', clientSecret: '', printerEmail: '' }
+                        const auth = editingPrinter.epsonAuth || { apiKey: '', clientSecret: '' }
                         handleUpdatePrinter(editingPrinter._id, { epsonAuth: { ...auth, clientSecret: e.target.value } } as any)
                       }}
                       placeholder="Client Secret"
                     />
                   </UIFormField>
-                  <UIFormField label="프린터 이메일" hint="Epson Connect에 등록된 프린터 이메일">
+                  <UIFormField label="Access Token" hint="인증 후 발급된 토큰">
                     <UITextInput
-                      type="email"
-                      defaultValue={editingPrinter.epsonAuth?.printerEmail || ''}
+                      defaultValue={editingPrinter.epsonAuth?.accessToken || ''}
                       onBlur={e => {
-                        const auth = editingPrinter.epsonAuth || { clientId: '', clientSecret: '', printerEmail: '' }
-                        handleUpdatePrinter(editingPrinter._id, { epsonAuth: { ...auth, printerEmail: e.target.value } } as any)
+                        const auth = editingPrinter.epsonAuth || { apiKey: '', clientSecret: '' }
+                        handleUpdatePrinter(editingPrinter._id, { epsonAuth: { ...auth, accessToken: e.target.value || undefined } } as any)
                       }}
-                      placeholder="abc123@print.epsonconnect.com"
+                      placeholder="Access Token"
+                    />
+                  </UIFormField>
+                  <UIFormField label="Refresh Token" hint="토큰 자동 갱신용 (30일 유효)">
+                    <UITextInput
+                      defaultValue={editingPrinter.epsonAuth?.refreshToken || ''}
+                      onBlur={e => {
+                        const auth = editingPrinter.epsonAuth || { apiKey: '', clientSecret: '' }
+                        handleUpdatePrinter(editingPrinter._id, { epsonAuth: { ...auth, refreshToken: e.target.value || undefined } } as any)
+                      }}
+                      placeholder="Refresh Token"
                     />
                   </UIFormField>
                   {editingPrinter.epsonAuth?.accessToken && (
                     <div className="text-xs text-green-600 bg-green-50 px-3 py-2 rounded-lg">
-                      인증됨 {editingPrinter.epsonAuth.tokenExpiresAt
+                      토큰 설정됨 {editingPrinter.epsonAuth.tokenExpiresAt
                         ? `(만료: ${new Date(editingPrinter.epsonAuth.tokenExpiresAt).toLocaleString()})`
                         : ''}
                     </div>
