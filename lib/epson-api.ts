@@ -34,7 +34,7 @@ async function refreshAccessToken(auth: EpsonApiAuth): Promise<{
     body: new URLSearchParams({
       grant_type: 'refresh_token',
       refresh_token: auth.refreshToken,
-      client_id: auth.apiKey,
+      client_id: auth.clientId,
       client_secret: auth.clientSecret,
     }),
   })

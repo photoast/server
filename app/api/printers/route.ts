@@ -39,8 +39,8 @@ export async function POST(request: NextRequest) {
     if (printMethod === 'email' && !email) {
       return NextResponse.json({ error: 'Email is required for email print method' }, { status: 400 })
     }
-    if (printMethod === 'epson_api' && (!epsonAuth?.apiKey || !epsonAuth?.clientSecret)) {
-      return NextResponse.json({ error: 'Epson API Key와 Client Secret이 필요합니다' }, { status: 400 })
+    if (printMethod === 'epson_api' && (!epsonAuth?.apiKey || !epsonAuth?.clientId || !epsonAuth?.clientSecret)) {
+      return NextResponse.json({ error: 'Epson API Key, Client ID, Client Secret이 필요합니다' }, { status: 400 })
     }
 
     const printer = await createPrinter({
