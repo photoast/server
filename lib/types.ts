@@ -1,6 +1,6 @@
 import { ObjectId } from 'mongodb'
 
-// ============ SWIT Photo Layout Authoring ============
+// ============ Photo Frame Layout Authoring ============
 
 export type PrintSize = '4x6' | '2x6' | '6x4'
 
@@ -10,7 +10,7 @@ export const PRINT_SIZE_DIMENSIONS: Record<PrintSize, { width: number; height: n
   '6x4': { width: 1800, height: 1200 },
 }
 
-export interface SwitSlot {
+export interface PhotoSlot {
   id: string
   x: number       // canvas pixels from left
   y: number       // canvas pixels from top
@@ -22,7 +22,7 @@ export interface SwitSlot {
   rotation: number // degrees (0-360), default 0
 }
 
-export interface SwitFrameLayer {
+export interface FrameLayer {
   id: string           // "layer-{timestamp}"
   name: string         // display name (e.g. "배경", "프레임")
   imageUrl: string     // PNG/JPG/WebP URL
@@ -36,15 +36,15 @@ export interface SwitFrameLayer {
   rotation?: number    // degrees (default 0)
 }
 
-export interface SwitLayout {
+export interface FrameLayout {
   _id: string
   eventId: string
   name: string
   printSize: PrintSize
   canvasWidth: number   // 300dpi canonical size
   canvasHeight: number
-  slots: SwitSlot[]
-  frameLayers: SwitFrameLayer[]  // image layers (backgrounds, frames, decorations)
+  slots: PhotoSlot[]
+  frameLayers: FrameLayer[]  // image layers (backgrounds, frames, decorations)
   frameUrl: string | null        // deprecated, kept for backward compat
   backgroundColor: string        // background color hex (default '#FFFFFF')
   backgroundColorCustomizable: boolean // true = client can change bg color
@@ -56,7 +56,7 @@ export interface SwitLayout {
 }
 
 /** Normalize legacy layouts: migrate frameUrl → frameLayers, ensure slot.zIndex */
-export function normalizeLayout(layout: SwitLayout): SwitLayout {
+export function normalizeLayout(layout: FrameLayout): FrameLayout {
   if (!layout.frameLayers) {
     layout.frameLayers = []
   }

@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getLayoutById, updateLayout } from '@/lib/models'
 import { generateInstagramFrame } from '@/lib/instagramFrame'
 import { uploadToBlob } from '@/lib/blob'
-import type { SwitFrameLayer } from '@/lib/types'
+import type { FrameLayer } from '@/lib/types'
 
 /**
  * 인스타그램 프레임 생성 API
  *
- * POST /api/swit-layouts/{id}/instagram-frame
+ * POST /api/layouts/{id}/instagram-frame
  * Body: { username: string, qrUrl?: string }
  *
  * 인스타그램 스타일 프레임 PNG를 생성하고 레이아웃의 프레임 레이어로 추가합니다.
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     ]
     const maxZ = allZIndices.length > 0 ? Math.max(...allZIndices) : 0
 
-    const newLayer: SwitFrameLayer = {
+    const newLayer: FrameLayer = {
       id: `layer-ig-${Date.now()}`,
       name: `Instagram @${username.replace(/^@/, '')}`,
       imageUrl,

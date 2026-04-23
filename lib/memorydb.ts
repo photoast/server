@@ -1,4 +1,4 @@
-import { Event, PrintJob, Admin, ErrorLog, Sticker, SwitLayout, normalizeLayout } from './types'
+import { Event, PrintJob, Admin, ErrorLog, Sticker, FrameLayout, normalizeLayout } from './types'
 import { ObjectId } from 'mongodb'
 import { DEFAULT_LAYOUT_TEMPLATES } from './defaultLayoutTemplates'
 
@@ -9,7 +9,7 @@ class MemoryDB {
   private admins: Map<string, Admin> = new Map()
   private errorLogs: Map<string, ErrorLog> = new Map()
   private stickers: Map<string, Sticker> = new Map()
-  private layouts: Map<string, SwitLayout> = new Map()
+  private layouts: Map<string, FrameLayout> = new Map()
   private initialized: boolean = false
 
   constructor() {
@@ -204,8 +204,8 @@ class MemoryDB {
     return this.stickers.delete(id)
   }
 
-  // SwitLayouts
-  async createLayout(layout: Omit<SwitLayout, '_id' | 'createdAt' | 'updatedAt' | 'isPreset' | 'order' | 'backgroundColor' | 'backgroundColorCustomizable'> & { isPreset?: boolean; order?: number; backgroundColor?: string; backgroundColorCustomizable?: boolean }): Promise<SwitLayout> {
+  // FrameLayouts
+  async createLayout(layout: Omit<FrameLayout, '_id' | 'createdAt' | 'updatedAt' | 'isPreset' | 'order' | 'backgroundColor' | 'backgroundColorCustomizable'> & { isPreset?: boolean; order?: number; backgroundColor?: string; backgroundColorCustomizable?: boolean }): Promise<FrameLayout> {
     const id = new ObjectId()
     const now = new Date().toISOString()
 
@@ -220,7 +220,7 @@ class MemoryDB {
       }
     }
 
-    const newLayout: SwitLayout = {
+    const newLayout: FrameLayout = {
       _id: id.toString(),
       ...layout,
       backgroundColor: layout.backgroundColor ?? '#FFFFFF',
@@ -234,14 +234,14 @@ class MemoryDB {
     return newLayout
   }
 
-  async duplicateLayout(id: string): Promise<SwitLayout | null> {
+  async duplicateLayout(id: string): Promise<FrameLayout | null> {
     const source = this.layouts.get(id)
     if (!source) return null
     const newId = new ObjectId()
     const now = new Date().toISOString()
     const siblings = Array.from(this.layouts.values()).filter(l => l.eventId === source.eventId)
     const minOrder = siblings.length > 0 ? Math.min(...siblings.map(l => l.order ?? 0)) : 0
-    const duplicated: SwitLayout = {
+    const duplicated: FrameLayout = {
       ...source,
       _id: newId.toString(),
       name: `${source.name} 복사본`,
@@ -266,19 +266,19 @@ class MemoryDB {
     })
   }
 
-  async getLayoutById(id: string): Promise<SwitLayout | null> {
+  async getLayoutById(id: string): Promise<FrameLayout | null> {
     const layout = this.layouts.get(id)
     return layout ? normalizeLayout(layout) : null
   }
 
-  async getLayoutsByEventId(eventId: string): Promise<SwitLayout[]> {
+  async getLayoutsByEventId(eventId: string): Promise<FrameLayout[]> {
     return Array.from(this.layouts.values())
       .filter(l => l.eventId === eventId)
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
       .map(normalizeLayout)
   }
 
-  async updateLayout(id: string, updates: Partial<SwitLayout>): Promise<boolean> {
+  async updateLayout(id: string, updates: Partial<FrameLayout>): Promise<boolean> {
     const layout = this.layouts.get(id)
     if (!layout) return false
     this.layouts.set(id, { ...layout, ...updates, updatedAt: new Date().toISOString() })

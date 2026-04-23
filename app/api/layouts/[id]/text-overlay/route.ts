@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getLayoutById, updateLayout } from '@/lib/models'
 import { generateTextOverlay } from '@/lib/textOverlay'
 import { uploadToBlob } from '@/lib/blob'
-import type { SwitFrameLayer } from '@/lib/types'
+import type { FrameLayer } from '@/lib/types'
 
 /**
  * 텍스트 오버레이 생성 API
  *
- * POST /api/swit-layouts/{id}/text-overlay
+ * POST /api/layouts/{id}/text-overlay
  * Body: { text, fontSize?, color?, bgStyle?, bgColor?, align?, bold? }
  */
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     // 캔버스 중앙에 배치
     const layerW = meta.width || 400
     const layerH = meta.height || 100
-    const newLayer: SwitFrameLayer = {
+    const newLayer: FrameLayer = {
       id: `layer-txt-${Date.now()}`,
       name: `텍스트: ${text.slice(0, 15)}${text.length > 15 ? '…' : ''}`,
       imageUrl,

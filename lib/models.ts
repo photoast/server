@@ -1,5 +1,5 @@
 import { ObjectId } from 'mongodb'
-import { Event, PrintJob, Admin, ErrorLog, Sticker, SwitLayout, normalizeLayout, Printer } from './types'
+import { Event, PrintJob, Admin, ErrorLog, Sticker, FrameLayout, normalizeLayout, Printer } from './types'
 import { getDb, ensureIndexes, COLLECTIONS } from './mongodb'
 
 // Ensure indexes on first import
@@ -204,16 +204,16 @@ export async function deleteSticker(id: string): Promise<boolean> {
   return result.deletedCount > 0
 }
 
-// ==================== Layouts (SwitLayout) ====================
+// ==================== Layouts (FrameLayout) ====================
 
 export async function createLayout(
-  layout: Omit<SwitLayout, '_id' | 'createdAt' | 'updatedAt' | 'isPreset' | 'order' | 'backgroundColor' | 'backgroundColorCustomizable'> & {
+  layout: Omit<FrameLayout, '_id' | 'createdAt' | 'updatedAt' | 'isPreset' | 'order' | 'backgroundColor' | 'backgroundColorCustomizable'> & {
     isPreset?: boolean
     order?: number
     backgroundColor?: string
     backgroundColorCustomizable?: boolean
   }
-): Promise<SwitLayout> {
+): Promise<FrameLayout> {
   const db = await getDb()
   const now = new Date().toISOString()
 
@@ -245,10 +245,10 @@ export async function createLayout(
     updatedAt: now,
   }
   const result = await db.collection(COLLECTIONS.layouts).insertOne(doc)
-  return { _id: result.insertedId.toString(), ...doc } as SwitLayout
+  return { _id: result.insertedId.toString(), ...doc } as FrameLayout
 }
 
-export async function getLayoutById(id: string): Promise<SwitLayout | null> {
+export async function getLayoutById(id: string): Promise<FrameLayout | null> {
   const db = await getDb()
   let doc: any
   try {
@@ -257,23 +257,23 @@ export async function getLayoutById(id: string): Promise<SwitLayout | null> {
     doc = await db.collection(COLLECTIONS.layouts).findOne({ _id: id as any })
   }
   if (!doc) return null
-  const layout: SwitLayout = { ...doc, _id: doc._id.toString() }
+  const layout: FrameLayout = { ...doc, _id: doc._id.toString() }
   return normalizeLayout(layout)
 }
 
-export async function getLayoutsByEventId(eventId: string): Promise<SwitLayout[]> {
+export async function getLayoutsByEventId(eventId: string): Promise<FrameLayout[]> {
   const db = await getDb()
   const docs = await db.collection(COLLECTIONS.layouts)
     .find({ eventId })
     .sort({ order: 1 })
     .toArray()
   return docs.map(doc => {
-    const layout: SwitLayout = { ...doc, _id: doc._id.toString() } as any
+    const layout: FrameLayout = { ...doc, _id: doc._id.toString() } as any
     return normalizeLayout(layout)
   })
 }
 
-export async function updateLayout(id: string, updates: Partial<SwitLayout>): Promise<boolean> {
+export async function updateLayout(id: string, updates: Partial<FrameLayout>): Promise<boolean> {
   const db = await getDb()
   const { _id, ...updateFields } = updates as any
   const result = await db.collection(COLLECTIONS.layouts).updateOne(
@@ -289,7 +289,7 @@ export async function deleteLayout(id: string): Promise<boolean> {
   return result.deletedCount > 0
 }
 
-export async function duplicateLayout(id: string): Promise<SwitLayout | null> {
+export async function duplicateLayout(id: string): Promise<FrameLayout | null> {
   const source = await getLayoutById(id)
   if (!source) return null
   const { _id, ...rest } = source

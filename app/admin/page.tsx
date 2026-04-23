@@ -128,7 +128,7 @@ export default function AdminPage() {
   const [stickers, setStickers] = useState<{ _id: string; url: string; filename: string }[]>([])
   const [stickerUploading, setStickerUploading] = useState(false)
 
-  // Event layouts (SwitLayout-based)
+  // Event layouts (FrameLayout-based)
   const [eventLayouts, setEventLayouts] = useState<Record<string, { _id: string; name: string; printSize: string; slots: any[]; isPreset?: boolean; order?: number; visible?: boolean }[]>>({})
   const [dragLayoutId, setDragLayoutId] = useState<string | null>(null)
   const [dragOverLayoutId, setDragOverLayoutId] = useState<string | null>(null)
@@ -337,7 +337,7 @@ export default function AdminPage() {
 
   const fetchEventLayouts = async (eventId: string) => {
     try {
-      const res = await fetch(`/api/swit-layouts?eventId=${eventId}`)
+      const res = await fetch(`/api/layouts?eventId=${eventId}`)
       if (res.ok) {
         const layouts = await res.json()
         setEventLayouts(prev => ({ ...prev, [eventId]: Array.isArray(layouts) ? layouts : [] }))
@@ -1142,7 +1142,7 @@ export default function AdminPage() {
               <form onSubmit={async (e) => {
                 e.preventDefault()
                 if (!newLayoutName.trim()) return
-                await fetch('/api/swit-layouts', {
+                await fetch('/api/layouts', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ eventId: event._id, name: newLayoutName.trim(), printSize: newLayoutSize }),
@@ -1191,7 +1191,7 @@ export default function AdminPage() {
                     const reordered = sorted.map((l, i) => ({ ...l, order: i }))
                     setEventLayouts(prev => ({ ...prev, [event._id]: reordered }))
                     setDragLayoutId(null)
-                    await fetch('/api/swit-layouts/reorder', {
+                    await fetch('/api/layouts/reorder', {
                       method: 'PATCH',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ orderedIds: reordered.map(l => l._id) }),
@@ -1238,17 +1238,17 @@ export default function AdminPage() {
                     <button onClick={async (e) => {
                       e.stopPropagation(); e.preventDefault()
                       const newVisible = layout.visible === false ? true : false
-                      await fetch(`/api/swit-layouts/${layout._id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ visible: newVisible }) })
+                      await fetch(`/api/layouts/${layout._id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ visible: newVisible }) })
                       fetchEventLayouts(event._id)
                     }} className={`px-2 py-1 text-[11px] rounded-lg font-semibold transition-colors ${
                       layout.visible === false ? 'bg-gray-200 text-gray-500 hover:bg-gray-300' : 'bg-green-50 text-green-600 hover:bg-green-100'
                     }`}>{layout.visible === false ? '미노출' : '노출'}</button>
-                    <button onClick={async (e) => { e.stopPropagation(); e.preventDefault(); await fetch(`/api/swit-layouts/${layout._id}/duplicate`, { method: 'POST' }); fetchEventLayouts(event._id) }}
+                    <button onClick={async (e) => { e.stopPropagation(); e.preventDefault(); await fetch(`/api/layouts/${layout._id}/duplicate`, { method: 'POST' }); fetchEventLayouts(event._id) }}
                       className="px-2 py-1 text-[11px] rounded-lg font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200">복제</button>
                     <button onClick={async (e) => {
                       e.stopPropagation(); e.preventDefault()
                       if (!confirm(`"${layout.name}" 삭제?`)) return
-                      await fetch(`/api/swit-layouts/${layout._id}`, { method: 'DELETE' })
+                      await fetch(`/api/layouts/${layout._id}`, { method: 'DELETE' })
                       fetchEventLayouts(event._id)
                     }} className="px-2 py-1 text-[11px] rounded-lg font-semibold bg-red-50 text-red-500 hover:bg-red-100">삭제</button>
                   </div>

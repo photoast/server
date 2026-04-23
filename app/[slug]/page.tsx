@@ -41,7 +41,7 @@ interface Event {
   }
 }
 
-interface SwitLayoutOption {
+interface FrameLayoutOption {
   _id: string
   name: string
   printSize: string
@@ -137,8 +137,8 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   const [printJobIds, setPrintJobIds] = useState<string[]>([])
   const [printJobStatuses, setPrintJobStatuses] = useState<{ jobId: string; status: string; queuePosition?: number; errorMessage?: string }[]>([])
 
-  // SWIT layout options
-  const [switLayouts, setSwitLayouts] = useState<SwitLayoutOption[]>([])
+  // Frame layout options
+  const [frameLayouts, setFrameLayouts] = useState<FrameLayoutOption[]>([])
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -173,7 +173,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     setPreviewUrl(null)
   }, [frameType])
 
-  // Fetch event data + SWIT layouts
+  // Fetch event data + frame layouts
   useEffect(() => {
     const fetchEvent = async () => {
       try {
@@ -182,11 +182,11 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         const data = await res.json()
         setEvent(data)
 
-        // Fetch SWIT layouts for this event
+        // Fetch frame layouts for this event
         if (data._id) {
-          fetch(`/api/swit-layouts?eventId=${data._id}&visibleOnly=true`)
+          fetch(`/api/layouts?eventId=${data._id}&visibleOnly=true`)
             .then(r => r.ok ? r.json() : [])
-            .then(layouts => setSwitLayouts(Array.isArray(layouts) ? layouts : []))
+            .then(layouts => setFrameLayouts(Array.isArray(layouts) ? layouts : []))
             .catch(() => {})
         }
       } catch (err: any) {
@@ -201,20 +201,20 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   }, [params.slug])
 
   // Filter layouts by printer's supported sizes
-  const filteredSwitLayouts = event?.supportedSizes
-    ? switLayouts.filter(sl => event.supportedSizes!.includes(sl.printSize))
-    : switLayouts
+  const filteredFrameLayouts = event?.supportedSizes
+    ? frameLayouts.filter(sl => event.supportedSizes!.includes(sl.printSize))
+    : frameLayouts
 
-  // Auto-select layout if only one SwitLayout is available (and no special layouts)
+  // Auto-select layout if only one FrameLayout is available (and no special layouts)
   useEffect(() => {
     if (!event || step !== 'select-layout') return
 
     const availableLayouts = event.availableLayouts || []
-    // If exactly one SwitLayout, auto-redirect
-    if (filteredSwitLayouts.length === 1) {
-      router.push(`/${params.slug}/layout/${filteredSwitLayouts[0]._id}`)
+    // If exactly one FrameLayout, auto-redirect
+    if (filteredFrameLayouts.length === 1) {
+      router.push(`/${params.slug}/layout/${filteredFrameLayouts[0]._id}`)
     }
-  }, [event, step, filteredSwitLayouts, router, params.slug])
+  }, [event, step, filteredFrameLayouts, router, params.slug])
 
   // ============ Event Handlers ============
 
@@ -1225,14 +1225,14 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
             <div className="space-y-6">
               <UISectionHeading title="레이아웃 선택" subtitle="원하는 스타일을 골라보세요" />
 
-              {/* SwitLayout 기반 레이아웃 그리드 (통합) */}
+              {/* FrameLayout 기반 레이아웃 그리드 (통합) */}
               <div className="grid grid-cols-2 gap-3">
-                {filteredSwitLayouts.map((sl) => {
+                {filteredFrameLayouts.map((sl) => {
                   const isLandscape = sl.canvasWidth > sl.canvasHeight
 
                   return (
                     <UISelectItem
-                      key={`swit-${sl._id}`}
+                      key={`frame-${sl._id}`}
                       selected={false}
                       onClick={() => router.push(`/${params.slug}/layout/${sl._id}`)}
                     >
@@ -1293,7 +1293,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                 })}
 
               </div>
-              {switLayouts.length > 1 && (
+              {frameLayouts.length > 1 && (
                 <p className="text-xs text-gray-400 text-center mt-2">사진 선택 후에도 레이아웃을 변경할 수 있어요</p>
               )}
             </div>

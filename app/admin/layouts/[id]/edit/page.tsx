@@ -3,26 +3,26 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
-import type { SwitLayout, SwitSlot, SwitFrameLayer } from '@/lib/types'
+import type { FrameLayout, PhotoSlot, FrameLayer } from '@/lib/types'
 import { UIButton, UICard, UIStatusBanner } from '@/app/components/ui'
 
-const SwitSlotEditor = dynamic(() => import('@/app/components/SwitSlotEditor'), { ssr: false })
+const FrameEditor = dynamic(() => import('@/app/components/FrameEditor'), { ssr: false })
 
 export default function LayoutEditPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
-  const [layout, setLayout] = useState<SwitLayout | null>(null)
+  const [layout, setLayout] = useState<FrameLayout | null>(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    fetch(`/api/swit-layouts/${id}`)
+    fetch(`/api/layouts/${id}`)
       .then(r => { if (!r.ok) throw new Error('Not found'); return r.json() })
       .then(setLayout)
       .catch(() => setError('레이아웃을 찾을 수 없습니다'))
   }, [id])
 
-  const handleSave = async (slots: SwitSlot[], frameLayers: SwitFrameLayer[], bgColor: string, bgCustomizable: boolean) => {
-    const res = await fetch(`/api/swit-layouts/${id}`, {
+  const handleSave = async (slots: PhotoSlot[], frameLayers: FrameLayer[], bgColor: string, bgCustomizable: boolean) => {
+    const res = await fetch(`/api/layouts/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ slots, frameLayers, backgroundColor: bgColor, backgroundColorCustomizable: bgCustomizable }),
@@ -78,7 +78,7 @@ export default function LayoutEditPage() {
         </div>
 
         {/* Editor */}
-        <SwitSlotEditor
+        <FrameEditor
           key={layout._id}
           layout={layout}
           onSave={handleSave}

@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import type { SwitLayout } from '@/lib/types'
+import type { FrameLayout } from '@/lib/types'
 import { UIButton, UICard, UIFormField, UITextInput, UIStatusBanner } from '@/app/components/ui'
 
 const PRINT_SIZES = ['4x6', '2x6', '6x4'] as const
@@ -20,7 +20,7 @@ function LayoutsPageInner() {
   const eventName = searchParams.get('eventName') || ''
 
   const [events, setEvents] = useState<EventOption[]>([])
-  const [layouts, setLayouts] = useState<SwitLayout[]>([])
+  const [layouts, setLayouts] = useState<FrameLayout[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [showCreate, setShowCreate] = useState(false)
@@ -49,7 +49,7 @@ function LayoutsPageInner() {
     if (!eventId) return
     setLoading(true)
     try {
-      const res = await fetch(`/api/swit-layouts?eventId=${eventId}`)
+      const res = await fetch(`/api/layouts?eventId=${eventId}`)
       const data = await res.json()
       setLayouts(Array.isArray(data) ? data : [])
     } catch {
@@ -64,7 +64,7 @@ function LayoutsPageInner() {
     if (!eventId || !newName.trim()) return
     setLoading(true)
     try {
-      const res = await fetch('/api/swit-layouts', {
+      const res = await fetch('/api/layouts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ eventId, name: newName.trim(), printSize: newPrintSize }),
@@ -82,13 +82,13 @@ function LayoutsPageInner() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('이 레이아웃을 삭제하시겠어요?')) return
-    await fetch(`/api/swit-layouts/${id}`, { method: 'DELETE' })
+    await fetch(`/api/layouts/${id}`, { method: 'DELETE' })
     await loadLayouts()
   }
 
-  const handleToggleVisible = async (layout: SwitLayout) => {
+  const handleToggleVisible = async (layout: FrameLayout) => {
     const newVisible = layout.visible === false ? true : false
-    await fetch(`/api/swit-layouts/${layout._id}`, {
+    await fetch(`/api/layouts/${layout._id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ visible: newVisible }),
@@ -134,7 +134,7 @@ function LayoutsPageInner() {
     setDraggedId(null)
 
     try {
-      await fetch('/api/swit-layouts/reorder', {
+      await fetch('/api/layouts/reorder', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orderedIds: reordered.map(l => l._id) }),
@@ -152,7 +152,7 @@ function LayoutsPageInner() {
   const handleRenameSave = async (layoutId: string) => {
     const trimmed = editingNameValue.trim()
     if (!trimmed) { setEditingNameId(null); return }
-    await fetch(`/api/swit-layouts/${layoutId}`, {
+    await fetch(`/api/layouts/${layoutId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: trimmed }),
@@ -161,7 +161,7 @@ function LayoutsPageInner() {
     await loadLayouts()
   }
 
-  const copyUserLink = (layout: SwitLayout) => {
+  const copyUserLink = (layout: FrameLayout) => {
     // We need the event slug. Find it.
     const ev = events.find(e => e._id === layout.eventId)
     if (!ev) { alert('이벤트 정보를 찾을 수 없습니다'); return }
@@ -339,7 +339,7 @@ function LayoutsPageInner() {
                       </Link>
                       <button
                         onClick={async () => {
-                          await fetch(`/api/swit-layouts/${layout._id}/duplicate`, { method: 'POST' })
+                          await fetch(`/api/layouts/${layout._id}/duplicate`, { method: 'POST' })
                           await loadLayouts()
                         }}
                         className="px-3 py-1.5 text-xs rounded-xl bg-gray-100 text-gray-700 hover:bg-gray-200 font-semibold"

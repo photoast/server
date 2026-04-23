@@ -1,10 +1,12 @@
 'use client'
 
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { Stage, Layer, Rect, Image as KonvaImage, Transformer, Text, Line } from 'react-konva'
+import { Stage, Layer, Rect, Image as KonvaImage, Transformer, Text, Line, Circle } from 'react-konva'
 import type Konva from 'konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
-import type { SwitSlot, SwitLayout, SwitFrameLayer } from '@/lib/types'
+import type { PhotoSlot, FrameLayout, FrameLayer } from '@/lib/types'
+import { detectColorRegions, floodFillErase, brushErase } from '@/lib/imageProcessing'
+import type { DetectedRegion } from '@/lib/imageProcessing'
 
 type AspectKey = '1:1' | '2:3' | '3:4' | '3:2' | '4:3' | 'free'
 
@@ -43,138 +45,22 @@ interface DrawingRect {
   h: number
 }
 
-interface DetectedRegion {
-  x: number; y: number; width: number; height: number
-}
-
-function detectColorRegions(
-  img: HTMLImageElement,
-  clickIX: number, clickIY: number,
-  tolerance: number,
-  layerCanvasX: number, layerCanvasY: number,
-  layerCanvasW: number, layerCanvasH: number,
-  minCanvasDim: number,
-): { regions: DetectedRegion[]; sampledColor: string } {
-  const nw = img.naturalWidth
-  const nh = img.naturalHeight
-
-  const oc = document.createElement('canvas')
-  oc.width = nw
-  oc.height = nh
-  const ctx = oc.getContext('2d')!
-  ctx.drawImage(img, 0, 0)
-  const { data } = ctx.getImageData(0, 0, nw, nh)
-
-  const ci = (Math.round(clickIY) * nw + Math.round(clickIX)) * 4
-  const tr = data[ci], tg = data[ci + 1], tb = data[ci + 2], ta = data[ci + 3]
-  const isTransparentClick = ta < 128
-  const sampledColor = isTransparentClick
-    ? 'transparent'
-    : `#${tr.toString(16).padStart(2, '0')}${tg.toString(16).padStart(2, '0')}${tb.toString(16).padStart(2, '0')}`.toUpperCase()
-
-  // Build match mask
-  const total = nw * nh
-  const matches = new Uint8Array(total)
-  for (let i = 0; i < total; i++) {
-    const off = i * 4
-    if (isTransparentClick) {
-      // 투명 영역 탐지: 알파값이 낮은 픽셀 매칭
-      if (data[off + 3] < 128) matches[i] = 1
-    } else {
-      if (data[off + 3] < 128) continue // skip transparent
-      const diff = Math.max(
-        Math.abs(data[off] - tr),
-        Math.abs(data[off + 1] - tg),
-        Math.abs(data[off + 2] - tb),
-      )
-      if (diff <= tolerance) matches[i] = 1
-    }
-  }
-
-  // Union-Find connected components (4-connectivity)
-  const labels = new Int32Array(total).fill(-1)
-  const parent: number[] = []
-  let nextLabel = 0
-
-  const find = (x: number): number => {
-    while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x] }
-    return x
-  }
-  const union = (a: number, b: number) => {
-    const ra = find(a), rb = find(b)
-    if (ra !== rb) parent[ra] = rb
-  }
-
-  for (let y = 0; y < nh; y++) {
-    for (let x = 0; x < nw; x++) {
-      const idx = y * nw + x
-      if (!matches[idx]) continue
-      const above = y > 0 ? labels[(y - 1) * nw + x] : -1
-      const left = x > 0 ? labels[y * nw + x - 1] : -1
-      if (above === -1 && left === -1) {
-        labels[idx] = nextLabel
-        parent.push(nextLabel)
-        nextLabel++
-      } else if (above !== -1 && left === -1) {
-        labels[idx] = above
-      } else if (above === -1 && left !== -1) {
-        labels[idx] = left
-      } else {
-        labels[idx] = above
-        union(above, left)
-      }
-    }
-  }
-
-  // Collect bounding boxes
-  const bboxMap = new Map<number, { minX: number; minY: number; maxX: number; maxY: number }>()
-  for (let y = 0; y < nh; y++) {
-    for (let x = 0; x < nw; x++) {
-      const idx = y * nw + x
-      if (labels[idx] === -1) continue
-      const root = find(labels[idx])
-      const bb = bboxMap.get(root)
-      if (!bb) bboxMap.set(root, { minX: x, minY: y, maxX: x, maxY: y })
-      else {
-        if (x < bb.minX) bb.minX = x; if (y < bb.minY) bb.minY = y
-        if (x > bb.maxX) bb.maxX = x; if (y > bb.maxY) bb.maxY = y
-      }
-    }
-  }
-
-  // Convert to canvas coords and filter noise
-  const scaleX = layerCanvasW / nw
-  const scaleY = layerCanvasH / nh
-  const regions: DetectedRegion[] = []
-  bboxMap.forEach(bb => {
-    const cw = (bb.maxX - bb.minX + 1) * scaleX
-    const ch = (bb.maxY - bb.minY + 1) * scaleY
-    if (cw < minCanvasDim || ch < minCanvasDim) return
-    regions.push({
-      x: layerCanvasX + bb.minX * scaleX,
-      y: layerCanvasY + bb.minY * scaleY,
-      width: cw, height: ch,
-    })
-  })
-
-  return { regions, sampledColor }
-}
 
 interface Props {
-  layout: SwitLayout
-  onSave: (slots: SwitSlot[], frameLayers: SwitFrameLayer[], bgColor: string, bgCustomizable: boolean) => Promise<void>
+  layout: FrameLayout
+  onSave: (slots: PhotoSlot[], frameLayers: FrameLayer[], bgColor: string, bgCustomizable: boolean) => Promise<void>
 }
 
 type LayerItem =
   | { type: 'slot'; id: string; name: string; zIndex: number; visible: boolean }
   | { type: 'frame'; id: string; name: string; zIndex: number; visible: boolean }
 
-export default function SwitSlotEditor({ layout, onSave }: Props) {
-  const [slots, setSlots] = useState<SwitSlot[]>(layout.slots)
+export default function FrameEditor({ layout, onSave }: Props) {
+  const [slots, setSlots] = useState<PhotoSlot[]>(layout.slots)
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null)
   const [selectedFrameLayerId, setSelectedFrameLayerId] = useState<string | null>(null)
   const [drawing, setDrawing] = useState<DrawingRect | null>(null)
-  const [frameLayers, setFrameLayers] = useState<SwitFrameLayer[]>(layout.frameLayers || [])
+  const [frameLayers, setFrameLayers] = useState<FrameLayer[]>(layout.frameLayers || [])
   const [frameImages, setFrameImages] = useState<Map<string, HTMLImageElement>>(new Map())
   const [testImages, setTestImages] = useState<Map<string, HTMLImageElement>>(new Map())
   const [uploadingFrame, setUploadingFrame] = useState(false)
@@ -184,7 +70,7 @@ export default function SwitSlotEditor({ layout, onSave }: Props) {
   const [bgCustomizable, setBgCustomizable] = useState(layout.backgroundColorCustomizable ?? true)
 
   // --- Undo / Redo ---
-  type Snapshot = { slots: SwitSlot[]; frameLayers: SwitFrameLayer[] }
+  type Snapshot = { slots: PhotoSlot[]; frameLayers: FrameLayer[] }
   const undoStack = useRef<Snapshot[]>([])
   const redoStack = useRef<Snapshot[]>([])
   const lastSnapshotRef = useRef<string>(JSON.stringify({ slots: layout.slots, frameLayers: layout.frameLayers || [] }))
@@ -243,6 +129,24 @@ export default function SwitSlotEditor({ layout, onSave }: Props) {
   const [sampledColor, setSampledColor] = useState<string | null>(null)
   const [previewMode, setPreviewMode] = useState(false)
   const [showGrid, setShowGrid] = useState(false)
+
+  // --- Background eraser tool ---
+  type EraserMode = 'wand' | 'brush'
+  const [eraserActive, setEraserActive] = useState(false)
+  const [eraserMode, setEraserMode] = useState<EraserMode>('wand')
+  const [eraserTargetLayerId, setEraserTargetLayerId] = useState<string | null>(null)
+  const [eraserTolerance, setEraserTolerance] = useState(30)
+  const [eraserBrushSize, setEraserBrushSize] = useState(20)
+  const [eraserColor, setEraserColor] = useState<{ r: number; g: number; b: number } | null>(null)
+  const [eraserColorHex, setEraserColorHex] = useState<string | null>(null)
+  const [eraserPicking, setEraserPicking] = useState(false) // 스포이드 모드
+  const [eraserSaving, setEraserSaving] = useState(false)
+  const [eraserCursorPos, setEraserCursorPos] = useState<{ x: number; y: number } | null>(null)
+  const eraserCanvasRef = useRef<HTMLCanvasElement | null>(null)
+  const eraserOriginalRef = useRef<HTMLCanvasElement | null>(null)
+  const eraserImageRef = useRef<HTMLImageElement | null>(null)
+  const [eraserPreviewImg, setEraserPreviewImg] = useState<HTMLImageElement | null>(null)
+  const eraserBrushingRef = useRef(false)
 
   const stageRef = useRef<Konva.Stage>(null)
   const trRef = useRef<Konva.Transformer>(null)
@@ -326,6 +230,22 @@ export default function SwitSlotEditor({ layout, onSave }: Props) {
         return
       }
 
+      if (e.key === 'Escape' && eraserActive) {
+        setEraserActive(false)
+        setEraserTargetLayerId(null)
+        setEraserColor(null)
+        setEraserColorHex(null)
+        setEraserPicking(false)
+        setEraserPreviewImg(null)
+        setEraserCursorPos(null)
+        eraserCanvasRef.current = null
+        eraserOriginalRef.current = null
+        eraserImageRef.current = null
+        eraserBrushingRef.current = false
+        e.preventDefault()
+        return
+      }
+
       if (e.key === 'Escape' && (editorMode === 'colorPick' || detectedRegions.length > 0)) {
         setEditorMode('draw')
         setDetectedRegions([])
@@ -336,10 +256,27 @@ export default function SwitSlotEditor({ layout, onSave }: Props) {
         return
       }
 
-      if (e.key !== 'Backspace' && e.key !== 'Delete') return
       // Ignore if typing in an input
       const tag = (e.target as HTMLElement)?.tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+
+      // Arrow keys: 1px nudge (Shift = 10px)
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        const step = e.shiftKey ? 10 : 1
+        const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0
+        const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0
+        if (selectedSlotId) {
+          setSlots(prev => prev.map(s => s.id === selectedSlotId ? { ...s, x: s.x + dx, y: s.y + dy } : s))
+          e.preventDefault()
+        } else if (selectedFrameLayerId) {
+          setFrameLayers(prev => prev.map(l => l.id === selectedFrameLayerId
+            ? { ...l, x: (l.x ?? 0) + dx, y: (l.y ?? 0) + dy } : l))
+          e.preventDefault()
+        }
+        return
+      }
+
+      if (e.key !== 'Backspace' && e.key !== 'Delete') return
 
       if (selectedSlotId) {
         const idx = slots.findIndex(s => s.id === selectedSlotId)
@@ -353,7 +290,7 @@ export default function SwitSlotEditor({ layout, onSave }: Props) {
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [selectedSlotId, selectedFrameLayerId, slots, frameLayers, editorMode, detectedRegions.length, undo, redo])
+  }, [selectedSlotId, selectedFrameLayerId, slots, frameLayers, editorMode, detectedRegions.length, undo, redo, eraserActive])
 
   // Track Shift key for proportional resize
   useEffect(() => {
@@ -424,7 +361,7 @@ export default function SwitSlotEditor({ layout, onSave }: Props) {
     if (detectedRegions.length === 0) return
     const baseZ = getNextZIndex()
     const now = Date.now()
-    const newSlots: SwitSlot[] = detectedRegions.map((r, i) => ({
+    const newSlots: PhotoSlot[] = detectedRegions.map((r, i) => ({
       id: `slot-${now}-d${i}`,
       x: Math.round(r.x),
       y: Math.round(r.y),
@@ -471,7 +408,7 @@ export default function SwitSlotEditor({ layout, onSave }: Props) {
     if (!drawing) return
     const MIN = 40
     if (Math.abs(drawing.w) > MIN && Math.abs(drawing.h) > MIN) {
-      const newSlot: SwitSlot = {
+      const newSlot: PhotoSlot = {
         id: `slot-${Date.now()}`,
         x: drawing.w >= 0 ? drawing.x : drawing.x + drawing.w,
         y: drawing.h >= 0 ? drawing.y : drawing.y + drawing.h,
@@ -500,7 +437,7 @@ export default function SwitSlotEditor({ layout, onSave }: Props) {
 
     // Full bleed for 1x1
     if (cols === 1 && rows === 1) {
-      const newSlot: SwitSlot = {
+      const newSlot: PhotoSlot = {
         id: `slot-${Date.now()}`,
         x: 0, y: 0, width: cw, height: ch,
         aspectRatio: 'free', order: 0, zIndex: baseZ, rotation: 0,
@@ -514,7 +451,7 @@ export default function SwitSlotEditor({ layout, onSave }: Props) {
     const slotW = Math.round((cw - MARGIN * 2 - GAP * (cols - 1)) / cols)
     const slotH = Math.round((ch - MARGIN * 2 - GAP * (rows - 1)) / rows)
     const now = Date.now()
-    const newSlots: SwitSlot[] = []
+    const newSlots: PhotoSlot[] = []
 
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
@@ -581,7 +518,7 @@ export default function SwitSlotEditor({ layout, onSave }: Props) {
       const fd = new FormData()
       fd.append('file', file)
       fd.append('name', file.name.replace(/\.[^.]+$/, ''))
-      const res = await fetch(`/api/swit-layouts/${layout._id}/frame`, { method: 'POST', body: fd })
+      const res = await fetch(`/api/layouts/${layout._id}/frame`, { method: 'POST', body: fd })
       if (!res.ok) throw new Error('Upload failed')
       const data = await res.json()
       setFrameLayers(data.frameLayers)
@@ -601,7 +538,7 @@ export default function SwitSlotEditor({ layout, onSave }: Props) {
     if (!igForm.username.trim()) return
     setIgGenerating(true)
     try {
-      const res = await fetch(`/api/swit-layouts/${layout._id}/instagram-frame`, {
+      const res = await fetch(`/api/layouts/${layout._id}/instagram-frame`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -640,7 +577,7 @@ export default function SwitSlotEditor({ layout, onSave }: Props) {
     if (!textForm.text.trim()) return
     setTextGenerating(true)
     try {
-      const res = await fetch(`/api/swit-layouts/${layout._id}/text-overlay`, {
+      const res = await fetch(`/api/layouts/${layout._id}/text-overlay`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(textForm),
@@ -659,7 +596,7 @@ export default function SwitSlotEditor({ layout, onSave }: Props) {
 
   const deleteFrameLayer = async (layerId: string) => {
     try {
-      const res = await fetch(`/api/swit-layouts/${layout._id}/frame`, {
+      const res = await fetch(`/api/layouts/${layout._id}/frame`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ layerId }),
@@ -678,7 +615,7 @@ export default function SwitSlotEditor({ layout, onSave }: Props) {
     const src = slots.find(s => s.id === selectedSlotId)
     if (!src) return
     const offset = 20
-    const newSlot: SwitSlot = {
+    const newSlot: PhotoSlot = {
       ...src,
       id: `slot-${Date.now()}`,
       x: src.x + offset,
@@ -697,7 +634,7 @@ export default function SwitSlotEditor({ layout, onSave }: Props) {
   const duplicateFrameLayer = (layerId: string) => {
     const src = frameLayers.find(l => l.id === layerId)
     if (!src) return
-    const newLayer: SwitFrameLayer = {
+    const newLayer: FrameLayer = {
       ...src,
       id: `layer-${Date.now()}`,
       name: `${src.name} 복사`,
@@ -746,6 +683,217 @@ export default function SwitSlotEditor({ layout, onSave }: Props) {
     setSaving(true)
     try { await onSave(slots, frameLayers, bgColor, bgCustomizable) } finally { setSaving(false) }
   }
+
+  // --- Background Eraser Tool ---
+  const startEraser = useCallback((layerId: string) => {
+    const layer = frameLayers.find(l => l.id === layerId)
+    const img = frameImages.get(layerId)
+    if (!layer || !img) return
+
+    // Create off-screen canvases
+    const nw = img.naturalWidth
+    const nh = img.naturalHeight
+    const canvas = document.createElement('canvas')
+    canvas.width = nw
+    canvas.height = nh
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })!
+    ctx.drawImage(img, 0, 0)
+
+    // Keep a copy of original for undo
+    const original = document.createElement('canvas')
+    original.width = nw
+    original.height = nh
+    original.getContext('2d')!.drawImage(img, 0, 0)
+
+    eraserCanvasRef.current = canvas
+    eraserOriginalRef.current = original
+    eraserImageRef.current = img
+    setEraserTargetLayerId(layerId)
+    setEraserActive(true)
+    setEraserPicking(true) // 스포이드로 시작
+    setEraserColor(null)
+    setEraserColorHex(null)
+    setEraserCursorPos(null)
+    eraserBrushingRef.current = false
+
+    // Create initial preview image
+    const previewImg = new window.Image()
+    previewImg.src = canvas.toDataURL('image/png')
+    previewImg.onload = () => setEraserPreviewImg(previewImg)
+  }, [frameLayers, frameImages])
+
+  const updateEraserPreview = useCallback(() => {
+    const canvas = eraserCanvasRef.current
+    if (!canvas) return
+    const img = new window.Image()
+    img.src = canvas.toDataURL('image/png')
+    img.onload = () => setEraserPreviewImg(img)
+  }, [])
+
+  // Helper: get native image coords from pointer position
+  const getEraserImageCoords = useCallback((e: KonvaEventObject<MouseEvent>) => {
+    if (!eraserTargetLayerId) return null
+    const canvas = eraserCanvasRef.current
+    if (!canvas) return null
+    const layer = frameLayers.find(l => l.id === eraserTargetLayerId)
+    if (!layer) return null
+
+    const pos = e.target.getStage()!.getPointerPosition()!
+    const cp = { x: pos.x / scale, y: pos.y / scale }
+    const lx = layer.x ?? 0
+    const ly = layer.y ?? 0
+    const lw = layer.width ?? layout.canvasWidth
+    const lh = layer.height ?? layout.canvasHeight
+    const nw = canvas.width
+    const nh = canvas.height
+
+    const ix = ((cp.x - lx) / lw) * nw
+    const iy = ((cp.y - ly) / lh) * nh
+    if (ix < 0 || iy < 0 || ix >= nw || iy >= nh) return null
+    return { ix, iy, lw, nw, nh, canvas }
+  }, [eraserTargetLayerId, frameLayers, scale, layout])
+
+  const sampleColorAt = useCallback((canvas: HTMLCanvasElement, ix: number, iy: number) => {
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })!
+    const pixel = ctx.getImageData(Math.round(ix), Math.round(iy), 1, 1).data
+    if (pixel[3] < 10) return null // transparent
+    const color = { r: pixel[0], g: pixel[1], b: pixel[2] }
+    const hex = `#${pixel[0].toString(16).padStart(2, '0')}${pixel[1].toString(16).padStart(2, '0')}${pixel[2].toString(16).padStart(2, '0')}`.toUpperCase()
+    return { color, hex }
+  }, [])
+
+  const handleEraserCanvasClick = useCallback((e: KonvaEventObject<MouseEvent>) => {
+    if (!eraserActive) return
+    const coords = getEraserImageCoords(e)
+    if (!coords) return
+    const { ix, iy, lw, nw, nh, canvas } = coords
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })!
+
+    // --- 스포이드 모드: 색상만 선택하고 돌아감 ---
+    if (eraserPicking) {
+      const sampled = sampleColorAt(canvas, ix, iy)
+      if (sampled) {
+        setEraserColor(sampled.color)
+        setEraserColorHex(sampled.hex)
+        setEraserPicking(false) // 색상 선택 완료 → 지우기 모드로 전환
+      }
+      return
+    }
+
+    // --- Magic Wand: 클릭 즉시 연결 영역 제거 ---
+    if (eraserMode === 'wand') {
+      if (!eraserColor) {
+        // 색상 미선택 → 스포이드로 전환
+        setEraserPicking(true)
+        return
+      }
+      const imageData = ctx.getImageData(0, 0, nw, nh)
+      floodFillErase(imageData, ix, iy, eraserTolerance)
+      ctx.putImageData(imageData, 0, 0)
+      updateEraserPreview()
+      return
+    }
+
+    // --- Brush: 드래그 시작 ---
+    if (eraserMode === 'brush') {
+      if (!eraserColor) {
+        setEraserPicking(true)
+        return
+      }
+      eraserBrushingRef.current = true
+      const brushNativeRadius = (eraserBrushSize / lw) * nw / 2
+      const imageData = ctx.getImageData(0, 0, nw, nh)
+      brushErase(imageData, ix, iy, brushNativeRadius, eraserColor.r, eraserColor.g, eraserColor.b, eraserTolerance)
+      ctx.putImageData(imageData, 0, 0)
+      updateEraserPreview()
+    }
+  }, [eraserActive, eraserPicking, eraserMode, eraserTolerance, eraserBrushSize, eraserColor, getEraserImageCoords, sampleColorAt, updateEraserPreview])
+
+  const handleEraserMouseMove = useCallback((e: KonvaEventObject<MouseEvent>) => {
+    if (!eraserActive || !eraserTargetLayerId) return
+    const pos = e.target.getStage()!.getPointerPosition()
+    if (!pos) return
+
+    // Update cursor position for brush preview
+    setEraserCursorPos({ x: pos.x, y: pos.y })
+
+    // Brush drag erase
+    if (eraserMode === 'brush' && eraserBrushingRef.current && eraserColor) {
+      const canvas = eraserCanvasRef.current
+      if (!canvas) return
+      const layer = frameLayers.find(l => l.id === eraserTargetLayerId)
+      if (!layer) return
+
+      const cp = { x: pos.x / scale, y: pos.y / scale }
+      const lx = layer.x ?? 0
+      const ly = layer.y ?? 0
+      const lw = layer.width ?? layout.canvasWidth
+      const lh = layer.height ?? layout.canvasHeight
+      const nw = canvas.width
+      const nh = canvas.height
+      const ix = ((cp.x - lx) / lw) * nw
+      const iy = ((cp.y - ly) / lh) * nh
+      if (ix < 0 || iy < 0 || ix >= nw || iy >= nh) return
+
+      const ctx = canvas.getContext('2d', { willReadFrequently: true })!
+      const brushNativeRadius = (eraserBrushSize / lw) * nw / 2
+      const imageData = ctx.getImageData(0, 0, nw, nh)
+      brushErase(imageData, ix, iy, brushNativeRadius, eraserColor.r, eraserColor.g, eraserColor.b, eraserTolerance)
+      ctx.putImageData(imageData, 0, 0)
+      updateEraserPreview()
+    }
+  }, [eraserActive, eraserTargetLayerId, eraserMode, eraserColor, eraserBrushSize, eraserTolerance, frameLayers, scale, layout, updateEraserPreview])
+
+  const handleEraserMouseUp = useCallback(() => {
+    eraserBrushingRef.current = false
+  }, [])
+
+  const eraserUndo = useCallback(() => {
+    const original = eraserOriginalRef.current
+    const canvas = eraserCanvasRef.current
+    if (!original || !canvas) return
+    const ctx = canvas.getContext('2d')!
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.drawImage(original, 0, 0)
+    updateEraserPreview()
+  }, [updateEraserPreview])
+
+  const eraserCancel = useCallback(() => {
+    setEraserActive(false)
+    setEraserTargetLayerId(null)
+    setEraserColor(null)
+    setEraserColorHex(null)
+    setEraserPicking(false)
+    setEraserPreviewImg(null)
+    setEraserCursorPos(null)
+    eraserCanvasRef.current = null
+    eraserOriginalRef.current = null
+    eraserImageRef.current = null
+    eraserBrushingRef.current = false
+  }, [])
+
+  const eraserSave = useCallback(async () => {
+    const canvas = eraserCanvasRef.current
+    if (!canvas || !eraserTargetLayerId) return
+    setEraserSaving(true)
+    try {
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(b => b ? resolve(b) : reject(new Error('Failed to create blob')), 'image/png')
+      })
+      const fd = new FormData()
+      fd.append('layerId', eraserTargetLayerId)
+      fd.append('file', new File([blob], 'erased.png', { type: 'image/png' }))
+      const res = await fetch(`/api/layouts/${layout._id}/frame`, { method: 'PUT', body: fd })
+      if (!res.ok) throw new Error('Save failed')
+      const data = await res.json()
+      setFrameLayers(data.frameLayers)
+      eraserCancel()
+    } catch {
+      alert('배경 제거 저장 실패')
+    } finally {
+      setEraserSaving(false)
+    }
+  }, [eraserTargetLayerId, layout._id, eraserCancel])
 
   // --- Test image for slots ---
   const handleTestImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -824,8 +972,8 @@ export default function SwitSlotEditor({ layout, onSave }: Props) {
   // Z-ordered render items
   const renderItems = (() => {
     type RenderItem =
-      | { type: 'slot'; slot: SwitSlot; index: number; zIndex: number }
-      | { type: 'frame'; layer: SwitFrameLayer; zIndex: number }
+      | { type: 'slot'; slot: PhotoSlot; index: number; zIndex: number }
+      | { type: 'frame'; layer: FrameLayer; zIndex: number }
     const items: RenderItem[] = [
       ...slots.map((slot, i) => ({ type: 'slot' as const, slot, index: i, zIndex: slot.zIndex ?? 10 })),
       ...frameLayers.filter(l => l.visible).map(layer => ({ type: 'frame' as const, layer, zIndex: layer.zIndex })),
@@ -929,23 +1077,36 @@ export default function SwitSlotEditor({ layout, onSave }: Props) {
               레이어 삭제
             </button>
             {frameLayers.find(l => l.id === selectedFrameLayerId && !(l.rotation && l.rotation !== 0)) && (
-              <button
-                onClick={() => {
-                  setDetectTargetLayerId(selectedFrameLayerId)
-                  setDetectedRegions([])
-                  setSampledColor(null)
-                  lastPickRef.current = null
-                  setEditorMode('colorPick')
-                }}
-                disabled={editorMode === 'colorPick'}
-                className={`px-3 py-1.5 text-xs rounded-xl font-semibold transition-colors ${
-                  editorMode === 'colorPick'
-                    ? 'bg-orange-500 text-white cursor-wait'
-                    : 'bg-orange-50 text-orange-600 hover:bg-orange-100'
-                }`}
-              >
-                {editorMode === 'colorPick' ? '색상 클릭...' : '슬롯 감지'}
-              </button>
+              <>
+                <button
+                  onClick={() => {
+                    setDetectTargetLayerId(selectedFrameLayerId)
+                    setDetectedRegions([])
+                    setSampledColor(null)
+                    lastPickRef.current = null
+                    setEditorMode('colorPick')
+                  }}
+                  disabled={editorMode === 'colorPick' || eraserActive}
+                  className={`px-3 py-1.5 text-xs rounded-xl font-semibold transition-colors ${
+                    editorMode === 'colorPick'
+                      ? 'bg-orange-500 text-white cursor-wait'
+                      : 'bg-orange-50 text-orange-600 hover:bg-orange-100'
+                  }`}
+                >
+                  {editorMode === 'colorPick' ? '색상 클릭...' : '슬롯 감지'}
+                </button>
+                <button
+                  onClick={() => startEraser(selectedFrameLayerId)}
+                  disabled={eraserActive}
+                  className={`px-3 py-1.5 text-xs rounded-xl font-semibold transition-colors ${
+                    eraserActive
+                      ? 'bg-pink-500 text-white'
+                      : 'bg-pink-50 text-pink-600 hover:bg-pink-100'
+                  }`}
+                >
+                  배경 제거
+                </button>
+              </>
             )}
           </>
         )}
@@ -980,12 +1141,24 @@ export default function SwitSlotEditor({ layout, onSave }: Props) {
           className={`overflow-hidden shrink-0 select-none ${
             previewMode
               ? 'border-2 border-transparent bg-gray-100 cursor-default'
-              : `border-2 border-gray-200 bg-gray-200 ${editorMode === 'colorPick' ? 'cursor-cell' : 'cursor-crosshair'}`
+              : eraserActive
+                ? `border-2 border-pink-300 bg-gray-200 ${eraserPicking ? 'cursor-cell' : 'cursor-none'}`
+                : `border-2 border-gray-200 bg-gray-200 ${editorMode === 'colorPick' ? 'cursor-cell' : 'cursor-crosshair'}`
           }`}
-          style={{ width: DISPLAY_W, height: displayH }}
+          style={{
+            width: DISPLAY_W, height: displayH,
+            ...(eraserActive ? {
+              backgroundImage: 'linear-gradient(45deg, #e5e5e5 25%, transparent 25%), linear-gradient(-45deg, #e5e5e5 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e5e5e5 75%), linear-gradient(-45deg, transparent 75%, #e5e5e5 75%)',
+              backgroundSize: '16px 16px',
+              backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px',
+            } : {}),
+          }}
         >
           <Stage ref={stageRef} width={DISPLAY_W} height={displayH}
-            onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}>
+            onMouseDown={eraserActive ? handleEraserCanvasClick : handleMouseDown}
+            onMouseMove={eraserActive ? handleEraserMouseMove : handleMouseMove}
+            onMouseUp={eraserActive ? handleEraserMouseUp : handleMouseUp}
+            onMouseLeave={() => { if (eraserActive) { setEraserCursorPos(null); eraserBrushingRef.current = false } }}>
             <Layer>
               <Rect name="canvas-bg" x={0} y={0} width={DISPLAY_W} height={displayH} fill={bgColor} />
 
@@ -1032,7 +1205,7 @@ export default function SwitSlotEditor({ layout, onSave }: Props) {
                           listening={false}
                         />
                       )}
-                      {!previewMode && (
+                      {!previewMode && !eraserActive && (
                         <Rect
                           ref={node => {
                             if (node) slotNodeRefs.current.set(slot.id, node)
@@ -1064,14 +1237,16 @@ export default function SwitSlotEditor({ layout, onSave }: Props) {
                   const lw = (layer.width ?? layout.canvasWidth) * scale
                   const lh = (layer.height ?? layout.canvasHeight) * scale
                   const isSelectedFrame = selectedFrameLayerId === layer.id
+                  const isEraserTarget = eraserActive && eraserTargetLayerId === layer.id
+                  const displayImg = isEraserTarget && eraserPreviewImg ? eraserPreviewImg : img
                   return (
                     <React.Fragment key={layer.id}>
-                      <KonvaImage image={img}
+                      <KonvaImage image={displayImg}
                         x={lx} y={ly} width={lw} height={lh}
                         rotation={layer.rotation ?? 0}
                         opacity={layer.opacity} listening={false} />
                       {/* Interaction rect — only interactive when this layer is selected */}
-                      {isSelectedFrame && !previewMode && (
+                      {isSelectedFrame && !previewMode && !eraserActive && (
                         <Rect
                           ref={node => {
                             if (node) frameNodeRefs.current.set(layer.id, node)
@@ -1140,7 +1315,33 @@ export default function SwitSlotEditor({ layout, onSave }: Props) {
                 return gridLines
               })()}
 
-              {!previewMode && (
+              {/* Eraser brush cursor */}
+              {eraserActive && eraserMode === 'brush' && eraserCursorPos && (
+                <Circle
+                  x={eraserCursorPos.x}
+                  y={eraserCursorPos.y}
+                  radius={eraserBrushSize * scale / 2}
+                  stroke="#ec4899"
+                  strokeWidth={1.5}
+                  dash={[4, 3]}
+                  fill="rgba(236,72,153,0.08)"
+                  listening={false}
+                />
+              )}
+              {/* Eraser wand / picking cursor */}
+              {eraserActive && (eraserMode === 'wand' || eraserPicking) && eraserCursorPos && !eraserPicking && (
+                <Circle
+                  x={eraserCursorPos.x}
+                  y={eraserCursorPos.y}
+                  radius={6}
+                  stroke="#ec4899"
+                  strokeWidth={2}
+                  fill="rgba(236,72,153,0.2)"
+                  listening={false}
+                />
+              )}
+
+              {!previewMode && !eraserActive && (
                 <Transformer ref={trRef} keepRatio={shiftHeld} rotateEnabled={true}
                   rotationSnaps={[0, 45, 90, 135, 180, 225, 270, 315]}
                   boundBoxFunc={(_, newBox) => (newBox.width < 20 || newBox.height < 20) ? _ : newBox} />
@@ -1151,6 +1352,111 @@ export default function SwitSlotEditor({ layout, onSave }: Props) {
 
         {/* Right Panel: Layer list + Slot properties */}
         <div className="flex-1 min-w-[220px] space-y-3">
+          {/* Background Eraser Panel */}
+          {eraserActive && (
+            <div className="bg-white rounded-xl border border-pink-200 p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-pink-700">배경 제거</span>
+                {eraserPicking && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-semibold animate-pulse">스포이드</span>
+                )}
+              </div>
+
+              {/* Selected color display + change button */}
+              <div className="flex items-center gap-2 bg-gray-50 rounded-lg px-2.5 py-2">
+                {eraserColor ? (
+                  <>
+                    <div className="w-6 h-6 rounded-md border-2 border-gray-300 shrink-0"
+                      style={{ backgroundColor: eraserColorHex || '#000' }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] text-gray-400 leading-tight">선택된 색상</p>
+                      <p className="text-xs font-bold text-gray-700 tabular-nums">{eraserColorHex}</p>
+                    </div>
+                    <button onClick={() => setEraserPicking(true)}
+                      className={`px-2 py-1 text-[10px] rounded-lg font-semibold transition-colors shrink-0 ${
+                        eraserPicking
+                          ? 'bg-amber-400 text-white'
+                          : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-100'
+                      }`}>
+                      변경
+                    </button>
+                  </>
+                ) : (
+                  <div className="flex-1 text-center py-1">
+                    <p className="text-[10px] text-amber-600 font-semibold">
+                      이미지에서 제거할 색상을 클릭하세요
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Mode toggle */}
+              <div className="flex gap-1.5">
+                <button onClick={() => setEraserMode('wand')}
+                  className={`flex-1 py-1.5 text-[11px] rounded-lg font-semibold transition-colors ${
+                    eraserMode === 'wand' ? 'bg-pink-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}>
+                  Magic Wand
+                </button>
+                <button onClick={() => setEraserMode('brush')}
+                  className={`flex-1 py-1.5 text-[11px] rounded-lg font-semibold transition-colors ${
+                    eraserMode === 'brush' ? 'bg-pink-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}>
+                  브러시 지우개
+                </button>
+              </div>
+
+              {/* Tolerance */}
+              <div>
+                <div className="flex items-center justify-between mb-0.5">
+                  <label className="text-[10px] text-gray-400 font-semibold">색상 허용 범위</label>
+                  <span className="text-[10px] text-gray-500 tabular-nums">{eraserTolerance}</span>
+                </div>
+                <input type="range" min={5} max={100} step={5} value={eraserTolerance}
+                  onChange={e => setEraserTolerance(Number(e.target.value))}
+                  className="w-full h-1.5 accent-pink-500" />
+              </div>
+
+              {/* Brush size (brush mode only) */}
+              {eraserMode === 'brush' && (
+                <div>
+                  <div className="flex items-center justify-between mb-0.5">
+                    <label className="text-[10px] text-gray-400 font-semibold">브러시 크기</label>
+                    <span className="text-[10px] text-gray-500 tabular-nums">{eraserBrushSize}px</span>
+                  </div>
+                  <input type="range" min={5} max={100} step={5} value={eraserBrushSize}
+                    onChange={e => setEraserBrushSize(Number(e.target.value))}
+                    className="w-full h-1.5 accent-pink-500" />
+                </div>
+              )}
+
+              {/* Instructions */}
+              {eraserColor && !eraserPicking && (
+                <p className="text-[10px] text-pink-600 font-semibold text-center py-1">
+                  {eraserMode === 'wand'
+                    ? '클릭하면 연결된 같은 색상 영역이 제거됩니다'
+                    : '드래그하여 선택 색상과 비슷한 영역을 지워보세요'}
+                </p>
+              )}
+
+              {/* Undo / Cancel / Save */}
+              <div className="flex gap-2">
+                <button onClick={eraserUndo}
+                  className="px-2 py-1.5 text-[10px] rounded-lg bg-gray-100 text-gray-600 font-semibold hover:bg-gray-200 transition-colors">
+                  되돌리기
+                </button>
+                <button onClick={eraserCancel}
+                  className="flex-1 px-2 py-1.5 text-[10px] rounded-lg border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50 transition-colors">
+                  취소
+                </button>
+                <button onClick={eraserSave} disabled={eraserSaving}
+                  className="flex-1 px-2 py-1.5 text-[10px] rounded-lg bg-pink-500 text-white font-semibold hover:bg-pink-600 disabled:opacity-50 transition-colors">
+                  {eraserSaving ? '저장 중...' : '적용'}
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Slot Detection Panel */}
           {(editorMode === 'colorPick' || detectedRegions.length > 0) && (
             <div className="bg-white rounded-xl border border-orange-200 p-3 space-y-3">

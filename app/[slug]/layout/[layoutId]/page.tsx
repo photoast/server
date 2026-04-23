@@ -4,14 +4,14 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
-import type { SwitLayout } from '@/lib/types'
-import type { CompletedSlotData } from '@/app/components/SwitUserEditor'
+import type { FrameLayout } from '@/lib/types'
+import type { CompletedSlotData } from '@/app/components/FrameUserEditor'
 import { UIPageSpinner, UIStatusBanner, UIButton, UIStepBar, UICounterControl, UISectionHeading, UIBottomSheet, UISelectItem } from '@/app/components/ui'
 import { loadTossPayments } from '@tosspayments/tosspayments-sdk'
 import type { TossPaymentsWidgets } from '@tosspayments/tosspayments-sdk'
 import { logClientError, logClientInfo } from '@/lib/errorLogger'
 
-const SwitUserEditor = dynamic(() => import('@/app/components/SwitUserEditor'), { ssr: false })
+const FrameUserEditor = dynamic(() => import('@/app/components/FrameUserEditor'), { ssr: false })
 
 const ANONYMOUS_CUSTOMER_KEY = 'ANONYMOUS'
 const TOSS_CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY || 'test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm'
@@ -80,14 +80,14 @@ async function splitImageIntoPieces(imageUrl: string, gridSize: number): Promise
   })
 }
 
-export default function SwitLayoutPage({
+export default function FrameLayoutPage({
   params,
 }: {
   params: { slug: string; layoutId: string }
 }) {
   const router = useRouter()
   const [event, setEvent] = useState<Event | null>(null)
-  const [layout, setLayout] = useState<SwitLayout | null>(null)
+  const [layout, setLayout] = useState<FrameLayout | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -110,7 +110,7 @@ export default function SwitLayoutPage({
   const [puzzleSplit, setPuzzleSplit] = useState(false)
 
   // Layout picker
-  const [allLayouts, setAllLayouts] = useState<SwitLayout[]>([])
+  const [allLayouts, setAllLayouts] = useState<FrameLayout[]>([])
   const [showLayoutPicker, setShowLayoutPicker] = useState(false)
   const filteredLayouts = event?.supportedSizes
     ? allLayouts.filter(sl => event.supportedSizes!.includes(sl.printSize))
@@ -130,7 +130,7 @@ export default function SwitLayoutPage({
       try {
         const [evRes, layoutRes] = await Promise.all([
           fetch(`/api/events/slug/${params.slug}`),
-          fetch(`/api/swit-layouts/${params.layoutId}`),
+          fetch(`/api/layouts/${params.layoutId}`),
         ])
         if (!evRes.ok) throw new Error('이벤트를 찾을 수 없습니다')
         if (!layoutRes.ok) throw new Error('레이아웃을 찾을 수 없습니다')
@@ -140,7 +140,7 @@ export default function SwitLayoutPage({
         if (lay.backgroundColor) setSelectedColor(lay.backgroundColor)
         // Fetch all layouts for layout switching
         if (ev._id) {
-          fetch(`/api/swit-layouts?eventId=${ev._id}&visibleOnly=true`)
+          fetch(`/api/layouts?eventId=${ev._id}&visibleOnly=true`)
             .then(r => r.ok ? r.json() : [])
             .then(layouts => setAllLayouts(Array.isArray(layouts) ? layouts : []))
             .catch(() => {})
@@ -247,7 +247,7 @@ export default function SwitLayoutPage({
       })
   }, [puzzleMode, mergedUrl, gridSize])
 
-  const handleLayoutSwitch = (newLayout: SwitLayout) => {
+  const handleLayoutSwitch = (newLayout: FrameLayout) => {
     setLayout(newLayout)
     setShowLayoutPicker(false)
     window.history.replaceState({}, '', `/${params.slug}/layout/${newLayout._id}`)
@@ -704,7 +704,7 @@ export default function SwitLayoutPage({
         <div className="bg-white shadow-sm border border-gray-100 p-5">
           {/* Step: Fill Photos */}
           {step === 'fill-photos' && !mergedUrl && (
-            <SwitUserEditor
+            <FrameUserEditor
               key={layout._id}
               layout={layout}
               eventSlug={params.slug}

@@ -3,7 +3,7 @@ import sharp from 'sharp'
 import path from 'path'
 import fs from 'fs'
 import { getLayoutById } from '@/lib/models'
-import type { SwitFrameLayer } from '@/lib/types'
+import type { FrameLayer } from '@/lib/types'
 
 // Fetch a URL and return Buffer (handles /uploads/ relative paths and data URLs)
 async function fetchBuffer(url: string): Promise<Buffer> {
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     // Build unified composite items sorted by zIndex
     type CompositeItem =
       | { type: 'slot'; slotId: string; zIndex: number }
-      | { type: 'frame'; layer: SwitFrameLayer; zIndex: number }
+      | { type: 'frame'; layer: FrameLayer; zIndex: number }
 
     const items: CompositeItem[] = []
 
@@ -220,7 +220,7 @@ export async function POST(request: NextRequest) {
       .toBuffer()
 
     // Save result to Blob
-    const filename = `swit-merged-${layoutId}-${Date.now()}.jpg`
+    const filename = `merged-${layoutId}-${Date.now()}.jpg`
     const { uploadToBlob } = await import('@/lib/blob')
     const url = await uploadToBlob(filename, result)
     return NextResponse.json({ url })

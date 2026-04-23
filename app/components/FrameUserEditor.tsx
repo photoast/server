@@ -4,7 +4,7 @@ import { useState, useRef, useCallback } from 'react'
 import Cropper from 'react-easy-crop'
 import type { Area, Point } from 'react-easy-crop'
 import Image from 'next/image'
-import type { SwitLayout, SwitSlot, SwitFrameLayer } from '@/lib/types'
+import type { FrameLayout, PhotoSlot, FrameLayer } from '@/lib/types'
 import { UIButton, UIStatusBanner } from './ui'
 
 // Aspect ratio map for react-easy-crop
@@ -43,7 +43,7 @@ export interface CompletedSlotData {
 }
 
 interface Props {
-  layout: SwitLayout
+  layout: FrameLayout
   eventSlug: string
   backgroundColor?: string
   onComplete: (mergedUrl: string) => void
@@ -52,7 +52,7 @@ interface Props {
   onLayoutChange?: () => void
 }
 
-export default function SwitUserEditor({ layout, eventSlug, backgroundColor = '#FFFFFF', onComplete, onPhotosReady, onBack, onLayoutChange }: Props) {
+export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '#FFFFFF', onComplete, onPhotosReady, onBack, onLayoutChange }: Props) {
   const [slotStates, setSlotStates] = useState<SlotState[]>(
     layout.slots.map(() => initSlot())
   )
@@ -448,7 +448,7 @@ export default function SwitUserEditor({ layout, eventSlug, backgroundColor = '#
       >
         {/* Frame layers (sorted by zIndex) */}
         {(() => {
-          const layers: SwitFrameLayer[] = (layout.frameLayers && layout.frameLayers.length > 0)
+          const layers: FrameLayer[] = (layout.frameLayers && layout.frameLayers.length > 0)
             ? layout.frameLayers.filter(l => l.visible)
             : layout.frameUrl
               ? [{ id: 'legacy', name: '프레임', imageUrl: layout.frameUrl, zIndex: 100, opacity: 1, visible: true }]

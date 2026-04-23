@@ -1,4 +1,4 @@
-import type { PrintSize, SwitSlot, SwitFrameLayer } from './types'
+import type { PrintSize, PhotoSlot, FrameLayer } from './types'
 
 interface DefaultLayoutTemplate {
   name: string
@@ -6,8 +6,8 @@ interface DefaultLayoutTemplate {
   printSize: PrintSize
   canvasWidth: number
   canvasHeight: number
-  slots: Pick<SwitSlot, 'x' | 'y' | 'width' | 'height' | 'aspectRatio'>[]
-  frameLayers: SwitFrameLayer[]
+  slots: Pick<PhotoSlot, 'x' | 'y' | 'width' | 'height' | 'aspectRatio'>[]
+  frameLayers: FrameLayer[]
   backgroundColor: string
   backgroundColorCustomizable: boolean
 }

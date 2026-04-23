@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getLayoutById, updateLayout } from '@/lib/models'
 import { saveUploadedFile } from '@/lib/image'
-import type { SwitFrameLayer } from '@/lib/types'
+import type { FrameLayer } from '@/lib/types'
 
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     ]
     const maxZ = allZIndices.length > 0 ? Math.max(...allZIndices) : 0
 
-    const newLayer: SwitFrameLayer = {
+    const newLayer: FrameLayer = {
       id: `layer-${Date.now()}`,
       name: layerName,
       imageUrl,
@@ -47,6 +47,34 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   } catch (err) {
     console.error('Frame upload error:', err)
     return NextResponse.json({ error: 'Failed to upload frame' }, { status: 500 })
+  }
+}
+
+export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const layout = await getLayoutById(params.id)
+    if (!layout) return NextResponse.json({ error: 'Layout not found' }, { status: 404 })
+
+    const formData = await request.formData()
+    const layerId = formData.get('layerId') as string
+    const file = formData.get('file') as File
+    if (!layerId || !file) return NextResponse.json({ error: 'layerId and file required' }, { status: 400 })
+
+    const existing = (layout.frameLayers || []).find(l => l.id === layerId)
+    if (!existing) return NextResponse.json({ error: 'Layer not found' }, { status: 404 })
+
+    const filename = `frame-${params.id}-${Date.now()}.png`
+    const imageUrl = await saveUploadedFile(file, filename)
+
+    const frameLayers = (layout.frameLayers || []).map(l =>
+      l.id === layerId ? { ...l, imageUrl } : l
+    )
+    await updateLayout(params.id, { frameLayers })
+
+    return NextResponse.json({ frameLayers })
+  } catch (err) {
+    console.error('Frame replace error:', err)
+    return NextResponse.json({ error: 'Failed to replace frame image' }, { status: 500 })
   }
 }
 
