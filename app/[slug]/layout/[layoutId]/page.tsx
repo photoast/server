@@ -10,10 +10,11 @@ import { UIPageSpinner, UIStatusBanner, UIButton, UIStepBar, UICounterControl, U
 import { loadTossPayments } from '@tosspayments/tosspayments-sdk'
 import type { TossPaymentsWidgets } from '@tosspayments/tosspayments-sdk'
 import { logClientError, logClientInfo } from '@/lib/errorLogger'
+import { useSession } from 'next-auth/react'
+import LoginModal from '@/app/components/LoginModal'
 
 const FrameUserEditor = dynamic(() => import('@/app/components/FrameUserEditor'), { ssr: false })
 
-const ANONYMOUS_CUSTOMER_KEY = 'ANONYMOUS'
 const TOSS_CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY || 'test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm'
 
 type Step = 'fill-photos' | 'select-bg-color' | 'payment' | 'success'
@@ -86,6 +87,8 @@ export default function FrameLayoutPage({
   params: { slug: string; layoutId: string }
 }) {
   const router = useRouter()
+  const { data: session, update: updateSession } = useSession()
+  const [showLoginModal, setShowLoginModal] = useState(false)
   const [event, setEvent] = useState<Event | null>(null)
   const [layout, setLayout] = useState<FrameLayout | null>(null)
   const [loading, setLoading] = useState(true)
@@ -420,6 +423,46 @@ export default function FrameLayoutPage({
     }
   }
 
+  const handleCreditPayment = async () => {
+    if (!mergedUrl || !event || !session?.user?.id) return
+
+    const unitPrice = event.price ?? 0
+    const multiplier = puzzleMode ? totalPieces : 1
+    const paymentAmount = unitPrice * printQuantity * multiplier
+
+    setPaymentProcessing(true)
+    setError('')
+
+    try {
+      const res = await fetch('/api/payment/credit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: paymentAmount,
+          eventSlug: event.slug,
+          imageUrl: mergedUrl,
+          quantity: puzzleMode ? printQuantity * totalPieces : printQuantity,
+        }),
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || '크레딧 결제에 실패했습니다')
+      }
+
+      const data = await res.json()
+      if (data.jobIds) setPrintJobIds(data.jobIds)
+
+      await updateSession()
+      setStep('success')
+    } catch (err: any) {
+      setError(err.message || '크레딧 결제 중 오류가 발생했습니다')
+      logClientError('Credit payment failed', err, params.slug)
+    } finally {
+      setPaymentProcessing(false)
+    }
+  }
+
   const handleGoToPayment = async () => {
     if (!mergedUrl || !event) return
 
@@ -432,13 +475,20 @@ export default function FrameLayoutPage({
       return
     }
 
+    // 유료인 경우 로그인 필요
+    if (!session?.user) {
+      setShowLoginModal(true)
+      return
+    }
+
     setStep('payment')
     setError('')
     setPaymentReady(false)
 
     try {
       const tossPayments = await loadTossPayments(TOSS_CLIENT_KEY)
-      const widgets = tossPayments.widgets({ customerKey: ANONYMOUS_CUSTOMER_KEY })
+      const customerKey = session.user.id
+      const widgets = tossPayments.widgets({ customerKey })
 
       await widgets.setAmount({ currency: 'KRW', value: paymentAmount })
 
@@ -990,6 +1040,37 @@ export default function FrameLayoutPage({
             <div className="space-y-4">
               <UISectionHeading title="결제" subtitle="결제 방법을 선택해주세요" />
 
+              {/* 로그인 유저 정보 */}
+              {session?.user && (
+                <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
+                  {session.user.image && (
+                    <img src={session.user.image} alt="" className="w-8 h-8 rounded-full" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{session.user.name}</p>
+                    <p className="text-xs text-gray-500">잔액 {(session.user.credits ?? 0).toLocaleString()}원</p>
+                  </div>
+                </div>
+              )}
+
+              {/* 크레딧 결제 옵션 */}
+              {session?.user && (session.user.credits ?? 0) >= (event.price ?? 0) * printQuantity * (puzzleMode ? totalPieces : 1) && (
+                <div className="bg-blue-50 rounded-xl p-4 space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-blue-900">크레딧으로 결제</span>
+                    <span className="text-sm text-blue-700">잔액 {(session.user.credits ?? 0).toLocaleString()}원</span>
+                  </div>
+                  <UIButton
+                    fullWidth
+                    onClick={handleCreditPayment}
+                    disabled={paymentProcessing || printing}
+                    loading={paymentProcessing}
+                  >
+                    크레딧 {((event.price ?? 0) * printQuantity * (puzzleMode ? totalPieces : 1)).toLocaleString()}원 차감
+                  </UIButton>
+                </div>
+              )}
+
               <div id="payment-method" />
               <div id="agreement" />
 
@@ -1001,7 +1082,7 @@ export default function FrameLayoutPage({
                 loading={paymentProcessing}
                 disabled={!paymentReady || paymentProcessing}
               >
-                {paymentProcessing ? '결제 처리 중...' : `${((event.price ?? 0) * printQuantity * (puzzleMode ? totalPieces : 1)).toLocaleString()}원 결제하기`}
+                {paymentProcessing ? '결제 처리 중...' : `카드/간편결제 ${((event.price ?? 0) * printQuantity * (puzzleMode ? totalPieces : 1)).toLocaleString()}원`}
               </UIButton>
               <UIButton fullWidth variant="secondary" onClick={() => setStep('fill-photos')}>
                 이전으로
@@ -1072,6 +1153,13 @@ export default function FrameLayoutPage({
           </div>
           <UIButton fullWidth variant="secondary" onClick={() => setShowLayoutPicker(false)}>닫기</UIButton>
         </UIBottomSheet>
+
+        {/* Login Modal */}
+        <LoginModal
+          open={showLoginModal}
+          onClose={() => setShowLoginModal(false)}
+          callbackUrl={`/${params.slug}/layout/${params.layoutId}`}
+        />
       </div>
     </div>
   )

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getPrintJobsByEventId, getAllPrinters } from '@/lib/models'
+import { getPrintJobsByEventId, getAllPrinters, findUserById } from '@/lib/models'
 import { checkAuth } from '@/lib/middleware'
 
 export async function GET(
@@ -22,9 +22,15 @@ export async function GET(
 
     const printerMap = new Map(printers.map(p => [p._id!.toString(), p.name]))
 
+    const userIds = Array.from(new Set(printJobs.filter(j => j.userId).map(j => j.userId!)))
+    const users = await Promise.all(userIds.map(id => findUserById(id)))
+    const userMap = new Map(users.filter(Boolean).map(u => [u!._id!.toString(), { name: u!.name, email: u!.email, profileImage: u!.profileImage }]))
+
     const enriched = printJobs.map(job => ({
       ...job,
       printerName: job.printerId ? printerMap.get(job.printerId) || null : null,
+      userName: job.userId ? userMap.get(job.userId)?.name || null : null,
+      userEmail: job.userId ? userMap.get(job.userId)?.email || null : null,
     }))
 
     return NextResponse.json({

@@ -7,9 +7,8 @@ import FourCutCropEditor from '../components/FourCutCropEditor'
 import { UIButton, UIStatusBanner, UICounterControl, UISectionHeading, UIPageSpinner, UICardSpinner, UIStepBar, UISelectItem, UIBottomSheet } from '../components/ui'
 import { loadTossPayments } from '@tosspayments/tosspayments-sdk'
 import type { TossPaymentsWidgets } from '@tosspayments/tosspayments-sdk'
-
-// 비회원 결제용 상수
-const ANONYMOUS_CUSTOMER_KEY = 'ANONYMOUS'
+import { useSession } from 'next-auth/react'
+import LoginModal from '../components/LoginModal'
 import {
   SinglePhotoPreview,
   FourCutPreview,
@@ -97,6 +96,10 @@ const STEP_BAR_STEPS = [
 export default function GuestPage({ params }: { params: { slug: string } }) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { data: session, update: updateSession } = useSession()
+
+  // Login modal state
+  const [showLoginModal, setShowLoginModal] = useState(false)
 
   // Event and loading state
   const [event, setEvent] = useState<Event | null>(null)
@@ -879,6 +882,46 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     }
   }
 
+  // 크레딧으로 결제
+  const handleCreditPayment = async () => {
+    if (!previewUrl || !session?.user?.id) return
+
+    const unitPrice = event?.price ?? 0
+    const paymentAmount = unitPrice * printQuantity
+
+    setPaymentProcessing(true)
+    setError('')
+
+    try {
+      const res = await fetch('/api/payment/credit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: paymentAmount,
+          eventSlug: params.slug,
+          imageUrl: previewUrl,
+          quantity: printQuantity,
+        }),
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || '크레딧 결제에 실패했습니다')
+      }
+
+      const data = await res.json()
+      if (data.jobIds) setPrintJobIds(data.jobIds)
+
+      await updateSession()
+      updateStep('success')
+    } catch (err: any) {
+      setError(err.message || '크레딧 결제 중 오류가 발생했습니다')
+      logClientError('Credit payment failed', err, params.slug)
+    } finally {
+      setPaymentProcessing(false)
+    }
+  }
+
   // 결제 페이지로 이동
   const handleGoToPayment = async () => {
     if (!previewUrl) return
@@ -892,6 +935,12 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       return
     }
 
+    // 유료인 경우 로그인 필요
+    if (!session?.user) {
+      setShowLoginModal(true)
+      return
+    }
+
     updateStep('payment')
     setError('')
     setPaymentReady(false)
@@ -900,8 +949,9 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       // 토스페이먼츠 SDK 로드
       const tossPayments = await loadTossPayments(TOSS_CLIENT_KEY)
 
-      // 위젯 초기화 (비회원 결제)
-      const widgets = tossPayments.widgets({ customerKey: ANONYMOUS_CUSTOMER_KEY })
+      // 위젯 초기화 (로그인한 유저의 ID 사용)
+      const customerKey = session.user.id
+      const widgets = tossPayments.widgets({ customerKey })
 
       // 결제 금액 설정 (단가 × 수량)
       await widgets.setAmount({
@@ -1446,12 +1496,22 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
           {step === 'payment' && (
             <div className="space-y-6">
               <UISectionHeading
-                title={(event?.price ?? 0) === 0 ? '무료 프린트' : '결제'}
-                subtitle={(event?.price ?? 0) === 0
-                  ? `${printQuantity}매 무료로 프린트하실 수 있어요`
-                  : `${printQuantity}매 프린트 비용을 결제해주세요`
-                }
+                title="결제"
+                subtitle={`${printQuantity}매 프린트 비용을 결제해주세요`}
               />
+
+              {/* 로그인 유저 정보 */}
+              {session?.user && (
+                <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
+                  {session.user.image && (
+                    <img src={session.user.image} alt="" className="w-8 h-8 rounded-full" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{session.user.name}</p>
+                    <p className="text-xs text-gray-500">잔액 {(session.user.credits ?? 0).toLocaleString()}원</p>
+                  </div>
+                </div>
+              )}
 
               {/* 미리보기 이미지 */}
               {previewUrl && (
@@ -1469,30 +1529,41 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
               {/* 결제 금액 */}
               <div className="bg-gray-50 rounded-xl p-4">
-                {(event?.price ?? 0) === 0 ? (
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-500">프린트 비용</span>
-                    <span className="text-xl font-bold text-gray-900">무료 · {printQuantity}매</span>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-500">단가</span>
+                    <span className="text-gray-700">{event?.price?.toLocaleString()}원</span>
                   </div>
-                ) : (
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-500">단가</span>
-                      <span className="text-gray-700">{event?.price?.toLocaleString()}원</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-500">수량</span>
-                      <span className="text-gray-700">{printQuantity}매</span>
-                    </div>
-                    <div className="border-t border-gray-200 pt-2 mt-2 flex justify-between items-center">
-                      <span className="text-sm font-semibold text-gray-700">총 결제 금액</span>
-                      <span className="text-xl font-bold text-gray-900">
-                        {((event?.price ?? 0) * printQuantity).toLocaleString()}원
-                      </span>
-                    </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-500">수량</span>
+                    <span className="text-gray-700">{printQuantity}매</span>
                   </div>
-                )}
+                  <div className="border-t border-gray-200 pt-2 mt-2 flex justify-between items-center">
+                    <span className="text-sm font-semibold text-gray-700">총 결제 금액</span>
+                    <span className="text-xl font-bold text-gray-900">
+                      {((event?.price ?? 0) * printQuantity).toLocaleString()}원
+                    </span>
+                  </div>
+                </div>
               </div>
+
+              {/* 크레딧 결제 옵션 */}
+              {session?.user && (session.user.credits ?? 0) >= (event?.price ?? 0) * printQuantity && (
+                <div className="bg-blue-50 rounded-xl p-4 space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-blue-900">크레딧으로 결제</span>
+                    <span className="text-sm text-blue-700">잔액 {(session.user.credits ?? 0).toLocaleString()}원</span>
+                  </div>
+                  <UIButton
+                    fullWidth
+                    onClick={handleCreditPayment}
+                    disabled={paymentProcessing || printing}
+                    loading={paymentProcessing}
+                  >
+                    크레딧 {((event?.price ?? 0) * printQuantity).toLocaleString()}원 차감
+                  </UIButton>
+                </div>
+              )}
 
               {/* 토스페이먼츠 위젯 */}
               <div className="space-y-4">
@@ -1519,7 +1590,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                   </svg>
-                  {(event?.price ?? 0) === 0 ? '무료로 프린트하기' : `${event?.price}원 결제하기`}
+                  카드/간편결제 {((event?.price ?? 0) * printQuantity).toLocaleString()}원
                 </UIButton>
 
                 <UIButton
@@ -1654,6 +1725,13 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
             initialSettings={photoSlots[currentEditingSlot]?.cropSettings ? [photoSlots[currentEditingSlot].cropSettings!] : undefined}
           />
         )}
+
+        {/* Login Modal */}
+        <LoginModal
+          open={showLoginModal}
+          onClose={() => setShowLoginModal(false)}
+          callbackUrl={`/${params.slug}?step=fill-photos&layout=${frameType}`}
+        />
       </div>
     </div>
   )

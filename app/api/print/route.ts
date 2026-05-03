@@ -6,6 +6,8 @@ import { printViaEpsonApi } from '@/lib/epson-api'
 import { applyPrinterCorrection } from '@/lib/image-correction'
 import { uploadToBlob, readImageBuffer } from '@/lib/blob'
 import { DeviceInfo } from '@/lib/types'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/authOptions'
 
 // Extract IP address from request
 function getClientIp(request: NextRequest): string {
@@ -25,6 +27,9 @@ function getClientIp(request: NextRequest): string {
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions)
+    const userId = session?.user?.id
+
     const body = await request.json()
     const { slug, imageUrl, deviceInfo: clientDeviceInfo, quantity = 1 } = body
 
@@ -117,6 +122,7 @@ export async function POST(request: NextRequest) {
             printedImageUrl: correctedUrl,
             status: 'PENDING',
             deviceInfo,
+            userId,
           })
           jobIds.push(printJob._id?.toString() || '')
           console.log(`[Print API] Print job ${i + 1}/${printQuantity} created as PENDING (polling)`)
@@ -171,6 +177,7 @@ export async function POST(request: NextRequest) {
             status: result.success ? 'DONE' : 'FAILED',
             deviceInfo,
             errorMessage: result.error,
+            userId,
           })
 
           if (result.success) {
@@ -206,6 +213,7 @@ export async function POST(request: NextRequest) {
             status: result.success ? 'DONE' : 'FAILED',
             deviceInfo,
             errorMessage: result.error,
+            userId,
           })
 
           if (result.success) {

@@ -153,6 +153,34 @@ export interface PrintJob {
   status: 'PENDING' | 'DONE' | 'FAILED'
   deviceInfo?: DeviceInfo
   errorMessage?: string
+  userId?: string
+  paymentKey?: string
+  paymentAmount?: number
+  refunded?: boolean
+}
+
+export interface User {
+  _id?: ObjectId
+  provider: 'google' | 'kakao'
+  providerId: string
+  email?: string
+  name?: string
+  profileImage?: string
+  credits: number
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface CreditTransaction {
+  _id?: ObjectId
+  userId: string
+  amount: number
+  type: 'charge' | 'use' | 'refund'
+  description: string
+  relatedPrintJobId?: string
+  relatedPaymentKey?: string
+  createdBy?: string
+  createdAt: Date
 }
 
 export interface Admin {

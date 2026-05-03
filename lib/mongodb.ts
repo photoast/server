@@ -33,6 +33,8 @@ export const COLLECTIONS = {
   stickers: 'stickers',
   layouts: 'layouts',
   printers: 'printers',
+  users: 'users',
+  creditTransactions: 'creditTransactions',
 } as const
 
 export async function getDb(): Promise<Db> {
@@ -59,6 +61,10 @@ export async function ensureIndexes(): Promise<void> {
       db.collection(COLLECTIONS.printers).createIndex({ name: 1 }, { unique: true }),
       db.collection(COLLECTIONS.printers).createIndex({ apiKey: 1 }, { unique: true, sparse: true }),
       db.collection(COLLECTIONS.printJobs).createIndex({ printerId: 1, status: 1, createdAt: 1 }),
+      db.collection(COLLECTIONS.printJobs).createIndex({ userId: 1, createdAt: -1 }),
+      db.collection(COLLECTIONS.users).createIndex({ provider: 1, providerId: 1 }, { unique: true }),
+      db.collection(COLLECTIONS.users).createIndex({ email: 1 }, { sparse: true }),
+      db.collection(COLLECTIONS.creditTransactions).createIndex({ userId: 1, createdAt: -1 }),
     ])
     indexesCreated = true
     console.log('[MongoDB] Indexes ensured')
