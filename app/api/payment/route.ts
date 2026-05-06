@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const clientId = process.env.NICEPAY_CLIENT_ID
+    const clientId = process.env.NEXT_PUBLIC_NICEPAY_CLIENT_ID
     const secretKey = process.env.NICEPAY_SECRET_KEY
     if (!clientId || !secretKey) {
       console.error('NICEPAY credentials not configured')
