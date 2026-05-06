@@ -9,8 +9,6 @@ import type { CompletedSlotData } from '@/app/components/FrameUserEditor'
 import { UIPageSpinner, UIStatusBanner, UIButton, UIStepBar, UICounterControl, UISectionHeading, UIBottomSheet, UISelectItem } from '@/app/components/ui'
 import Script from 'next/script'
 import { logClientError, logClientInfo } from '@/lib/errorLogger'
-import { useSession } from 'next-auth/react'
-import LoginModal from '@/app/components/LoginModal'
 
 const FrameUserEditor = dynamic(() => import('@/app/components/FrameUserEditor'), { ssr: false })
 
@@ -104,8 +102,7 @@ export default function FrameLayoutPage({
   params: { slug: string; layoutId: string }
 }) {
   const router = useRouter()
-  const { data: session, update: updateSession } = useSession()
-  const [showLoginModal, setShowLoginModal] = useState(false)
+  const [customerEmail, setCustomerEmail] = useState('')
   const [event, setEvent] = useState<Event | null>(null)
   const [layout, setLayout] = useState<FrameLayout | null>(null)
   const [loading, setLoading] = useState(true)
@@ -492,12 +489,6 @@ export default function FrameLayoutPage({
 
     if (paymentAmount === 0) {
       await handlePrint()
-      return
-    }
-
-    // 유료인 경우 로그인 필요
-    if (!session?.user) {
-      setShowLoginModal(true)
       return
     }
 
@@ -1069,18 +1060,17 @@ export default function FrameLayoutPage({
             <div className="space-y-4">
               <UISectionHeading title="결제" subtitle="결제 방법을 선택해주세요" />
 
-              {/* 로그인 유저 정보 */}
-              {session?.user && (
-                <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
-                  {session.user.image && (
-                    <img src={session.user.image} alt="" className="w-8 h-8 rounded-full" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{session.user.name}</p>
-                    <p className="text-xs text-gray-500">{session.user.email}</p>
-                  </div>
-                </div>
-              )}
+              {/* 이메일 입력 */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">이메일 (결제 확인용)</label>
+                <input
+                  type="email"
+                  value={customerEmail}
+                  onChange={e => setCustomerEmail(e.target.value)}
+                  placeholder="example@email.com"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
 
               {error && <UIStatusBanner type="error" message={error} />}
 
@@ -1162,12 +1152,6 @@ export default function FrameLayoutPage({
           <UIButton fullWidth variant="secondary" onClick={() => setShowLayoutPicker(false)}>닫기</UIButton>
         </UIBottomSheet>
 
-        {/* Login Modal */}
-        <LoginModal
-          open={showLoginModal}
-          onClose={() => setShowLoginModal(false)}
-          callbackUrl={`/${params.slug}/layout/${params.layoutId}`}
-        />
       </div>
     </div>
   )

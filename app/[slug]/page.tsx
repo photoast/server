@@ -6,8 +6,6 @@ import Image from 'next/image'
 import FourCutCropEditor from '../components/FourCutCropEditor'
 import { UIButton, UIStatusBanner, UICounterControl, UISectionHeading, UIPageSpinner, UICardSpinner, UIStepBar, UISelectItem, UIBottomSheet } from '../components/ui'
 import Script from 'next/script'
-import { useSession } from 'next-auth/react'
-import LoginModal from '../components/LoginModal'
 import {
   SinglePhotoPreview,
   FourCutPreview,
@@ -113,10 +111,7 @@ const STEP_BAR_STEPS = [
 export default function GuestPage({ params }: { params: { slug: string } }) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { data: session, update: updateSession } = useSession()
-
-  // Login modal state
-  const [showLoginModal, setShowLoginModal] = useState(false)
+  const [customerEmail, setCustomerEmail] = useState('')
 
   // Event and loading state
   const [event, setEvent] = useState<Event | null>(null)
@@ -948,12 +943,6 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       return
     }
 
-    // 유료인 경우 로그인 필요
-    if (!session?.user) {
-      setShowLoginModal(true)
-      return
-    }
-
     updateStep('payment')
     setError('')
   }
@@ -1496,18 +1485,17 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                 subtitle={`${printQuantity}매 프린트 비용을 결제해주세요`}
               />
 
-              {/* 로그인 유저 정보 */}
-              {session?.user && (
-                <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
-                  {session.user.image && (
-                    <img src={session.user.image} alt="" className="w-8 h-8 rounded-full" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{session.user.name}</p>
-                    <p className="text-xs text-gray-500">{session.user.email}</p>
-                  </div>
-                </div>
-              )}
+              {/* 이메일 입력 */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">이메일 (결제 확인용)</label>
+                <input
+                  type="email"
+                  value={customerEmail}
+                  onChange={e => setCustomerEmail(e.target.value)}
+                  placeholder="example@email.com"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
 
               {/* 미리보기 이미지 */}
               {previewUrl && (
@@ -1688,12 +1676,6 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
           />
         )}
 
-        {/* Login Modal */}
-        <LoginModal
-          open={showLoginModal}
-          onClose={() => setShowLoginModal(false)}
-          callbackUrl={`/${params.slug}?step=fill-photos&layout=${frameType}`}
-        />
       </div>
     </div>
   )
