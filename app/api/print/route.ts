@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import sharp from 'sharp'
-import { findEventBySlug, findPrinterById, createPrintJob, updatePrinter, createErrorLog } from '@/lib/models'
+import { findEventBySlug, findPrinterById, createPrintJob, updatePrinter, createErrorLog, verifyAndUseAuthCode, linkAuthCodeToPrintJob } from '@/lib/models'
 import { printImage } from '@/lib/printer'
 import { printViaEpsonApi } from '@/lib/epson-api'
 import { applyPrinterCorrection } from '@/lib/image-correction'
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     const userId = session?.user?.id
 
     const body = await request.json()
-    const { slug, imageUrl, deviceInfo: clientDeviceInfo, quantity = 1 } = body
+    const { slug, imageUrl, deviceInfo: clientDeviceInfo, quantity = 1, authCode } = body
 
     if (!slug || !imageUrl) {
       return NextResponse.json(
@@ -47,6 +47,17 @@ export async function POST(request: NextRequest) {
     const event = await findEventBySlug(slug)
     if (!event) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
+    }
+
+    // Verify auth code if required
+    if (event.authCodeRequired) {
+      if (!authCode) {
+        return NextResponse.json({ error: '인증코드가 필요합니다' }, { status: 403 })
+      }
+      const codeResult = await verifyAndUseAuthCode(event._id!.toString(), authCode)
+      if (!codeResult.valid) {
+        return NextResponse.json({ error: codeResult.error }, { status: 403 })
+      }
     }
 
     // Resolve printer from event
@@ -77,6 +88,7 @@ export async function POST(request: NextRequest) {
       storedImageUrl = await uploadToBlob(filename, buf)
     }
 
+    const normalizedAuthCode = authCode?.toUpperCase() as string | undefined
     const jobIds: string[] = []
     const errors: string[] = []
 
@@ -123,6 +135,7 @@ export async function POST(request: NextRequest) {
             status: 'PENDING',
             deviceInfo,
             userId,
+            authCode: normalizedAuthCode,
           })
           jobIds.push(printJob._id?.toString() || '')
           console.log(`[Print API] Print job ${i + 1}/${printQuantity} created as PENDING (polling)`)
@@ -178,6 +191,7 @@ export async function POST(request: NextRequest) {
             deviceInfo,
             errorMessage: result.error,
             userId,
+            authCode: normalizedAuthCode,
           })
 
           if (result.success) {
@@ -214,6 +228,7 @@ export async function POST(request: NextRequest) {
             deviceInfo,
             errorMessage: result.error,
             userId,
+            authCode: normalizedAuthCode,
           })
 
           if (result.success) {
@@ -230,6 +245,11 @@ export async function POST(request: NextRequest) {
         console.error(`[Print API] Print job ${i + 1}/${printQuantity} error:`, err)
         createErrorLog({ level: 'error', message: `인쇄 오류: ${err.message}`, stack: err.stack, eventSlug: slug, additionalData: { printerId: printer._id?.toString(), printMethod: printer.printMethod, copy: i + 1 } })
       }
+    }
+
+    // Link auth code to first print job
+    if (normalizedAuthCode && jobIds.length > 0) {
+      linkAuthCodeToPrintJob(event._id!.toString(), normalizedAuthCode, jobIds[0]).catch(() => {})
     }
 
     // Return result

@@ -112,6 +112,16 @@ export interface Printer {
   createdAt: Date
 }
 
+export interface AuthCode {
+  _id?: ObjectId
+  eventId: string
+  code: string
+  used: boolean
+  usedAt?: Date
+  printJobId?: string
+  createdAt: Date
+}
+
 export interface Event {
   _id?: ObjectId
   name: string
@@ -120,6 +130,7 @@ export interface Event {
   availableLayouts?: FrameType[]
   puzzleEnabled?: boolean
   price?: number
+  authCodeRequired?: boolean
   backgroundColors?: string[]
   donation?: {
     enabled: boolean
@@ -154,6 +165,7 @@ export interface PrintJob {
   deviceInfo?: DeviceInfo
   errorMessage?: string
   userId?: string
+  authCode?: string
   paymentKey?: string
   paymentAmount?: number
   refunded?: boolean

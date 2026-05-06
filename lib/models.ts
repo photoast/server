@@ -1,5 +1,5 @@
 import { ObjectId } from 'mongodb'
-import { Event, PrintJob, Admin, ErrorLog, Sticker, FrameLayout, normalizeLayout, Printer, User, CreditTransaction } from './types'
+import { Event, PrintJob, Admin, ErrorLog, Sticker, FrameLayout, normalizeLayout, Printer, User, CreditTransaction, AuthCode } from './types'
 import { getDb, ensureIndexes, COLLECTIONS } from './mongodb'
 
 // Ensure indexes on first import
@@ -438,4 +438,79 @@ export async function refundCredits(userId: string, amount: number, description:
   if (!ok) return false
   await createCreditTransaction({ userId, amount, type: 'refund', description, relatedPrintJobId })
   return true
+}
+
+// ==================== Auth Codes ====================
+
+function generateCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  let code = ''
+  for (let i = 0; i < 6; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)]
+  }
+  return code
+}
+
+export async function createAuthCodes(eventId: string, count: number): Promise<AuthCode[]> {
+  const db = await getDb()
+  const col = db.collection(COLLECTIONS.authCodes)
+  const codes: AuthCode[] = []
+  const existingCodes = new Set(
+    (await col.find({ eventId }).project({ code: 1 }).toArray()).map(d => d.code)
+  )
+
+  for (let i = 0; i < count; i++) {
+    let code: string
+    do {
+      code = generateCode()
+    } while (existingCodes.has(code))
+    existingCodes.add(code)
+
+    const doc = { eventId, code, used: false, createdAt: new Date() }
+    const result = await col.insertOne(doc)
+    codes.push({ _id: result.insertedId, ...doc } as AuthCode)
+  }
+  return codes
+}
+
+export async function getAuthCodesByEventId(eventId: string): Promise<AuthCode[]> {
+  const db = await getDb()
+  return db.collection<AuthCode>(COLLECTIONS.authCodes)
+    .find({ eventId })
+    .sort({ createdAt: -1 })
+    .toArray()
+}
+
+export async function verifyAndUseAuthCode(eventId: string, code: string, printJobId?: string): Promise<{ valid: boolean; error?: string }> {
+  const db = await getDb()
+  const result = await db.collection(COLLECTIONS.authCodes).findOneAndUpdate(
+    { eventId, code: code.toUpperCase(), used: false },
+    { $set: { used: true, usedAt: new Date(), printJobId } }
+  )
+  if (!result) {
+    const existing = await db.collection(COLLECTIONS.authCodes).findOne({ eventId, code: code.toUpperCase() })
+    if (existing?.used) return { valid: false, error: '이미 사용된 인증코드입니다' }
+    return { valid: false, error: '유효하지 않은 인증코드입니다' }
+  }
+  return { valid: true }
+}
+
+export async function linkAuthCodeToPrintJob(eventId: string, code: string, printJobId: string): Promise<void> {
+  const db = await getDb()
+  await db.collection(COLLECTIONS.authCodes).updateOne(
+    { eventId, code: code.toUpperCase() },
+    { $set: { printJobId } }
+  )
+}
+
+export async function deleteAuthCode(id: string): Promise<boolean> {
+  const db = await getDb()
+  const result = await db.collection(COLLECTIONS.authCodes).deleteOne({ _id: new ObjectId(id) })
+  return result.deletedCount > 0
+}
+
+export async function deleteAuthCodesByEventId(eventId: string): Promise<number> {
+  const db = await getDb()
+  const result = await db.collection(COLLECTIONS.authCodes).deleteMany({ eventId })
+  return result.deletedCount
 }

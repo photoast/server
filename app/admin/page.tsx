@@ -39,6 +39,7 @@ interface Event {
   availableLayouts?: string[]
   puzzleEnabled?: boolean
   price?: number
+  authCodeRequired?: boolean
   backgroundColors?: string[]
   donation?: {
     enabled: boolean
@@ -73,6 +74,7 @@ interface PrintJob {
   status: 'PENDING' | 'DONE' | 'FAILED'
   deviceInfo?: DeviceInfo
   errorMessage?: string
+  authCode?: string
 }
 
 export default function AdminPage() {
@@ -128,6 +130,11 @@ export default function AdminPage() {
   const [stickers, setStickers] = useState<{ _id: string; url: string; filename: string }[]>([])
   const [stickerUploading, setStickerUploading] = useState(false)
 
+  // Auth codes
+  const [authCodes, setAuthCodes] = useState<{ _id: string; code: string; used: boolean; usedAt?: string; printJobId?: string; createdAt: string }[]>([])
+  const [authCodeCount, setAuthCodeCount] = useState(10)
+  const [authCodeGenerating, setAuthCodeGenerating] = useState(false)
+
   // Event layouts (FrameLayout-based)
   const [eventLayouts, setEventLayouts] = useState<Record<string, { _id: string; name: string; printSize: string; slots: any[]; isPreset?: boolean; order?: number; visible?: boolean }[]>>({})
   const [dragLayoutId, setDragLayoutId] = useState<string | null>(null)
@@ -162,6 +169,7 @@ export default function AdminPage() {
       } catch {}
     }
     fetchRecent()
+    if (detailEvent?.authCodeRequired) fetchAuthCodes(detailEvent._id)
   }, [detailEvent?._id])
 
   const checkAuth = async () => {
@@ -209,6 +217,37 @@ export default function AdminPage() {
     } catch (err) {
       console.error('Failed to delete sticker:', err)
     }
+  }
+
+  const fetchAuthCodes = async (eventId: string) => {
+    try {
+      const res = await fetch(`/api/auth-codes?eventId=${eventId}`)
+      if (res.ok) setAuthCodes(await res.json())
+    } catch {}
+  }
+
+  const handleGenerateAuthCodes = async (eventId: string, count: number) => {
+    setAuthCodeGenerating(true)
+    try {
+      const res = await fetch('/api/auth-codes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId, count }),
+      })
+      if (res.ok) fetchAuthCodes(eventId)
+    } catch (err) {
+      console.error('Failed to generate auth codes:', err)
+    } finally {
+      setAuthCodeGenerating(false)
+    }
+  }
+
+  const handleDeleteAllAuthCodes = async (eventId: string) => {
+    if (!confirm('미사용 코드를 포함한 모든 인증코드를 삭제합니다. 계속하시겠습니까?')) return
+    try {
+      await fetch(`/api/auth-codes?eventId=${eventId}`, { method: 'DELETE' })
+      setAuthCodes([])
+    } catch {}
   }
 
   const fetchPrinters = async () => {
@@ -378,7 +417,7 @@ export default function AdminPage() {
     }
   }
 
-  const handleUpdateEvent = async (eventId: string, updates: { name?: string; slug?: string; printerId?: string; availableLayouts?: string[]; price?: number; puzzleEnabled?: boolean; backgroundColors?: string[]; donation?: Event['donation'] }) => {
+  const handleUpdateEvent = async (eventId: string, updates: { name?: string; slug?: string; printerId?: string; availableLayouts?: string[]; price?: number; puzzleEnabled?: boolean; authCodeRequired?: boolean; backgroundColors?: string[]; donation?: Event['donation'] }) => {
     try {
       const updateRes = await fetch(`/api/events/${eventId}`, {
         method: 'PATCH',
@@ -933,6 +972,99 @@ export default function AdminPage() {
             </UIFormField>
           </UICard>
 
+          {/* Auth Code Settings */}
+          <UICard>
+            <UIFormField label="인증코드 인쇄">
+              <div className="space-y-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={event.authCodeRequired ?? false}
+                    onChange={e => {
+                      handleUpdateEvent(event._id, { authCodeRequired: e.target.checked })
+                      if (e.target.checked) fetchAuthCodes(event._id)
+                    }}
+                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">인증코드 필수</span>
+                </label>
+                <span className="text-xs text-gray-400">활성화하면 유효한 인증코드를 입력해야만 인쇄할 수 있습니다</span>
+
+                {event.authCodeRequired && (
+                  <div className="space-y-3 pt-2 border-t">
+                    <div className="flex items-center gap-2">
+                      <UITextInput
+                        type="number"
+                        min={1}
+                        max={500}
+                        value={authCodeCount}
+                        onChange={e => setAuthCodeCount(parseInt(e.target.value) || 10)}
+                        className="w-20"
+                      />
+                      <span className="text-sm text-gray-600">개</span>
+                      <UIButton
+                        size="sm"
+                        onClick={() => handleGenerateAuthCodes(event._id, authCodeCount)}
+                        disabled={authCodeGenerating}
+                      >
+                        {authCodeGenerating ? '생성 중...' : '인증코드 발급'}
+                      </UIButton>
+                      {authCodes.length > 0 && (
+                        <UIButton variant="danger" size="sm" onClick={() => handleDeleteAllAuthCodes(event._id)}>
+                          전체 삭제
+                        </UIButton>
+                      )}
+                    </div>
+
+                    {authCodes.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <span>총 {authCodes.length}개</span>
+                          <span>|</span>
+                          <span className="text-green-600">사용가능 {authCodes.filter(c => !c.used).length}개</span>
+                          <span>|</span>
+                          <span className="text-red-500">사용됨 {authCodes.filter(c => c.used).length}개</span>
+                        </div>
+                        <div className="max-h-48 overflow-y-auto border rounded-lg">
+                          <table className="w-full text-sm">
+                            <thead className="bg-gray-50 sticky top-0">
+                              <tr>
+                                <th className="px-3 py-1.5 text-left font-medium text-gray-600">코드</th>
+                                <th className="px-3 py-1.5 text-left font-medium text-gray-600">상태</th>
+                                <th className="px-3 py-1.5 text-left font-medium text-gray-600">사용일시</th>
+                                <th className="px-3 py-1.5 text-left font-medium text-gray-600">인쇄</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y">
+                              {authCodes.map(ac => (
+                                <tr key={ac._id} className={ac.used ? 'bg-red-50' : ''}>
+                                  <td className="px-3 py-1.5 font-mono font-bold tracking-wider">{ac.code}</td>
+                                  <td className="px-3 py-1.5">
+                                    {ac.used
+                                      ? <UIBadge variant="error">사용됨</UIBadge>
+                                      : <UIBadge variant="success">사용가능</UIBadge>}
+                                  </td>
+                                  <td className="px-3 py-1.5 text-gray-500">
+                                    {ac.usedAt ? new Date(ac.usedAt).toLocaleString('ko-KR') : '-'}
+                                  </td>
+                                  <td className="px-3 py-1.5 text-gray-500">
+                                    {ac.printJobId
+                                      ? <button onClick={() => { setSelectedEventForHistory(event); setShowPrintHistory(true) }} className="text-blue-500 hover:underline text-xs">보기</button>
+                                      : '-'}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </UIFormField>
+          </UICard>
+
           {/* Donation Settings */}
           <UICard>
             <UIFormField label="후원 계좌 안내">
@@ -1313,6 +1445,9 @@ export default function AdminPage() {
                         {job.printerName && (
                           <span className="text-[10px] text-gray-400">{job.printerName}</span>
                         )}
+                        {job.authCode && (
+                          <span className="text-[10px] font-mono bg-purple-100 text-purple-700 px-1 rounded">{job.authCode}</span>
+                        )}
                         <button
                           onClick={() => {
                             window.open(`/result/${job._id}`, '_blank')
@@ -1477,6 +1612,9 @@ export default function AdminPage() {
                         </select>
                         {job.printerName && (
                           <span className="text-xs text-gray-400">{job.printerName}</span>
+                        )}
+                        {job.authCode && (
+                          <span className="text-xs font-mono bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">인증코드: {job.authCode}</span>
                         )}
                         <span className="text-sm text-gray-600">
                           {new Date(job.createdAt).toLocaleString()}
@@ -2082,6 +2220,9 @@ export default function AdminPage() {
                       })()}
                       {(event.price ?? 0) > 0 && (
                         <UIBadge variant="warning">{event.price!.toLocaleString()}원</UIBadge>
+                      )}
+                      {event.authCodeRequired && (
+                        <UIBadge variant="info">인증코드</UIBadge>
                       )}
                     </div>
                     <p className="text-xs text-gray-400 mt-0.5">

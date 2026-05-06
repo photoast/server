@@ -5,8 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import FourCutCropEditor from '../components/FourCutCropEditor'
 import { UIButton, UIStatusBanner, UICounterControl, UISectionHeading, UIPageSpinner, UICardSpinner, UIStepBar, UISelectItem, UIBottomSheet } from '../components/ui'
-import { loadTossPayments } from '@tosspayments/tosspayments-sdk'
-import type { TossPaymentsWidgets } from '@tosspayments/tosspayments-sdk'
+import Script from 'next/script'
 import { useSession } from 'next-auth/react'
 import LoginModal from '../components/LoginModal'
 import {
@@ -30,6 +29,7 @@ interface Event {
   availableLayouts?: string[]
   supportedSizes?: string[]
   price?: number
+  authCodeRequired?: boolean
   donation?: {
     enabled: boolean
     bank: string
@@ -75,7 +75,24 @@ interface PhotoSlot {
 type Step = 'select-layout' | 'select-color' | 'fill-photos' | 'payment' | 'success'
 
 // 토스페이먼츠 클라이언트 키 (테스트용)
-const TOSS_CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY || 'test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm'
+const NICEPAY_CLIENT_ID = process.env.NEXT_PUBLIC_NICEPAY_CLIENT_ID || 'S2_af4543a0be4d49a98122e01ec2059a56'
+
+declare global {
+  interface Window {
+    AUTHNICE?: {
+      requestPay: (options: {
+        clientId: string
+        method: string
+        orderId: string
+        amount: number
+        goodsName: string
+        returnUrl: string
+        mallReserved?: string
+        fnError?: (result: { errorMsg: string }) => void
+      }) => void
+    }
+  }
+}
 
 const BACKGROUND_COLORS = [
   { name: '블랙', value: '#000000' },
@@ -131,10 +148,13 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   const [error, setError] = useState('')
   const [printQuantity, setPrintQuantity] = useState(1)
   // Payment state
-  const [paymentWidgets, setPaymentWidgets] = useState<TossPaymentsWidgets | null>(null)
-  const [paymentReady, setPaymentReady] = useState(false)
   const [paymentProcessing, setPaymentProcessing] = useState(false)
-  const [paymentConfirming, setPaymentConfirming] = useState(false) // 결제 승인 처리 중
+  const [paymentConfirming, setPaymentConfirming] = useState(false)
+
+  // Auth code
+  const [authCode, setAuthCode] = useState('')
+  const [authCodeVerified, setAuthCodeVerified] = useState(false)
+  const [authCodeError, setAuthCodeError] = useState('')
 
   // Print job tracking
   const [printJobIds, setPrintJobIds] = useState<string[]>([])
@@ -857,6 +877,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
           slug: params.slug,
           imageUrl: previewUrl,
           quantity: printQuantity,
+          ...(event?.authCodeRequired && authCode ? { authCode } : {}),
         }),
       })
 
@@ -901,6 +922,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
           eventSlug: params.slug,
           imageUrl: previewUrl,
           quantity: printQuantity,
+          ...(event?.authCodeRequired && authCode ? { authCode } : {}),
         }),
       })
 
@@ -922,9 +944,41 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     }
   }
 
+  const handleVerifyAuthCode = async (): Promise<boolean> => {
+    if (!event?.authCodeRequired) return true
+    if (authCodeVerified) return true
+    if (!authCode.trim()) {
+      setAuthCodeError('인증코드를 입력해주세요')
+      return false
+    }
+    try {
+      const res = await fetch('/api/auth-codes/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug: params.slug, code: authCode.trim() }),
+      })
+      const data = await res.json()
+      if (data.valid) {
+        setAuthCodeVerified(true)
+        setAuthCodeError('')
+        return true
+      }
+      setAuthCodeError(data.error || '유효하지 않은 인증코드입니다')
+      return false
+    } catch {
+      setAuthCodeError('인증코드 확인 중 오류가 발생했습니다')
+      return false
+    }
+  }
+
   // 결제 페이지로 이동
   const handleGoToPayment = async () => {
     if (!previewUrl) return
+
+    if (event?.authCodeRequired && !authCodeVerified) {
+      const valid = await handleVerifyAuthCode()
+      if (!valid) return
+    }
 
     const unitPrice = event?.price ?? 0
     const paymentAmount = unitPrice * printQuantity
@@ -943,98 +997,57 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
     updateStep('payment')
     setError('')
-    setPaymentReady(false)
-
-    try {
-      // 토스페이먼츠 SDK 로드
-      const tossPayments = await loadTossPayments(TOSS_CLIENT_KEY)
-
-      // 위젯 초기화 (로그인한 유저의 ID 사용)
-      const customerKey = session.user.id
-      const widgets = tossPayments.widgets({ customerKey })
-
-      // 결제 금액 설정 (단가 × 수량)
-      await widgets.setAmount({
-        currency: 'KRW',
-        value: paymentAmount,
-      })
-
-      // 결제 위젯 렌더링
-      await Promise.all([
-        widgets.renderPaymentMethods({
-          selector: '#payment-method',
-          variantKey: 'DEFAULT',
-        }),
-        widgets.renderAgreement({
-          selector: '#agreement',
-          variantKey: 'AGREEMENT',
-        }),
-      ])
-
-      setPaymentWidgets(widgets)
-      setPaymentReady(true)
-    } catch (err: any) {
-      console.error('Payment widget error:', err)
-      setError('결제 위젯을 불러오는데 실패했습니다')
-      logClientError('Failed to load payment widget', err, params.slug)
-    }
   }
 
-  // 결제 실행
-  const handlePayment = async () => {
-    if (!paymentWidgets || !paymentReady) return
+  // 나이스페이 결제 실행
+  const handlePayment = () => {
+    if (!window.AUTHNICE) {
+      setError('결제 모듈을 불러오는 중입니다. 잠시 후 다시 시도해주세요.')
+      return
+    }
+
+    const unitPrice = event?.price ?? 0
+    const paymentAmount = unitPrice * printQuantity
+    const orderId = `PRINT_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
 
     setPaymentProcessing(true)
     setError('')
 
-    try {
-      // 주문 ID 생성 (고유값)
-      const orderId = `PRINT_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
-
-      // 결제 요청
-      await paymentWidgets.requestPayment({
-        orderId,
-        orderName: '포토 프린트 1장',
-        successUrl: `${window.location.origin}${window.location.pathname}?payment=success&orderId=${orderId}`,
-        failUrl: `${window.location.origin}${window.location.pathname}?payment=fail`,
-      })
-    } catch (err: any) {
-      // 사용자가 취소한 경우
-      if (err.code === 'USER_CANCEL') {
-        setError('결제가 취소되었습니다')
-      } else {
-        console.error('Payment request error:', err)
-        setError(err.message || '결제 요청 중 오류가 발생했습니다')
-        logClientError('Payment request failed', err, params.slug)
-      }
-    } finally {
-      setPaymentProcessing(false)
-    }
+    window.AUTHNICE.requestPay({
+      clientId: NICEPAY_CLIENT_ID,
+      method: 'card',
+      orderId,
+      amount: paymentAmount,
+      goodsName: `포토 프린트 ${printQuantity}매`,
+      returnUrl: `${window.location.origin}/api/payment/nicepay-return`,
+      mallReserved: window.location.pathname,
+      fnError: (result) => {
+        setError(result.errorMsg || '결제 중 오류가 발생했습니다')
+        setPaymentProcessing(false)
+      },
+    })
   }
 
-  // URL 파라미터로 결제 결과 처리 (페이지 로드 시 즉시 확인)
+  // URL 파라미터로 결제 결과 처리 (나이스페이 returnUrl 리다이렉트 후)
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search)
     const paymentStatus = urlParams.get('payment')
-    const paymentKey = urlParams.get('paymentKey')
+    const tid = urlParams.get('tid')
     const orderId = urlParams.get('orderId')
     const amount = urlParams.get('amount')
 
-    if (paymentStatus === 'success' && paymentKey && orderId && amount) {
-      // 즉시 로딩 상태로 전환 (메인 화면 깜빡임 방지)
+    if (paymentStatus === 'success' && tid && orderId && amount) {
       setPaymentConfirming(true)
 
-      // 결제 승인 처리
       const confirmPayment = async () => {
         setError('')
 
         try {
-          // 결제 승인 API 호출
           const paymentRes = await fetch('/api/payment', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              paymentKey,
+              tid,
               orderId,
               amount: Number(amount),
               eventSlug: params.slug,
@@ -1046,19 +1059,19 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
             throw new Error(data.error || '결제 승인에 실패했습니다')
           }
 
-          // 결제 성공 시 프린트 실행
-          // previewUrl이 localStorage에 저장되어 있어야 함
           const savedPreviewUrl = localStorage.getItem('pendingPrintUrl')
           if (!savedPreviewUrl) {
             throw new Error('프린트할 이미지를 찾을 수 없습니다')
           }
 
+          const savedAuthCode = localStorage.getItem('pendingAuthCode')
           const printRes = await fetch('/api/print', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               slug: params.slug,
               imageUrl: savedPreviewUrl,
+              ...(savedAuthCode ? { authCode: savedAuthCode } : {}),
             }),
           })
 
@@ -1069,12 +1082,9 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
           const printData = await printRes.json()
           if (printData.jobIds) setPrintJobIds(printData.jobIds)
 
-          // 성공 처리
           localStorage.removeItem('pendingPrintUrl')
-
-          // URL 파라미터 제거
+          localStorage.removeItem('pendingAuthCode')
           window.history.replaceState({}, '', window.location.pathname)
-
           updateStep('success')
 
         } catch (err: any) {
@@ -1090,7 +1100,8 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
       confirmPayment()
     } else if (paymentStatus === 'fail') {
-      setError('결제가 실패했습니다. 다시 시도해주세요.')
+      const errorMsg = urlParams.get('errorMsg')
+      setError(errorMsg || '결제가 실패했습니다. 다시 시도해주세요.')
       updateStep('fill-photos')
       window.history.replaceState({}, '', window.location.pathname)
     }
@@ -1100,6 +1111,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   useEffect(() => {
     if (step === 'payment' && previewUrl) {
       localStorage.setItem('pendingPrintUrl', previewUrl)
+      if (authCode) localStorage.setItem('pendingAuthCode', authCode)
     }
   }, [step, previewUrl])
 
@@ -1245,6 +1257,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
   return (
     <div className="min-h-dvh bg-gray-50 py-6 px-4">
+      <Script src="https://pay.nicepay.co.kr/v1/js/" strategy="lazyOnload" />
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="mb-4 px-1 flex items-center gap-3">
@@ -1457,6 +1470,30 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                   />
                 )}
 
+                {/* Auth Code Input */}
+                {allSlotsFilled && previewUrl && !processing && event?.authCodeRequired && !authCodeVerified && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">인증코드</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={authCode}
+                        onChange={e => { setAuthCode(e.target.value.toUpperCase()); setAuthCodeError('') }}
+                        placeholder="인증코드 6자리 입력"
+                        maxLength={6}
+                        className="flex-1 px-3 py-2 border rounded-lg text-center font-mono text-lg tracking-widest uppercase focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                    {authCodeError && <p className="text-sm text-red-500">{authCodeError}</p>}
+                  </div>
+                )}
+                {allSlotsFilled && previewUrl && !processing && event?.authCodeRequired && authCodeVerified && (
+                  <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 px-3 py-2 rounded-lg">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                    인증코드 확인됨
+                  </div>
+                )}
+
                 {/* Payment / Print Button */}
                 {allSlotsFilled && previewUrl && !processing && (
                   <UIButton size="md" fullWidth onClick={handleGoToPayment} disabled={printing} loading={printing}>
@@ -1565,18 +1602,6 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                 </div>
               )}
 
-              {/* 토스페이먼츠 위젯 */}
-              <div className="space-y-4">
-                <div id="payment-method" className="min-h-[200px]">
-                  {!paymentReady && (
-                    <div className="flex items-center justify-center h-[200px]">
-                      <div className="animate-spin rounded-full h-7 w-7 border-2 border-gray-200 border-t-blue-500"></div>
-                    </div>
-                  )}
-                </div>
-                <div id="agreement" className="min-h-[50px]"></div>
-              </div>
-
               {error && <UIStatusBanner type="error" message={error} />}
 
               {/* 버튼 */}
@@ -1584,7 +1609,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                 <UIButton
                   fullWidth
                   onClick={handlePayment}
-                  disabled={!paymentReady || paymentProcessing || printing}
+                  disabled={paymentProcessing || printing}
                   loading={paymentProcessing || printing}
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1597,11 +1622,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                   variant="secondary"
                   size="md"
                   fullWidth
-                  onClick={() => {
-                    updateStep('fill-photos')
-                    setPaymentWidgets(null)
-                    setPaymentReady(false)
-                  }}
+                  onClick={() => updateStep('fill-photos')}
                   disabled={paymentProcessing || printing}
                 >
                   이전으로

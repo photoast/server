@@ -13,7 +13,6 @@
     "log:pm2": "pm2 logs switphoto-dev"
   },
   "dependencies": {
-    "@tosspayments/tosspayments-sdk": "^2.4.1",
     "@vercel/blob": "^2.3.0",
     "bcryptjs": "^2.4.3",
     "dotenv": "^17.3.1",

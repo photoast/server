@@ -1,20 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { findEventBySlug } from '@/lib/models'
 
-// 토스페이먼츠 결제 승인 API
+const NICEPAY_API_URL = process.env.NODE_ENV === 'production'
+  ? 'https://api.nicepay.co.kr'
+  : 'https://sandbox-api.nicepay.co.kr'
+
+// 나이스페이 결제 승인 API (returnUrl에서 리다이렉트 후 클라이언트가 호출)
 export async function POST(request: NextRequest) {
   try {
-    const { paymentKey, orderId, amount, eventSlug } = await request.json()
+    const { tid, amount, orderId, eventSlug } = await request.json()
 
-    // 필수 파라미터 검증
-    if (!paymentKey || !orderId || !amount || !eventSlug) {
+    if (!tid || !amount || !orderId || !eventSlug) {
       return NextResponse.json(
         { error: '필수 파라미터가 누락되었습니다' },
         { status: 400 }
       )
     }
 
-    // 이벤트 정보 조회
     const event = await findEventBySlug(eventSlug)
     if (!event) {
       return NextResponse.json(
@@ -23,57 +25,43 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 이벤트별 금액 검증
-    const expectedAmount = event.price ?? 0
-    if (amount !== expectedAmount) {
-      return NextResponse.json(
-        { error: `잘못된 결제 금액입니다. 예상 금액: ${expectedAmount}원` },
-        { status: 400 }
-      )
-    }
-
-    const secretKey = process.env.TOSS_SECRET_KEY
-    if (!secretKey) {
-      console.error('TOSS_SECRET_KEY not configured')
+    const clientId = process.env.NICEPAY_CLIENT_ID
+    const secretKey = process.env.NICEPAY_SECRET_KEY
+    if (!clientId || !secretKey) {
+      console.error('NICEPAY credentials not configured')
       return NextResponse.json(
         { error: '결제 설정이 완료되지 않았습니다' },
         { status: 500 }
       )
     }
 
-    // Base64 인코딩
-    const encryptedSecretKey = Buffer.from(secretKey + ':').toString('base64')
+    const credentials = Buffer.from(`${clientId}:${secretKey}`).toString('base64')
 
-    // 토스페이먼츠 결제 승인 요청
-    const response = await fetch('https://api.tosspayments.com/v1/payments/confirm', {
+    const response = await fetch(`${NICEPAY_API_URL}/v1/payments/${tid}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Basic ${encryptedSecretKey}`,
+        'Authorization': `Basic ${credentials}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        paymentKey,
-        orderId,
-        amount,
-      }),
+      body: JSON.stringify({ amount }),
     })
 
     const data = await response.json()
 
-    if (!response.ok) {
-      console.error('Toss payment error:', data)
+    if (data.resultCode !== '0000') {
+      console.error('NicePay payment error:', data)
       return NextResponse.json(
-        { error: data.message || '결제 승인에 실패했습니다' },
-        { status: response.status }
+        { error: data.resultMsg || '결제 승인에 실패했습니다' },
+        { status: 400 }
       )
     }
 
-    // 결제 성공
     return NextResponse.json({
       success: true,
-      paymentKey: data.paymentKey,
+      tid: data.tid,
       orderId: data.orderId,
       status: data.status,
+      amount: data.amount,
     })
 
   } catch (error: any) {

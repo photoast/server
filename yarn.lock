@@ -1075,11 +1075,6 @@
     "@swc/counter" "^0.1.3"
     tslib "^2.4.0"
 
-"@tosspayments/tosspayments-sdk@^2.4.1":
-  version "2.4.1"
-  resolved "https://registry.npmjs.org/@tosspayments/tosspayments-sdk/-/tosspayments-sdk-2.4.1.tgz"
-  integrity sha512-FGBwiPKUeU9A+Hk+EgmPZ5NCjz/4P3dQESBlRBX3aYc6Qg1RprhdizceudV8VN13fbFEGnPfizP4U494+gbP/w==
-
 "@types/bcryptjs@^2.4.6":
   version "2.4.6"
   resolved "https://registry.npmjs.org/@types/bcryptjs/-/bcryptjs-2.4.6.tgz"
