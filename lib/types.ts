@@ -156,6 +156,7 @@ export interface DeviceInfo {
 
 export interface PrintJob {
   _id?: ObjectId
+  orderNumber?: number
   eventId: string
   printerId?: string       // polling 프린터의 job일 때 프린터 ID
   imageUrl: string
@@ -178,21 +179,8 @@ export interface User {
   email?: string
   name?: string
   profileImage?: string
-  credits: number
   createdAt: Date
   updatedAt: Date
-}
-
-export interface CreditTransaction {
-  _id?: ObjectId
-  userId: string
-  amount: number
-  type: 'charge' | 'use' | 'refund'
-  description: string
-  relatedPrintJobId?: string
-  relatedPaymentKey?: string
-  createdBy?: string
-  createdAt: Date
 }
 
 export interface Admin {

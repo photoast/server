@@ -451,47 +451,6 @@ export default function FrameLayoutPage({
     }
   }
 
-  const handleCreditPayment = async () => {
-    if (!mergedUrl || !event || !session?.user?.id) return
-
-    const unitPrice = event.price ?? 0
-    const multiplier = puzzleMode ? totalPieces : 1
-    const paymentAmount = unitPrice * printQuantity * multiplier
-
-    setPaymentProcessing(true)
-    setError('')
-
-    try {
-      const res = await fetch('/api/payment/credit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          amount: paymentAmount,
-          eventSlug: event.slug,
-          imageUrl: mergedUrl,
-          quantity: puzzleMode ? printQuantity * totalPieces : printQuantity,
-          ...(event.authCodeRequired && authCode ? { authCode } : {}),
-        }),
-      })
-
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error || '크레딧 결제에 실패했습니다')
-      }
-
-      const data = await res.json()
-      if (data.jobIds) setPrintJobIds(data.jobIds)
-
-      await updateSession()
-      setStep('success')
-    } catch (err: any) {
-      setError(err.message || '크레딧 결제 중 오류가 발생했습니다')
-      logClientError('Credit payment failed', err, params.slug)
-    } finally {
-      setPaymentProcessing(false)
-    }
-  }
-
   const handleVerifyAuthCode = async (): Promise<boolean> => {
     if (!event?.authCodeRequired) return true
     if (authCodeVerified) return true
@@ -1118,26 +1077,8 @@ export default function FrameLayoutPage({
                   )}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">{session.user.name}</p>
-                    <p className="text-xs text-gray-500">잔액 {(session.user.credits ?? 0).toLocaleString()}원</p>
+                    <p className="text-xs text-gray-500">{session.user.email}</p>
                   </div>
-                </div>
-              )}
-
-              {/* 크레딧 결제 옵션 */}
-              {session?.user && (session.user.credits ?? 0) >= (event.price ?? 0) * printQuantity * (puzzleMode ? totalPieces : 1) && (
-                <div className="bg-blue-50 rounded-xl p-4 space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-blue-900">크레딧으로 결제</span>
-                    <span className="text-sm text-blue-700">잔액 {(session.user.credits ?? 0).toLocaleString()}원</span>
-                  </div>
-                  <UIButton
-                    fullWidth
-                    onClick={handleCreditPayment}
-                    disabled={paymentProcessing || printing}
-                    loading={paymentProcessing}
-                  >
-                    크레딧 {((event.price ?? 0) * printQuantity * (puzzleMode ? totalPieces : 1)).toLocaleString()}원 차감
-                  </UIButton>
                 </div>
               )}
 

@@ -65,6 +65,7 @@ interface DeviceInfo {
 
 interface PrintJob {
   _id: string
+  orderNumber?: number
   eventId: string
   printerId?: string
   printerName?: string | null
@@ -1442,6 +1443,9 @@ export default function AdminPage() {
                           <option value="DONE">완료</option>
                           <option value="FAILED">실패</option>
                         </select>
+                        {job.orderNumber != null && (
+                          <span className="text-[10px] font-mono bg-gray-100 text-gray-600 px-1 rounded">#{job.orderNumber}</span>
+                        )}
                         {job.printerName && (
                           <span className="text-[10px] text-gray-400">{job.printerName}</span>
                         )}
@@ -1610,6 +1614,9 @@ export default function AdminPage() {
                           <option value="DONE">완료</option>
                           <option value="FAILED">실패</option>
                         </select>
+                        {job.orderNumber != null && (
+                          <span className="text-xs font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">#{job.orderNumber}</span>
+                        )}
                         {job.printerName && (
                           <span className="text-xs text-gray-400">{job.printerName}</span>
                         )}

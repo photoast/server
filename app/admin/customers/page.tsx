@@ -9,15 +9,6 @@ interface User {
   email?: string
   name?: string
   profileImage?: string
-  credits: number
-  createdAt: string
-}
-
-interface CreditTransaction {
-  _id: string
-  amount: number
-  type: 'charge' | 'use' | 'refund'
-  description: string
   createdAt: string
 }
 
@@ -40,14 +31,8 @@ export default function CustomersPage() {
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
-  const [transactions, setTransactions] = useState<CreditTransaction[]>([])
   const [printJobs, setPrintJobs] = useState<PrintJob[]>([])
 
-  const [chargeAmount, setChargeAmount] = useState('')
-  const [chargeDesc, setChargeDesc] = useState('')
-  const [refundAmount, setRefundAmount] = useState('')
-  const [refundDesc, setRefundDesc] = useState('')
-  const [refundJobId, setRefundJobId] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
@@ -95,86 +80,9 @@ export default function CustomersPage() {
     setSelectedUser(user)
     setMessage('')
     setError('')
-    setChargeAmount('')
-    setChargeDesc('')
-    setRefundAmount('')
-    setRefundDesc('')
-    setRefundJobId('')
 
-    const [txRes, jobsRes] = await Promise.all([
-      fetch(`/api/users/${user._id}/credits`),
-      fetch(`/api/users/${user._id}/print-jobs`),
-    ])
-    if (txRes.ok) setTransactions(await txRes.json())
+    const jobsRes = await fetch(`/api/users/${user._id}/print-jobs`)
     if (jobsRes.ok) setPrintJobs(await jobsRes.json())
-  }
-
-  const handleCharge = async () => {
-    if (!selectedUser || !chargeAmount) return
-    setError('')
-    setMessage('')
-
-    const res = await fetch(`/api/users/${selectedUser._id}/credits`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amount: Number(chargeAmount), description: chargeDesc }),
-    })
-
-    if (res.ok) {
-      const data = await res.json()
-      setMessage(`충전 완료. 현재 잔액: ${data.credits.toLocaleString()}원`)
-      setSelectedUser({ ...selectedUser, credits: data.credits })
-      setChargeAmount('')
-      setChargeDesc('')
-      // Refresh transactions
-      const txRes = await fetch(`/api/users/${selectedUser._id}/credits`)
-      if (txRes.ok) setTransactions(await txRes.json())
-      fetchUsers()
-    } else {
-      const data = await res.json()
-      setError(data.error || '충전 실패')
-    }
-  }
-
-  const handleRefund = async () => {
-    if (!selectedUser || !refundAmount) return
-    setError('')
-    setMessage('')
-
-    const res = await fetch(`/api/users/${selectedUser._id}/refund`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        amount: Number(refundAmount),
-        description: refundDesc,
-        printJobId: refundJobId || undefined,
-      }),
-    })
-
-    if (res.ok) {
-      const data = await res.json()
-      setMessage(`환불 완료. 현재 잔액: ${data.credits.toLocaleString()}원`)
-      setSelectedUser({ ...selectedUser, credits: data.credits })
-      setRefundAmount('')
-      setRefundDesc('')
-      setRefundJobId('')
-      const [txRes, jobsRes] = await Promise.all([
-        fetch(`/api/users/${selectedUser._id}/credits`),
-        fetch(`/api/users/${selectedUser._id}/print-jobs`),
-      ])
-      if (txRes.ok) setTransactions(await txRes.json())
-      if (jobsRes.ok) setPrintJobs(await jobsRes.json())
-      fetchUsers()
-    } else {
-      const data = await res.json()
-      setError(data.error || '환불 실패')
-    }
-  }
-
-  const quickRefundJob = (job: PrintJob) => {
-    setRefundJobId(job._id)
-    setRefundAmount(String(job.paymentAmount || 0))
-    setRefundDesc(`프린트 작업 환불 (${new Date(job.createdAt).toLocaleDateString()})`)
   }
 
   if (!authenticated) {
@@ -235,70 +143,11 @@ export default function CustomersPage() {
                   </span>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="text-2xl font-bold text-gray-900">{selectedUser.credits.toLocaleString()}원</p>
-                <p className="text-xs text-gray-500">보유 크레딧</p>
-              </div>
             </div>
           </div>
 
           {message && <UIStatusBanner type="success" message={message} />}
           {error && <UIStatusBanner type="error" message={error} />}
-
-          {/* Charge credits */}
-          <div className="bg-white rounded-2xl shadow-sm p-6 space-y-4">
-            <UISectionHeading title="크레딧 충전" subtitle="고객에게 크레딧을 충전합니다" />
-            <div className="flex gap-2">
-              <UITextInput
-                value={chargeAmount}
-                onChange={e => setChargeAmount(e.target.value)}
-                placeholder="금액 (원)"
-                className="flex-1"
-              />
-              <UITextInput
-                value={chargeDesc}
-                onChange={e => setChargeDesc(e.target.value)}
-                placeholder="메모 (선택)"
-                className="flex-1"
-              />
-            </div>
-            <div className="flex gap-2">
-              {[1000, 3000, 5000, 10000].map(amt => (
-                <button
-                  key={amt}
-                  onClick={() => setChargeAmount(String(amt))}
-                  className="px-3 py-1.5 text-xs rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-700"
-                >
-                  {amt.toLocaleString()}원
-                </button>
-              ))}
-            </div>
-            <UIButton onClick={handleCharge} disabled={!chargeAmount}>
-              충전하기
-            </UIButton>
-          </div>
-
-          {/* Refund */}
-          <div className="bg-white rounded-2xl shadow-sm p-6 space-y-4">
-            <UISectionHeading title="환불" subtitle="크레딧을 환불합니다" />
-            <div className="flex gap-2">
-              <UITextInput
-                value={refundAmount}
-                onChange={e => setRefundAmount(e.target.value)}
-                placeholder="환불 금액 (원)"
-                className="flex-1"
-              />
-              <UITextInput
-                value={refundDesc}
-                onChange={e => setRefundDesc(e.target.value)}
-                placeholder="메모 (선택)"
-                className="flex-1"
-              />
-            </div>
-            <UIButton variant="secondary" onClick={handleRefund} disabled={!refundAmount}>
-              환불하기
-            </UIButton>
-          </div>
 
           {/* Print jobs */}
           <div className="bg-white rounded-2xl shadow-sm p-6 space-y-4">
@@ -326,36 +175,6 @@ export default function CustomersPage() {
                         )}
                       </div>
                     </div>
-                    {!job.refunded && job.paymentAmount != null && job.paymentAmount > 0 && (
-                      <button
-                        onClick={() => quickRefundJob(job)}
-                        className="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded border border-red-200 hover:bg-red-50"
-                      >
-                        환불
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Credit transactions */}
-          <div className="bg-white rounded-2xl shadow-sm p-6 space-y-4">
-            <UISectionHeading title="크레딧 내역" subtitle="충전/사용/환불 이력" />
-            {transactions.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-4">내역이 없습니다</p>
-            ) : (
-              <div className="space-y-2 max-h-80 overflow-y-auto">
-                {transactions.map(tx => (
-                  <div key={tx._id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">{tx.description}</p>
-                      <p className="text-xs text-gray-400">{new Date(tx.createdAt).toLocaleString()}</p>
-                    </div>
-                    <span className={`text-sm font-bold ${tx.amount > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {tx.amount > 0 ? '+' : ''}{tx.amount.toLocaleString()}원
-                    </span>
                   </div>
                 ))}
               </div>
@@ -407,12 +226,9 @@ export default function CustomersPage() {
                   <p className="text-sm font-medium text-gray-900 truncate">{user.name || '이름 없음'}</p>
                   <p className="text-xs text-gray-500 truncate">{user.email}</p>
                 </div>
-                <div className="text-right shrink-0">
-                  <p className="text-sm font-bold text-gray-900">{user.credits.toLocaleString()}원</p>
-                  <UIBadge variant={user.provider === 'google' ? 'info' : 'warning'}>
-                    {user.provider === 'google' ? 'Google' : 'Kakao'}
-                  </UIBadge>
-                </div>
+                <UIBadge variant={user.provider === 'google' ? 'info' : 'warning'}>
+                  {user.provider === 'google' ? 'Google' : 'Kakao'}
+                </UIBadge>
               </button>
             ))}
           </div>

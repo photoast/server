@@ -34,7 +34,7 @@ export const COLLECTIONS = {
   layouts: 'layouts',
   printers: 'printers',
   users: 'users',
-  creditTransactions: 'creditTransactions',
+  counters: 'counters',
   authCodes: 'authCodes',
 } as const
 
@@ -65,7 +65,6 @@ export async function ensureIndexes(): Promise<void> {
       db.collection(COLLECTIONS.printJobs).createIndex({ userId: 1, createdAt: -1 }),
       db.collection(COLLECTIONS.users).createIndex({ provider: 1, providerId: 1 }, { unique: true }),
       db.collection(COLLECTIONS.users).createIndex({ email: 1 }, { sparse: true }),
-      db.collection(COLLECTIONS.creditTransactions).createIndex({ userId: 1, createdAt: -1 }),
       db.collection(COLLECTIONS.authCodes).createIndex({ eventId: 1 }),
       db.collection(COLLECTIONS.authCodes).createIndex({ code: 1, eventId: 1 }, { unique: true }),
     ])

@@ -1,5 +1,5 @@
 import { ObjectId } from 'mongodb'
-import { Event, PrintJob, Admin, ErrorLog, Sticker, FrameLayout, normalizeLayout, Printer, User, CreditTransaction, AuthCode } from './types'
+import { Event, PrintJob, Admin, ErrorLog, Sticker, FrameLayout, normalizeLayout, Printer, User, AuthCode } from './types'
 import { getDb, ensureIndexes, COLLECTIONS } from './mongodb'
 
 // Ensure indexes on first import
@@ -55,9 +55,20 @@ export async function deleteEvent(id: string): Promise<boolean> {
 
 // ==================== Print Jobs ====================
 
-export async function createPrintJob(job: Omit<PrintJob, '_id' | 'createdAt'>): Promise<PrintJob> {
+async function getNextOrderNumber(): Promise<number> {
   const db = await getDb()
-  const doc = { ...job, createdAt: new Date() }
+  const result = await db.collection(COLLECTIONS.counters).findOneAndUpdate(
+    { _id: 'orderNumber' as any },
+    { $inc: { seq: 1 } },
+    { upsert: true, returnDocument: 'after' }
+  )
+  return result!.seq as number
+}
+
+export async function createPrintJob(job: Omit<PrintJob, '_id' | 'createdAt' | 'orderNumber'>): Promise<PrintJob> {
+  const db = await getDb()
+  const orderNumber = await getNextOrderNumber()
+  const doc = { ...job, orderNumber, createdAt: new Date() }
   const result = await db.collection(COLLECTIONS.printJobs).insertOne(doc)
   return { _id: result.insertedId, ...doc } as PrintJob
 }
@@ -372,7 +383,7 @@ export async function findOrCreateUser(data: {
     { provider: data.provider, providerId: data.providerId },
     {
       $set: { email: data.email, name: data.name, profileImage: data.profileImage, updatedAt: now },
-      $setOnInsert: { credits: 0, createdAt: now },
+      $setOnInsert: { createdAt: now },
     },
     { upsert: true, returnDocument: 'after' }
   )
@@ -387,57 +398,6 @@ export async function findUserById(id: string): Promise<User | null> {
 export async function getAllUsers(): Promise<User[]> {
   const db = await getDb()
   return db.collection<User>(COLLECTIONS.users).find().sort({ createdAt: -1 }).toArray()
-}
-
-export async function updateUserCredits(userId: string, amount: number): Promise<boolean> {
-  const db = await getDb()
-  const result = await db.collection(COLLECTIONS.users).updateOne(
-    { _id: new ObjectId(userId) },
-    { $inc: { credits: amount }, $set: { updatedAt: new Date() } }
-  )
-  return result.matchedCount > 0
-}
-
-// ==================== Credit Transactions ====================
-
-export async function createCreditTransaction(tx: Omit<CreditTransaction, '_id' | 'createdAt'>): Promise<CreditTransaction> {
-  const db = await getDb()
-  const doc = { ...tx, createdAt: new Date() }
-  const result = await db.collection(COLLECTIONS.creditTransactions).insertOne(doc)
-  return { _id: result.insertedId, ...doc } as CreditTransaction
-}
-
-export async function getCreditTransactionsByUserId(userId: string): Promise<CreditTransaction[]> {
-  const db = await getDb()
-  return db.collection<CreditTransaction>(COLLECTIONS.creditTransactions)
-    .find({ userId })
-    .sort({ createdAt: -1 })
-    .toArray()
-}
-
-export async function chargeCredits(userId: string, amount: number, description: string, createdBy?: string): Promise<boolean> {
-  const ok = await updateUserCredits(userId, amount)
-  if (!ok) return false
-  await createCreditTransaction({ userId, amount, type: 'charge', description, createdBy })
-  return true
-}
-
-export async function useCredits(userId: string, amount: number, description: string, relatedPrintJobId?: string): Promise<boolean> {
-  const db = await getDb()
-  const result = await db.collection(COLLECTIONS.users).updateOne(
-    { _id: new ObjectId(userId), credits: { $gte: amount } },
-    { $inc: { credits: -amount }, $set: { updatedAt: new Date() } }
-  )
-  if (result.matchedCount === 0) return false
-  await createCreditTransaction({ userId, amount: -amount, type: 'use', description, relatedPrintJobId })
-  return true
-}
-
-export async function refundCredits(userId: string, amount: number, description: string, relatedPrintJobId?: string): Promise<boolean> {
-  const ok = await updateUserCredits(userId, amount)
-  if (!ok) return false
-  await createCreditTransaction({ userId, amount, type: 'refund', description, relatedPrintJobId })
-  return true
 }
 
 // ==================== Auth Codes ====================

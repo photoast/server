@@ -38,14 +38,12 @@ export const authOptions: NextAuthOptions = {
           profileImage: token.picture ?? undefined,
         })
         token.userId = dbUser._id!.toString()
-        token.credits = dbUser.credits
       }
       return token
     },
     async session({ session, token }) {
       if (session.user) {
         (session.user as any).id = token.userId
-        ;(session.user as any).credits = token.credits
       }
       return session
     },
