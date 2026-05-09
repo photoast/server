@@ -1023,6 +1023,8 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   }
 
   // URL 파라미터로 결제 결과 처리 (나이스페이 returnUrl 리다이렉트 후)
+  const paymentProcessedRef = useRef(false)
+
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search)
     const paymentStatus = urlParams.get('payment')
@@ -1031,6 +1033,8 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     const amount = urlParams.get('amount')
 
     if (paymentStatus === 'success' && tid && orderId && amount) {
+      if (paymentProcessedRef.current) return
+      paymentProcessedRef.current = true
       setPaymentConfirming(true)
 
       const confirmPayment = async () => {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
@@ -210,6 +210,8 @@ export default function FrameLayoutPage({
   }, [params.slug, params.layoutId])
 
   // Payment result handling on page load (나이스페이 returnUrl 리다이렉트 후)
+  const paymentProcessedRef = useRef(false)
+
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search)
     const paymentStatus = urlParams.get('payment')
@@ -218,6 +220,8 @@ export default function FrameLayoutPage({
     const amount = urlParams.get('amount')
 
     if (paymentStatus === 'success' && tid && orderId && amount) {
+      if (paymentProcessedRef.current) return
+      paymentProcessedRef.current = true
       setPaymentConfirming(true)
 
       const confirmPayment = async () => {
