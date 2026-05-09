@@ -70,7 +70,7 @@ interface PhotoSlot {
   cropSettings?: CropSettings // 편집 상태 유지용
 }
 
-type Step = 'select-layout' | 'select-color' | 'fill-photos' | 'payment' | 'success'
+type Step = 'select-layout' | 'select-color' | 'fill-photos' | 'payment' | 'payment-failed' | 'success'
 
 // 토스페이먼츠 클라이언트 키 (테스트용)
 const NICEPAY_CLIENT_ID = process.env.NEXT_PUBLIC_NICEPAY_CLIENT_ID || 'S2_af4543a0be4d49a98122e01ec2059a56'
@@ -1000,6 +1000,13 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     setPaymentProcessing(true)
     setError('')
 
+    if (previewUrl) localStorage.setItem('pendingPrintUrl', previewUrl)
+    if (authCode) localStorage.setItem('pendingAuthCode', authCode)
+    if (customerEmail) {
+      localStorage.setItem('pendingCustomerEmail', customerEmail)
+      localStorage.setItem('lastCustomerEmail', customerEmail)
+    }
+
     window.AUTHNICE.requestPay({
       clientId: NICEPAY_CLIENT_ID,
       method: 'cardAndEasyPay',
@@ -1072,6 +1079,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
           const printData = await printRes.json()
           if (printData.jobIds) setPrintJobIds(printData.jobIds)
 
+          setPreviewUrl(savedPreviewUrl)
           localStorage.removeItem('pendingPrintUrl')
           localStorage.removeItem('pendingAuthCode')
           localStorage.removeItem('pendingCustomerEmail')
@@ -1082,7 +1090,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
           console.error('Payment confirmation error:', err)
           setError(err.message || '결제 처리 중 오류가 발생했습니다')
           logClientError('Payment confirmation failed', err, params.slug)
-          updateStep('fill-photos')
+          updateStep('payment-failed')
           window.history.replaceState({}, '', window.location.pathname)
         } finally {
           setPaymentConfirming(false)
@@ -1093,7 +1101,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     } else if (paymentStatus === 'fail') {
       const errorMsg = urlParams.get('errorMsg')
       setError(errorMsg || '결제가 실패했습니다. 다시 시도해주세요.')
-      updateStep('fill-photos')
+      updateStep('payment-failed')
       window.history.replaceState({}, '', window.location.pathname)
     }
   }, [params.slug])
@@ -1108,7 +1116,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         localStorage.setItem('lastCustomerEmail', customerEmail)
       }
     }
-  }, [step, previewUrl])
+  }, [step, previewUrl, customerEmail, authCode])
 
   const handleReset = () => {
     updateStep('select-layout')
@@ -1625,6 +1633,20 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                   이전으로
                 </UIButton>
               </div>
+            </div>
+          )}
+
+          {/* Step: Payment Failed */}
+          {step === 'payment-failed' && (
+            <div className="space-y-4">
+              <UISectionHeading title="결제 실패" subtitle="결제 처리 중 문제가 발생했습니다" />
+              <UIStatusBanner type="error" message={error || '결제에 실패했습니다'} />
+              <UIButton fullWidth onClick={() => updateStep('payment')}>
+                다시 결제하기
+              </UIButton>
+              <UIButton fullWidth variant="secondary" onClick={() => updateStep('fill-photos')}>
+                처음으로
+              </UIButton>
             </div>
           )}
 

@@ -120,11 +120,11 @@ export default function ResultPage({ params }: { params: { jobId: string } }) {
 
         {/* Image */}
         <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={job.imageUrl}
             alt="인쇄 사진"
             className="w-full"
-            crossOrigin="anonymous"
           />
         </div>
 

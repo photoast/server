@@ -31,7 +31,7 @@ declare global {
   }
 }
 
-type Step = 'fill-photos' | 'select-bg-color' | 'payment' | 'success'
+type Step = 'fill-photos' | 'select-bg-color' | 'payment' | 'payment-failed' | 'success'
 
 interface Event {
   _id: string
@@ -256,6 +256,7 @@ export default function FrameLayoutPage({
           const printData = await printRes.json()
           if (printData.jobIds) setPrintJobIds(printData.jobIds)
 
+          setMergedUrl(savedPreviewUrl)
           localStorage.removeItem('pendingPrintUrl')
           localStorage.removeItem('pendingAuthCode')
           localStorage.removeItem('pendingCustomerEmail')
@@ -264,7 +265,7 @@ export default function FrameLayoutPage({
         } catch (err: any) {
           setError(err.message || '결제 처리 중 오류가 발생했습니다')
           logClientError('Payment confirmation failed', err, params.slug)
-          setStep('fill-photos')
+          setStep('payment-failed')
           window.history.replaceState({}, '', window.location.pathname)
         } finally {
           setPaymentConfirming(false)
@@ -274,7 +275,7 @@ export default function FrameLayoutPage({
     } else if (paymentStatus === 'fail') {
       const errorMsg = urlParams.get('errorMsg')
       setError(errorMsg || '결제가 실패했습니다. 다시 시도해주세요.')
-      setStep('fill-photos')
+      setStep('payment-failed')
       window.history.replaceState({}, '', window.location.pathname)
     }
   }, [params.slug])
@@ -289,7 +290,7 @@ export default function FrameLayoutPage({
         localStorage.setItem('lastCustomerEmail', customerEmail)
       }
     }
-  }, [step, mergedUrl])
+  }, [step, mergedUrl, customerEmail, authCode])
 
   // Auto-animate puzzle pieces (split/combine)
   useEffect(() => {
@@ -556,6 +557,13 @@ export default function FrameLayoutPage({
 
     setPaymentProcessing(true)
     setError('')
+
+    if (mergedUrl) localStorage.setItem('pendingPrintUrl', mergedUrl)
+    if (authCode) localStorage.setItem('pendingAuthCode', authCode)
+    if (customerEmail) {
+      localStorage.setItem('pendingCustomerEmail', customerEmail)
+      localStorage.setItem('lastCustomerEmail', customerEmail)
+    }
 
     window.AUTHNICE.requestPay({
       clientId: NICEPAY_CLIENT_ID,
@@ -1152,6 +1160,20 @@ export default function FrameLayoutPage({
               </UIButton>
               <UIButton fullWidth variant="secondary" onClick={() => setStep('fill-photos')}>
                 이전으로
+              </UIButton>
+            </div>
+          )}
+
+          {/* Step: Payment Failed */}
+          {step === 'payment-failed' && (
+            <div className="space-y-4">
+              <UISectionHeading title="결제 실패" subtitle="결제 처리 중 문제가 발생했습니다" />
+              <UIStatusBanner type="error" message={error || '결제에 실패했습니다'} />
+              <UIButton fullWidth onClick={() => setStep('payment')}>
+                다시 결제하기
+              </UIButton>
+              <UIButton fullWidth variant="secondary" onClick={() => setStep('fill-photos')}>
+                처음으로
               </UIButton>
             </div>
           )}
