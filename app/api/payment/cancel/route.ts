@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { findPrintJobById } from '@/lib/models'
+import { findPrintJobById, findEventById } from '@/lib/models'
 import { getDb, COLLECTIONS } from '@/lib/mongodb'
 import { ObjectId } from 'mongodb'
 import { checkAuth } from '@/lib/middleware'
+import { sendCustomerEmail } from '@/lib/customer-email'
 
 const NICEPAY_API_URL = process.env.NODE_ENV === 'production'
   ? 'https://api.nicepay.co.kr'
@@ -68,6 +69,18 @@ export async function POST(request: NextRequest) {
       { _id: new ObjectId(printJobId) },
       { $set: { refunded: true } }
     )
+
+    if (job.customerEmail) {
+      const event = await findEventById(job.eventId)
+      sendCustomerEmail({
+        to: job.customerEmail,
+        type: 'refund_complete',
+        eventName: event?.name || '포토토스트',
+        orderNumber: job.orderNumber,
+        amount: job.paymentAmount,
+        jobId: printJobId,
+      })
+    }
 
     return NextResponse.json({ success: true })
   } catch (error: any) {

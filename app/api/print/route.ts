@@ -6,6 +6,7 @@ import { printViaEpsonApi } from '@/lib/epson-api'
 import { applyPrinterCorrection } from '@/lib/image-correction'
 import { uploadToBlob, readImageBuffer } from '@/lib/blob'
 import { DeviceInfo } from '@/lib/types'
+import { sendCustomerEmail } from '@/lib/customer-email'
 
 // Extract IP address from request
 function getClientIp(request: NextRequest): string {
@@ -248,6 +249,18 @@ export async function POST(request: NextRequest) {
     // Link auth code to first print job
     if (normalizedAuthCode && jobIds.length > 0) {
       linkAuthCodeToPrintJob(event._id!.toString(), normalizedAuthCode, jobIds[0]).catch(() => {})
+    }
+
+    // Send customer email notification
+    if (customerEmail && jobIds.length > 0) {
+      const emailType = printer.printMethod === 'polling' ? 'payment_complete' : 'print_complete'
+      sendCustomerEmail({
+        to: customerEmail,
+        type: emailType,
+        eventName: event.name,
+        amount: event.price,
+        jobId: jobIds[0],
+      })
     }
 
     // Return result

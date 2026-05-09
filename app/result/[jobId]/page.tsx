@@ -6,13 +6,18 @@ interface JobResult {
   jobId: string
   status: 'PENDING' | 'DONE' | 'FAILED'
   imageUrl: string
+  printedImageUrl?: string
+  orderNumber?: number
   createdAt: string
+  refunded: boolean
+  paymentTid?: string
 }
 
 export default function ResultPage({ params }: { params: { jobId: string } }) {
   const [job, setJob] = useState<JobResult | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [cancelRequested, setCancelRequested] = useState(false)
 
   const fetchJob = useCallback(async () => {
     try {
@@ -35,7 +40,6 @@ export default function ResultPage({ params }: { params: { jobId: string } }) {
     fetchJob()
   }, [fetchJob])
 
-  // PENDING일 때 3초마다 폴링
   useEffect(() => {
     if (!job || job.status !== 'PENDING') return
     const interval = setInterval(fetchJob, 3000)
@@ -43,19 +47,25 @@ export default function ResultPage({ params }: { params: { jobId: string } }) {
   }, [job?.status, fetchJob])
 
   const handleDownload = async () => {
-    if (!job?.imageUrl) return
+    if (!job) return
+    const url = job.imageUrl
+    if (!url) return
     try {
-      const res = await fetch(job.imageUrl)
+      const res = await fetch(url)
       const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
+      const blobUrl = URL.createObjectURL(blob)
       const a = document.createElement('a')
-      a.href = url
-      a.download = `photo-${job.jobId}.jpg`
+      a.href = blobUrl
+      a.download = `photo-${job.orderNumber || job.jobId}.jpg`
       a.click()
-      URL.revokeObjectURL(url)
+      URL.revokeObjectURL(blobUrl)
     } catch {
       alert('다운로드에 실패했습니다')
     }
+  }
+
+  const handleCancelRequest = () => {
+    setCancelRequested(true)
   }
 
   const statusConfig = {
@@ -87,20 +97,34 @@ export default function ResultPage({ params }: { params: { jobId: string } }) {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center px-4 py-8">
       <div className="w-full max-w-md space-y-5">
+        {/* Order Number */}
+        {job.orderNumber && (
+          <div className="text-center">
+            <p className="text-xs text-gray-400 uppercase tracking-wider">인쇄번호</p>
+            <p className="text-4xl font-bold text-gray-900 mt-1">#{job.orderNumber}</p>
+          </div>
+        )}
+
         {/* Status */}
         <div className="flex items-center justify-center gap-2">
           <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold ${st.color}`}>
             <span className={`w-2 h-2 rounded-full ${st.dot} ${job.status === 'PENDING' ? 'animate-pulse' : ''}`} />
             {st.label}
           </span>
+          {job.refunded && (
+            <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-semibold bg-orange-100 text-orange-700">
+              환불완료
+            </span>
+          )}
         </div>
 
         {/* Image */}
         <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100">
           <img
             src={job.imageUrl}
-            alt="인쇄 결과"
+            alt="인쇄 사진"
             className="w-full"
+            crossOrigin="anonymous"
           />
         </div>
 
@@ -109,15 +133,38 @@ export default function ResultPage({ params }: { params: { jobId: string } }) {
           {new Date(job.createdAt).toLocaleString('ko-KR')}
         </p>
 
-        {/* Download button — only when status is not PENDING */}
-        {job.status !== 'PENDING' && (
+        {/* Actions */}
+        <div className="space-y-3">
+          {/* Download */}
           <button
             onClick={handleDownload}
             className="w-full py-3.5 rounded-2xl bg-gray-900 text-white font-semibold text-sm hover:bg-gray-800 transition-colors"
           >
             사진 저장
           </button>
-        )}
+
+          {/* Cancel Request */}
+          {job.paymentTid && !job.refunded && !cancelRequested && (
+            <button
+              onClick={handleCancelRequest}
+              className="w-full py-3.5 rounded-2xl bg-white text-red-500 font-semibold text-sm border border-red-200 hover:bg-red-50 transition-colors"
+            >
+              취소 요청
+            </button>
+          )}
+
+          {cancelRequested && !job.refunded && (
+            <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-center">
+              <p className="text-sm text-red-700 font-medium mb-1">취소를 요청하시겠습니까?</p>
+              <p className="text-xs text-red-500 mb-3">
+                인쇄번호 <span className="font-bold">#{job.orderNumber}</span>을(를) 관리자에게 전달해 주세요.
+              </p>
+              <p className="text-xs text-gray-500">
+                현장 관리자에게 인쇄번호를 말씀해 주시면 취소 처리해 드립니다.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

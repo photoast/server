@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authenticatePrinterClient } from '@/lib/printer-auth'
-import { findPrintJobById, updatePrintJobStatus } from '@/lib/models'
+import { findPrintJobById, updatePrintJobStatus, findEventById } from '@/lib/models'
+import { sendCustomerEmail } from '@/lib/customer-email'
 
 export async function PATCH(
   request: NextRequest,
@@ -39,6 +40,17 @@ export async function PATCH(
     const success = await updatePrintJobStatus(params.jobId, status, errorMessage)
     if (!success) {
       return NextResponse.json({ error: 'Failed to update job' }, { status: 500 })
+    }
+
+    if (status === 'DONE' && job.customerEmail) {
+      const event = await findEventById(job.eventId)
+      sendCustomerEmail({
+        to: job.customerEmail,
+        type: 'print_complete',
+        eventName: event?.name || '포토토스트',
+        orderNumber: job.orderNumber,
+        jobId: params.jobId,
+      })
     }
 
     return NextResponse.json({ success: true, jobId: params.jobId, status })

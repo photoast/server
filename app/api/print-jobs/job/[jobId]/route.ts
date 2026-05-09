@@ -16,8 +16,12 @@ export async function GET(
     return NextResponse.json({
       jobId: job._id!.toString(),
       status: job.status,
-      imageUrl: job.printedImageUrl || job.imageUrl,
+      imageUrl: job.imageUrl,
+      printedImageUrl: job.printedImageUrl,
+      orderNumber: job.orderNumber,
       createdAt: job.createdAt,
+      refunded: job.refunded || false,
+      paymentTid: job.paymentTid,
     })
   } catch (error) {
     return NextResponse.json({ error: 'Invalid job ID' }, { status: 400 })
