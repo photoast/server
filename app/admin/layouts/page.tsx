@@ -31,6 +31,8 @@ function LayoutsPageInner() {
   const [dragOverId, setDragOverId] = useState<string | null>(null)
   const [editingNameId, setEditingNameId] = useState<string | null>(null)
   const [editingNameValue, setEditingNameValue] = useState('')
+  const [editingPriceId, setEditingPriceId] = useState<string | null>(null)
+  const [editingPriceValue, setEditingPriceValue] = useState('')
 
   useEffect(() => {
     // Fetch all events for the dropdown
@@ -158,6 +160,19 @@ function LayoutsPageInner() {
       body: JSON.stringify({ name: trimmed }),
     })
     setEditingNameId(null)
+    await loadLayouts()
+  }
+
+  const handlePriceSave = async (layoutId: string) => {
+    const val = editingPriceValue.trim()
+    const price = val === '' ? null : Number(val)
+    if (price !== null && isNaN(price)) { setEditingPriceId(null); return }
+    await fetch(`/api/layouts/${layoutId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ price: price ?? undefined }),
+    })
+    setEditingPriceId(null)
     await loadLayouts()
   }
 
@@ -318,6 +333,30 @@ function LayoutsPageInner() {
                         {layout.printSize} · 슬롯 {layout.slots.length}개
                         {(layout.frameLayers?.length || 0) > 0 && ` · 레이어 ${layout.frameLayers.length}개`}
                         {!layout.frameLayers?.length && layout.frameUrl && ' · 프레임 ✓'}
+                        {' · '}
+                        {editingPriceId === layout._id ? (
+                          <input
+                            autoFocus
+                            type="number"
+                            className="w-20 bg-white border border-blue-400 rounded px-1.5 py-0.5 text-xs outline-none"
+                            value={editingPriceValue}
+                            onChange={e => setEditingPriceValue(e.target.value)}
+                            onBlur={() => handlePriceSave(layout._id)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') handlePriceSave(layout._id)
+                              if (e.key === 'Escape') setEditingPriceId(null)
+                            }}
+                            placeholder="이벤트 기본"
+                          />
+                        ) : (
+                          <span
+                            className="cursor-pointer hover:text-blue-500"
+                            onClick={e => { e.stopPropagation(); setEditingPriceId(layout._id); setEditingPriceValue(layout.price != null ? String(layout.price) : '') }}
+                            title="클릭하여 가격 변경"
+                          >
+                            {layout.price != null ? `${layout.price.toLocaleString()}원` : '가격 미설정'}
+                          </span>
+                        )}
                       </p>
                     </div>
                     <div className="flex gap-1.5 shrink-0">

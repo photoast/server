@@ -76,6 +76,7 @@ interface PrintJob {
   deviceInfo?: DeviceInfo
   errorMessage?: string
   authCode?: string
+  layoutId?: string
   paymentTid?: string
   paymentAmount?: number
   customerEmail?: string
@@ -1453,6 +1454,9 @@ export default function AdminPage() {
                         {job.printerName && (
                           <span className="text-[10px] text-gray-400">{job.printerName}</span>
                         )}
+                        {job.layoutId && (
+                          <span className="text-[10px] font-mono bg-indigo-100 text-indigo-600 px-1 rounded">L:{job.layoutId.slice(-6)}</span>
+                        )}
                         {job.authCode && (
                           <span className="text-[10px] font-mono bg-purple-100 text-purple-700 px-1 rounded">{job.authCode}</span>
                         )}
@@ -1652,6 +1656,9 @@ export default function AdminPage() {
                         )}
                         {job.printerName && (
                           <span className="text-xs text-gray-400">{job.printerName}</span>
+                        )}
+                        {job.layoutId && (
+                          <span className="text-xs font-mono bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded">레이아웃: {job.layoutId.slice(-6)}</span>
                         )}
                         {job.authCode && (
                           <span className="text-xs font-mono bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">인증코드: {job.authCode}</span>

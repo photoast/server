@@ -27,7 +27,7 @@ function getClientIp(request: NextRequest): string {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { slug, imageUrl, deviceInfo: clientDeviceInfo, quantity = 1, authCode, paymentTid, customerEmail } = body
+    const { slug, imageUrl, deviceInfo: clientDeviceInfo, quantity = 1, authCode, paymentTid, customerEmail, layoutId } = body
 
     if (!slug || !imageUrl) {
       return NextResponse.json(
@@ -131,7 +131,9 @@ export async function POST(request: NextRequest) {
             status: 'PENDING',
             deviceInfo,
             authCode: normalizedAuthCode,
+            layoutId,
             paymentTid,
+            paymentAmount: paymentTid ? event.price : undefined,
             customerEmail,
           })
           jobIds.push(printJob._id?.toString() || '')
@@ -188,7 +190,9 @@ export async function POST(request: NextRequest) {
             deviceInfo,
             errorMessage: result.error,
             authCode: normalizedAuthCode,
+            layoutId,
             paymentTid,
+            paymentAmount: paymentTid ? event.price : undefined,
             customerEmail,
           })
 
@@ -226,7 +230,9 @@ export async function POST(request: NextRequest) {
             deviceInfo,
             errorMessage: result.error,
             authCode: normalizedAuthCode,
+            layoutId,
             paymentTid,
+            paymentAmount: paymentTid ? event.price : undefined,
             customerEmail,
           })
 

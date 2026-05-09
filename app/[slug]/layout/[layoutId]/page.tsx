@@ -247,6 +247,7 @@ export default function FrameLayoutPage({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               slug: params.slug,
+              layoutId: params.layoutId,
               imageUrl: savedPreviewUrl,
               paymentTid: tid,
               ...(savedAuthCode ? { authCode: savedAuthCode } : {}),
@@ -463,7 +464,7 @@ export default function FrameLayoutPage({
             const res = await fetch('/api/print', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ slug: event.slug, imageUrl: dataUrl, ...(event.authCodeRequired && authCode ? { authCode } : {}) }),
+              body: JSON.stringify({ slug: event.slug, layoutId: params.layoutId, imageUrl: dataUrl, ...(event.authCodeRequired && authCode ? { authCode } : {}) }),
             })
             if (!res.ok) {
               const data = await res.json().catch(() => ({}))
@@ -477,7 +478,7 @@ export default function FrameLayoutPage({
         const res = await fetch('/api/print', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ slug: event.slug, imageUrl: mergedUrl, quantity: printQuantity, ...(event.authCodeRequired && authCode ? { authCode } : {}) }),
+          body: JSON.stringify({ slug: event.slug, layoutId: params.layoutId, imageUrl: mergedUrl, quantity: printQuantity, ...(event.authCodeRequired && authCode ? { authCode } : {}) }),
         })
         if (!res.ok) {
           const data = await res.json().catch(() => ({}))
@@ -531,7 +532,7 @@ export default function FrameLayoutPage({
       if (!valid) return
     }
 
-    const unitPrice = event.price ?? 0
+    const unitPrice = layout?.price ?? event.price ?? 0
     const multiplier = puzzleMode ? totalPieces : 1
     const paymentAmount = unitPrice * printQuantity * multiplier
 
@@ -554,7 +555,7 @@ export default function FrameLayoutPage({
       return
     }
 
-    const unitPrice = event.price ?? 0
+    const unitPrice = layout?.price ?? event.price ?? 0
     const multiplier = puzzleMode ? totalPieces : 1
     const paymentAmount = unitPrice * printQuantity * multiplier
     const orderId = `PRINT_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
@@ -1100,11 +1101,11 @@ export default function FrameLayoutPage({
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                   </svg>
-                  {(event.price ?? 0) === 0
+                  {(layout?.price ?? event.price ?? 0) === 0
                     ? puzzleMode
                       ? `무료 프린트 (${printQuantity * totalPieces}장)`
                       : `무료 프린트${printQuantity > 1 ? ` (${printQuantity}장)` : ''}`
-                    : `${(event.price! * printQuantity * (puzzleMode ? totalPieces : 1)).toLocaleString()}원 결제`}
+                    : `${((layout?.price ?? event.price ?? 0) * printQuantity * (puzzleMode ? totalPieces : 1)).toLocaleString()}원 결제`}
                 </UIButton>
               </div>
               <UIButton fullWidth variant="secondary" onClick={handleReset}>이전으로</UIButton>
@@ -1160,7 +1161,7 @@ export default function FrameLayoutPage({
                 loading={paymentProcessing}
                 disabled={paymentProcessing}
               >
-                {paymentProcessing ? '결제 처리 중...' : `카드/간편결제 ${((event.price ?? 0) * printQuantity * (puzzleMode ? totalPieces : 1)).toLocaleString()}원`}
+                {paymentProcessing ? '결제 처리 중...' : `카드/간편결제 ${((layout?.price ?? event.price ?? 0) * printQuantity * (puzzleMode ? totalPieces : 1)).toLocaleString()}원`}
               </UIButton>
               <UIButton fullWidth variant="secondary" onClick={() => setStep('fill-photos')}>
                 이전으로

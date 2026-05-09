@@ -51,6 +51,7 @@ export interface FrameLayout {
   visible?: boolean              // true (default) = exposed to users, false = hidden
   isPreset: boolean              // true = auto-created from default template
   order: number                  // display order (lower = first)
+  price?: number                 // layout-specific price (overrides event.price)
   createdAt: string
   updatedAt: string
 }
@@ -167,6 +168,8 @@ export interface PrintJob {
   errorMessage?: string
   userId?: string
   authCode?: string
+  layoutId?: string
+  layoutName?: string
   paymentTid?: string
   paymentAmount?: number
   customerEmail?: string
