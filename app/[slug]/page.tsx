@@ -1356,6 +1356,9 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                         <div className="text-center">
                           <div className="font-semibold text-sm text-gray-700">{sl.name}</div>
                           <div className="text-xs text-gray-400 mt-0.5">{sl.printSize} · {sl.slots.length}칸</div>
+                          {(sl.price ?? event?.price ?? 0) > 0 && (
+                            <div className="text-xs font-semibold text-blue-600 mt-0.5">{(sl.price ?? event?.price ?? 0).toLocaleString()}원</div>
+                          )}
                         </div>
                       </div>
                     </UISelectItem>

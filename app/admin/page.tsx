@@ -1375,7 +1375,21 @@ function AdminPageInner() {
                   {/* Click to edit */}
                   <a href={`/admin/layouts/${layout._id}/edit`} className="flex-1 min-w-0 cursor-pointer">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-semibold text-gray-800 hover:text-blue-600 transition-colors">{layout.name}</span>
+                      <span
+                        className="text-sm font-semibold text-gray-800 hover:text-blue-600 transition-colors cursor-pointer"
+                        onClick={e => {
+                          e.stopPropagation()
+                          e.preventDefault()
+                          const newName = prompt('레이아웃 이름 변경', layout.name)
+                          if (!newName || !newName.trim() || newName.trim() === layout.name) return
+                          fetch(`/api/layouts/${layout._id}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ name: newName.trim() }),
+                          }).then(() => fetchEventLayouts(event._id))
+                        }}
+                        title="클릭하여 이름 변경"
+                      >{layout.name}</span>
                       {layout.visible === false && (
                         <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">미노출</span>
                       )}
