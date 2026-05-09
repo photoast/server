@@ -1108,7 +1108,7 @@ export default function FrameLayoutPage({
                     : `${((layout?.price ?? event.price ?? 0) * printQuantity * (puzzleMode ? totalPieces : 1)).toLocaleString()}원 결제`}
                 </UIButton>
               </div>
-              <UIButton fullWidth variant="secondary" onClick={handleReset}>이전으로</UIButton>
+              <UIButton fullWidth variant="secondary" onClick={() => { setMergedUrl(null); setStep('fill-photos') }}>이전으로</UIButton>
               <p className="text-[11px] text-gray-400 text-center leading-relaxed pt-1">
                 업로드된 사진은 인쇄 후 최대 24시간 임시 보관 후 영구 파기됩니다.
               </p>
@@ -1177,7 +1177,7 @@ export default function FrameLayoutPage({
               <UIButton fullWidth onClick={() => setStep('payment')}>
                 다시 결제하기
               </UIButton>
-              <UIButton fullWidth variant="secondary" onClick={() => setStep('fill-photos')}>
+              <UIButton fullWidth variant="secondary" onClick={handleReset}>
                 처음으로
               </UIButton>
             </div>
