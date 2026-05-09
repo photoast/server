@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 
 interface JobResult {
   jobId: string
-  status: 'PENDING' | 'DONE' | 'FAILED'
+  status: 'PENDING' | 'DONE' | 'FAILED' | 'CANCELLED'
   imageUrl: string
   printedImageUrl?: string
   orderNumber?: number
@@ -17,6 +17,7 @@ export default function ResultPage({ params }: { params: { jobId: string } }) {
   const [job, setJob] = useState<JobResult | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [cancelling, setCancelling] = useState(false)
   const [cancelRequested, setCancelRequested] = useState(false)
 
   const fetchJob = useCallback(async () => {
@@ -64,6 +65,24 @@ export default function ResultPage({ params }: { params: { jobId: string } }) {
     }
   }
 
+  const handleCancel = async () => {
+    if (!confirm('정말 취소하시겠습니까? 환불 처리됩니다.')) return
+    setCancelling(true)
+    try {
+      const res = await fetch(`/api/print-jobs/job/${params.jobId}/cancel`, { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) {
+        alert(data.error || '취소 실패')
+        return
+      }
+      await fetchJob()
+    } catch {
+      alert('취소 처리 중 오류가 발생했습니다')
+    } finally {
+      setCancelling(false)
+    }
+  }
+
   const handleCancelRequest = () => {
     setCancelRequested(true)
   }
@@ -72,6 +91,7 @@ export default function ResultPage({ params }: { params: { jobId: string } }) {
     PENDING: { label: '인쇄 대기 중', color: 'bg-blue-100 text-blue-700', dot: 'bg-blue-500' },
     DONE: { label: '인쇄 완료', color: 'bg-green-100 text-green-700', dot: 'bg-green-500' },
     FAILED: { label: '인쇄 실패', color: 'bg-red-100 text-red-700', dot: 'bg-red-500' },
+    CANCELLED: { label: '취소됨', color: 'bg-gray-100 text-gray-700', dot: 'bg-gray-500' },
   }
 
   if (loading) {
@@ -143,8 +163,18 @@ export default function ResultPage({ params }: { params: { jobId: string } }) {
             사진 저장
           </button>
 
-          {/* Cancel Request */}
-          {job.paymentTid && !job.refunded && !cancelRequested && (
+          {/* Cancel - direct cancel for PENDING, request for others */}
+          {job.paymentTid && !job.refunded && job.status === 'PENDING' && (
+            <button
+              onClick={handleCancel}
+              disabled={cancelling}
+              className="w-full py-3.5 rounded-2xl bg-white text-red-500 font-semibold text-sm border border-red-200 hover:bg-red-50 transition-colors disabled:opacity-50"
+            >
+              {cancelling ? '취소 처리 중...' : '취소'}
+            </button>
+          )}
+
+          {job.paymentTid && !job.refunded && job.status !== 'PENDING' && !cancelRequested && (
             <button
               onClick={handleCancelRequest}
               className="w-full py-3.5 rounded-2xl bg-white text-red-500 font-semibold text-sm border border-red-200 hover:bg-red-50 transition-colors"
