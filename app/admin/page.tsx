@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import QRCode from 'qrcode'
@@ -85,7 +85,7 @@ interface PrintJob {
   refunded?: boolean
 }
 
-export default function AdminPage() {
+function AdminPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [authenticated, setAuthenticated] = useState(false)
@@ -2451,5 +2451,13 @@ export default function AdminPage() {
       {renderImagePreviewModal()}
       {renderJobDetailModal()}
     </div>
+  )
+}
+
+export default function AdminPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-200 border-t-blue-500" /></div>}>
+      <AdminPageInner />
+    </Suspense>
   )
 }
