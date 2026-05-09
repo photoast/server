@@ -16,9 +16,9 @@ export async function PATCH(
     const body = await request.json()
     const { status, errorMessage } = body
 
-    if (!['DONE', 'FAILED'].includes(status)) {
+    if (!['PRINTING', 'DONE', 'FAILED'].includes(status)) {
       return NextResponse.json(
-        { error: 'Status must be DONE or FAILED' },
+        { error: 'Status must be PRINTING, DONE or FAILED' },
         { status: 400 }
       )
     }
@@ -30,7 +30,7 @@ export async function PATCH(
     if (job.printerId !== printer._id!.toString()) {
       return NextResponse.json({ error: 'Job does not belong to this printer' }, { status: 403 })
     }
-    if (job.status !== 'PENDING') {
+    if (job.status === 'DONE' || job.status === 'FAILED') {
       return NextResponse.json(
         { error: `Job is already ${job.status}` },
         { status: 409 }

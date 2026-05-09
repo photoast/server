@@ -73,7 +73,7 @@ interface PrintJob {
   imageUrl: string
   printedImageUrl?: string
   createdAt: string
-  status: 'PENDING' | 'DONE' | 'FAILED'
+  status: 'PENDING' | 'PRINTING' | 'DONE' | 'FAILED'
   deviceInfo?: DeviceInfo
   errorMessage?: string
   authCode?: string
@@ -1492,10 +1492,12 @@ function AdminPageInner() {
                           className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border-0 cursor-pointer ${
                             job.status === 'DONE' ? 'bg-green-100 text-green-700' :
                             job.status === 'PENDING' ? 'bg-blue-100 text-blue-700' :
+                            job.status === 'PRINTING' ? 'bg-yellow-100 text-yellow-700' :
                             'bg-red-100 text-red-700'
                           }`}
                         >
                           <option value="PENDING">대기</option>
+                          <option value="PRINTING">인쇄중</option>
                           <option value="DONE">완료</option>
                           <option value="FAILED">실패</option>
                         </select>
@@ -1694,10 +1696,12 @@ function AdminPageInner() {
                           className={`text-xs font-semibold px-2 py-1 rounded-lg border-0 cursor-pointer ${
                             job.status === 'DONE' ? 'bg-green-100 text-green-700' :
                             job.status === 'PENDING' ? 'bg-blue-100 text-blue-700' :
+                            job.status === 'PRINTING' ? 'bg-yellow-100 text-yellow-700' :
                             'bg-red-100 text-red-700'
                           }`}
                         >
                           <option value="PENDING">대기</option>
+                          <option value="PRINTING">인쇄중</option>
                           <option value="DONE">완료</option>
                           <option value="FAILED">실패</option>
                         </select>
@@ -1859,8 +1863,9 @@ function AdminPageInner() {
               <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
                 job.status === 'DONE' ? 'bg-green-100 text-green-700' :
                 job.status === 'PENDING' ? 'bg-blue-100 text-blue-700' :
+                job.status === 'PRINTING' ? 'bg-yellow-100 text-yellow-700' :
                 'bg-red-100 text-red-700'
-              }`}>{job.status}</span>
+              }`}>{job.status === 'PRINTING' ? '인쇄중' : job.status}</span>
               {job.refunded && <span className="ml-1 px-2 py-0.5 rounded text-xs font-semibold bg-orange-100 text-orange-700">환불</span>}
             </div>
 

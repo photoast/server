@@ -4,11 +4,12 @@ import { useState, useEffect, useCallback } from 'react'
 
 interface JobResult {
   jobId: string
-  status: 'PENDING' | 'DONE' | 'FAILED' | 'CANCELLED'
+  status: 'PENDING' | 'PRINTING' | 'DONE' | 'FAILED' | 'CANCELLED'
   imageUrl: string
   printedImageUrl?: string
   orderNumber?: number
   createdAt: string
+  expiresAt: string
   refunded: boolean
   paymentTid?: string
 }
@@ -19,12 +20,19 @@ export default function ResultPage({ params }: { params: { jobId: string } }) {
   const [loading, setLoading] = useState(true)
   const [cancelling, setCancelling] = useState(false)
   const [cancelRequested, setCancelRequested] = useState(false)
+  const [expired, setExpired] = useState(false)
+  const [remainTime, setRemainTime] = useState('')
 
   const fetchJob = useCallback(async () => {
     try {
       const res = await fetch(`/api/print-jobs/job/${params.jobId}`)
       if (!res.ok) {
         setError(res.status === 404 ? '인쇄 결과를 찾을 수 없습니다' : '불러오기 실패')
+        return
+      }
+      if (res.status === 410) {
+        setExpired(true)
+        setError('')
         return
       }
       const data = await res.json()
@@ -42,10 +50,24 @@ export default function ResultPage({ params }: { params: { jobId: string } }) {
   }, [fetchJob])
 
   useEffect(() => {
-    if (!job || job.status !== 'PENDING') return
+    if (!job || (job.status !== 'PENDING' && job.status !== 'PRINTING')) return
     const interval = setInterval(fetchJob, 3000)
     return () => clearInterval(interval)
   }, [job?.status, fetchJob])
+
+  useEffect(() => {
+    if (!job?.expiresAt) return
+    const update = () => {
+      const diff = new Date(job.expiresAt).getTime() - Date.now()
+      if (diff <= 0) { setExpired(true); setRemainTime(''); return }
+      const h = Math.floor(diff / 3600000)
+      const m = Math.floor((diff % 3600000) / 60000)
+      setRemainTime(`${h}시간 ${m}분`)
+    }
+    update()
+    const interval = setInterval(update, 60000)
+    return () => clearInterval(interval)
+  }, [job?.expiresAt])
 
   const handleDownload = async () => {
     if (!job) return
@@ -89,6 +111,7 @@ export default function ResultPage({ params }: { params: { jobId: string } }) {
 
   const statusConfig = {
     PENDING: { label: '인쇄 대기 중', color: 'bg-blue-100 text-blue-700', dot: 'bg-blue-500' },
+    PRINTING: { label: '인쇄 중', color: 'bg-yellow-100 text-yellow-700', dot: 'bg-yellow-500' },
     DONE: { label: '인쇄 완료', color: 'bg-green-100 text-green-700', dot: 'bg-green-500' },
     FAILED: { label: '인쇄 실패', color: 'bg-red-100 text-red-700', dot: 'bg-red-500' },
     CANCELLED: { label: '취소됨', color: 'bg-gray-100 text-gray-700', dot: 'bg-gray-500' },
@@ -98,6 +121,17 @@ export default function ResultPage({ params }: { params: { jobId: string } }) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-200 border-t-blue-500" />
+      </div>
+    )
+  }
+
+  if (expired) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+        <div className="text-center space-y-3">
+          <p className="text-gray-900 text-lg font-semibold">페이지가 만료되었습니다</p>
+          <p className="text-gray-500 text-sm">결과 페이지는 인쇄 후 24시간 동안만 열람할 수 있습니다.</p>
+        </div>
       </div>
     )
   }
@@ -128,7 +162,7 @@ export default function ResultPage({ params }: { params: { jobId: string } }) {
         {/* Status */}
         <div className="flex items-center justify-center gap-2">
           <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold ${st.color}`}>
-            <span className={`w-2 h-2 rounded-full ${st.dot} ${job.status === 'PENDING' ? 'animate-pulse' : ''}`} />
+            <span className={`w-2 h-2 rounded-full ${st.dot} ${job.status === 'PENDING' || job.status === 'PRINTING' ? 'animate-pulse' : ''}`} />
             {st.label}
           </span>
           {job.refunded && (
@@ -152,6 +186,11 @@ export default function ResultPage({ params }: { params: { jobId: string } }) {
         <p className="text-center text-xs text-gray-400">
           {new Date(job.createdAt).toLocaleString('ko-KR')}
         </p>
+        {remainTime && (
+          <p className="text-center text-xs text-gray-400">
+            이 페이지는 {remainTime} 후 만료됩니다
+          </p>
+        )}
 
         {/* Actions */}
         <div className="space-y-3">
@@ -174,7 +213,11 @@ export default function ResultPage({ params }: { params: { jobId: string } }) {
             </button>
           )}
 
-          {job.paymentTid && !job.refunded && job.status !== 'PENDING' && !cancelRequested && (
+          {job.paymentTid && !job.refunded && job.status === 'PRINTING' && (
+            <p className="text-center text-xs text-gray-400">현재 인쇄 중이므로 취소할 수 없습니다</p>
+          )}
+
+          {job.paymentTid && !job.refunded && job.status !== 'PENDING' && job.status !== 'PRINTING' && !cancelRequested && (
             <button
               onClick={handleCancelRequest}
               className="w-full py-3.5 rounded-2xl bg-white text-red-500 font-semibold text-sm border border-red-200 hover:bg-red-50 transition-colors"

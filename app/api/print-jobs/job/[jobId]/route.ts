@@ -13,6 +13,13 @@ export async function GET(
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
+    const createdAt = new Date(job.createdAt).getTime()
+    const now = Date.now()
+    const expiresAt = createdAt + 24 * 60 * 60 * 1000
+    if (now > expiresAt) {
+      return NextResponse.json({ error: 'expired' }, { status: 410 })
+    }
+
     return NextResponse.json({
       jobId: job._id!.toString(),
       status: job.status,
@@ -20,6 +27,7 @@ export async function GET(
       printedImageUrl: job.printedImageUrl,
       orderNumber: job.orderNumber,
       createdAt: job.createdAt,
+      expiresAt: new Date(expiresAt).toISOString(),
       refunded: job.refunded || false,
       paymentTid: job.paymentTid,
     })
@@ -41,8 +49,8 @@ export async function PATCH(
     const body = await request.json()
     const { status, errorMessage } = body
 
-    if (!['PENDING', 'DONE', 'FAILED'].includes(status)) {
-      return NextResponse.json({ error: 'Status must be PENDING, DONE, or FAILED' }, { status: 400 })
+    if (!['PENDING', 'PRINTING', 'DONE', 'FAILED'].includes(status)) {
+      return NextResponse.json({ error: 'Status must be PENDING, PRINTING, DONE, or FAILED' }, { status: 400 })
     }
 
     const success = await updatePrintJobStatus(params.jobId, status, errorMessage)

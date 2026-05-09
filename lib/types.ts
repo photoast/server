@@ -163,7 +163,7 @@ export interface PrintJob {
   imageUrl: string
   printedImageUrl?: string // The actual image sent to printer (corrected/rotated)
   createdAt: Date
-  status: 'PENDING' | 'DONE' | 'FAILED'
+  status: 'PENDING' | 'PRINTING' | 'DONE' | 'FAILED'
   deviceInfo?: DeviceInfo
   errorMessage?: string
   userId?: string
