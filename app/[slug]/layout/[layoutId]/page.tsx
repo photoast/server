@@ -103,6 +103,41 @@ export default function FrameLayoutPage({
 }) {
   const router = useRouter()
   const [customerEmail, setCustomerEmail] = useState('')
+  const [emailSuggestions, setEmailSuggestions] = useState<string[]>([])
+  const [showEmailSuggestions, setShowEmailSuggestions] = useState(false)
+
+  const EMAIL_DOMAINS = ['gmail.com', 'naver.com', 'kakao.com', 'daum.net', 'hanmail.net', 'nate.com', 'icloud.com', 'outlook.com']
+
+  useEffect(() => {
+    const saved = localStorage.getItem('lastCustomerEmail')
+    if (saved) setCustomerEmail(saved)
+  }, [])
+
+  const handleEmailChange = (value: string) => {
+    setCustomerEmail(value)
+    const atIndex = value.indexOf('@')
+    if (atIndex > 0) {
+      const domain = value.slice(atIndex + 1)
+      if (domain && !domain.includes('.')) {
+        setEmailSuggestions(
+          EMAIL_DOMAINS.filter(d => d.startsWith(domain)).map(d => value.slice(0, atIndex + 1) + d)
+        )
+        setShowEmailSuggestions(true)
+      } else if (!domain) {
+        setEmailSuggestions(EMAIL_DOMAINS.map(d => value + d))
+        setShowEmailSuggestions(true)
+      } else {
+        setShowEmailSuggestions(false)
+      }
+    } else {
+      setShowEmailSuggestions(false)
+    }
+  }
+
+  const selectEmailSuggestion = (email: string) => {
+    setCustomerEmail(email)
+    setShowEmailSuggestions(false)
+  }
   const [event, setEvent] = useState<Event | null>(null)
   const [layout, setLayout] = useState<FrameLayout | null>(null)
   const [loading, setLoading] = useState(true)
@@ -249,7 +284,10 @@ export default function FrameLayoutPage({
     if (step === 'payment' && mergedUrl) {
       localStorage.setItem('pendingPrintUrl', mergedUrl)
       if (authCode) localStorage.setItem('pendingAuthCode', authCode)
-      if (customerEmail) localStorage.setItem('pendingCustomerEmail', customerEmail)
+      if (customerEmail) {
+        localStorage.setItem('pendingCustomerEmail', customerEmail)
+        localStorage.setItem('lastCustomerEmail', customerEmail)
+      }
     }
   }, [step, mergedUrl])
 
@@ -1072,13 +1110,34 @@ export default function FrameLayoutPage({
               {/* 이메일 입력 */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">이메일 (결제 확인용)</label>
-                <input
-                  type="email"
-                  value={customerEmail}
-                  onChange={e => setCustomerEmail(e.target.value)}
-                  placeholder="example@email.com"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
+                <div className="relative">
+                  <input
+                    type="email"
+                    inputMode="email"
+                    autoComplete="email"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    value={customerEmail}
+                    onChange={e => handleEmailChange(e.target.value)}
+                    onBlur={() => setTimeout(() => setShowEmailSuggestions(false), 150)}
+                    placeholder="example@email.com"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  {showEmailSuggestions && emailSuggestions.length > 0 && (
+                    <ul className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                      {emailSuggestions.map(s => (
+                        <li
+                          key={s}
+                          onMouseDown={() => selectEmailSuggestion(s)}
+                          className="px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-0"
+                        >
+                          {s}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               </div>
 
               {error && <UIStatusBanner type="error" message={error} />}
