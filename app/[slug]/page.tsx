@@ -47,6 +47,7 @@ interface FrameLayoutOption {
   slots: { id: string; x: number; y: number; width: number; height: number; rotation: number; zIndex: number }[]
   frameLayers: { id: string; imageUrl: string; zIndex: number; opacity: number; visible: boolean }[]
   frameUrl: string | null
+  price?: number
 }
 
 interface CropArea {
