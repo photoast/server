@@ -329,16 +329,17 @@ function LayoutsPageInner() {
                           <span className="text-[10px] font-semibold text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded shrink-0">프리셋</span>
                         )}
                       </div>
-                      <p className="text-xs text-gray-400">
+                      <div className="text-xs text-gray-400">
                         {layout.printSize} · 슬롯 {layout.slots.length}개
                         {(layout.frameLayers?.length || 0) > 0 && ` · 레이어 ${layout.frameLayers.length}개`}
                         {!layout.frameLayers?.length && layout.frameUrl && ' · 프레임 ✓'}
-                        {' · '}
+                      </div>
+                      <div className="mt-0.5">
                         {editingPriceId === layout._id ? (
                           <input
                             autoFocus
                             type="number"
-                            className="w-20 bg-white border border-blue-400 rounded px-1.5 py-0.5 text-xs outline-none"
+                            className="w-24 bg-white border border-blue-400 rounded px-1.5 py-0.5 text-xs outline-none"
                             value={editingPriceValue}
                             onChange={e => setEditingPriceValue(e.target.value)}
                             onBlur={() => handlePriceSave(layout._id)}
@@ -350,14 +351,14 @@ function LayoutsPageInner() {
                           />
                         ) : (
                           <span
-                            className="cursor-pointer hover:text-blue-500"
+                            className="text-[10px] cursor-pointer hover:text-blue-500 bg-gray-100 px-1.5 py-0.5 rounded"
                             onClick={e => { e.stopPropagation(); setEditingPriceId(layout._id); setEditingPriceValue(layout.price != null ? String(layout.price) : '') }}
                             title="클릭하여 가격 변경"
                           >
-                            {layout.price != null ? `${layout.price.toLocaleString()}원` : '가격 미설정'}
+                            {layout.price != null ? `💰 ${layout.price.toLocaleString()}원` : '💰 가격 미설정'}
                           </span>
                         )}
-                      </p>
+                      </div>
                     </div>
                     <div className="flex gap-1.5 shrink-0">
                       <button
