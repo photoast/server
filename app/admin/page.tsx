@@ -38,9 +38,8 @@ interface Event {
   slug: string
   printerId?: string
   availableLayouts?: string[]
-  puzzleEnabled?: boolean
   price?: number
-  authCodeRequired?: boolean
+  paymentMethods?: ('authCode' | 'card')[]
   backgroundColors?: string[]
   donation?: {
     enabled: boolean
@@ -195,7 +194,7 @@ function AdminPageInner() {
       } catch {}
     }
     fetchRecent()
-    if (detailEvent?.authCodeRequired) fetchAuthCodes(detailEvent._id)
+    if ((detailEvent?.paymentMethods ?? []).includes('authCode')) fetchAuthCodes(detailEvent._id)
   }, [detailEvent?._id])
 
   const checkAuth = async () => {
@@ -204,7 +203,6 @@ function AdminPageInner() {
       if (res.ok) {
         setAuthenticated(true)
         fetchEvents()
-        fetchStickers()
         fetchPrinters()
       }
     } catch (err) {
@@ -443,7 +441,7 @@ function AdminPageInner() {
     }
   }
 
-  const handleUpdateEvent = async (eventId: string, updates: { name?: string; slug?: string; printerId?: string; availableLayouts?: string[]; price?: number; puzzleEnabled?: boolean; authCodeRequired?: boolean; backgroundColors?: string[]; donation?: Event['donation'] }) => {
+  const handleUpdateEvent = async (eventId: string, updates: { name?: string; slug?: string; printerId?: string; availableLayouts?: string[]; price?: number; paymentMethods?: ('authCode' | 'card')[]; backgroundColors?: string[]; donation?: Event['donation'] }) => {
     try {
       const updateRes = await fetch(`/api/events/${eventId}`, {
         method: 'PATCH',
@@ -978,45 +976,41 @@ function AdminPageInner() {
             </UIFormField>
           </UICard>
 
-          {/* Puzzle Mode */}
+          {/* Payment Methods */}
           <UICard>
-            <UIFormField label="퍼즐 모드">
-              <div className="flex items-center gap-3">
+            <UIFormField label="결제 방식">
+              <div className="space-y-3">
+                <span className="text-xs text-gray-400">아무것도 선택하지 않으면 무료로 운영됩니다</span>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={event.puzzleEnabled ?? false}
-                    onChange={e => handleUpdateEvent(event._id, { puzzleEnabled: e.target.checked })}
+                    checked={(event.paymentMethods ?? []).includes('card')}
+                    onChange={e => {
+                      const methods = new Set(event.paymentMethods ?? [])
+                      e.target.checked ? methods.add('card') : methods.delete('card')
+                      handleUpdateEvent(event._id, { paymentMethods: Array.from(methods) })
+                    }}
                     className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
-                  <span className="text-sm text-gray-700">퍼즐 인쇄 활성화</span>
+                  <span className="text-sm text-gray-700">카드결제</span>
                 </label>
-                {event.puzzleEnabled && (
-                  <span className="text-xs text-gray-400">사용자가 조각 수를 선택합니다</span>
-                )}
-              </div>
-            </UIFormField>
-          </UICard>
-
-          {/* Auth Code Settings */}
-          <UICard>
-            <UIFormField label="인증코드 인쇄">
-              <div className="space-y-3">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={event.authCodeRequired ?? false}
+                    checked={(event.paymentMethods ?? []).includes('authCode')}
                     onChange={e => {
-                      handleUpdateEvent(event._id, { authCodeRequired: e.target.checked })
+                      const methods = new Set(event.paymentMethods ?? [])
+                      e.target.checked ? methods.add('authCode') : methods.delete('authCode')
+                      handleUpdateEvent(event._id, { paymentMethods: Array.from(methods) })
                       if (e.target.checked) fetchAuthCodes(event._id)
                     }}
                     className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
-                  <span className="text-sm text-gray-700">인증코드 필수</span>
+                  <span className="text-sm text-gray-700">인증코드</span>
                 </label>
-                <span className="text-xs text-gray-400">활성화하면 유효한 인증코드를 입력해야만 인쇄할 수 있습니다</span>
+                {(event.paymentMethods ?? []).length === 0 && <UIBadge variant="success">무료</UIBadge>}
 
-                {event.authCodeRequired && (
+                {(event.paymentMethods ?? []).includes('authCode') && (
                   <div className="space-y-3 pt-2 border-t">
                     <div className="flex items-center gap-2">
                       <UITextInput
@@ -1973,48 +1967,6 @@ function AdminPageInner() {
 
         {error && <div className="mb-6"><UIStatusBanner type="error" message={error} /></div>}
 
-        {/* Sticker Management */}
-        <UICard className="mb-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-bold text-gray-900">스티커 관리</h2>
-            <label className={`inline-flex items-center px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer transition-colors ${stickerUploading ? 'bg-blue-100 text-blue-300 cursor-not-allowed' : 'bg-blue-500 text-white hover:bg-blue-600'}`}>
-              {stickerUploading ? '업로드 중...' : '스티커 추가'}
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                disabled={stickerUploading}
-                onChange={(e) => {
-                  const file = e.target.files?.[0]
-                  if (file) handleUploadSticker(file)
-                  e.target.value = ''
-                }}
-              />
-            </label>
-          </div>
-          {stickers.length === 0 ? (
-            <p className="text-gray-400 text-sm">업로드된 스티커가 없습니다.</p>
-          ) : (
-            <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-3">
-              {stickers.map((s) => (
-                <div key={s._id} className="relative group aspect-square">
-                  <img
-                    src={s.url}
-                    alt={s.filename}
-                    className="w-full h-full object-contain rounded-xl border border-gray-100 bg-gray-50"
-                  />
-                  <button
-                    onClick={() => handleDeleteSticker(s._id)}
-                    className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </UICard>
-
         {/* Printer Management */}
         <UICard className="mb-6">
           <div className="flex justify-between items-center mb-4">
@@ -2460,8 +2412,14 @@ function AdminPageInner() {
                       {(event.price ?? 0) > 0 && (
                         <UIBadge variant="warning">{event.price!.toLocaleString()}원</UIBadge>
                       )}
-                      {event.authCodeRequired && (
+                      {(event.paymentMethods ?? []).includes('authCode') && (
                         <UIBadge variant="info">인증코드</UIBadge>
+                      )}
+                      {(event.paymentMethods ?? []).includes('card') && (
+                        <UIBadge variant="info">카드결제</UIBadge>
+                      )}
+                      {(event.paymentMethods ?? []).length === 0 && (
+                        <UIBadge variant="success">무료</UIBadge>
                       )}
                     </div>
                     <p className="text-xs text-gray-400 mt-0.5">
