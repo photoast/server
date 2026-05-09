@@ -147,7 +147,7 @@ function AdminPageInner() {
   const [authCodeGenerating, setAuthCodeGenerating] = useState(false)
 
   // Event layouts (FrameLayout-based)
-  const [eventLayouts, setEventLayouts] = useState<Record<string, { _id: string; name: string; printSize: string; slots: any[]; isPreset?: boolean; order?: number; visible?: boolean }[]>>({})
+  const [eventLayouts, setEventLayouts] = useState<Record<string, { _id: string; name: string; printSize: string; slots: any[]; isPreset?: boolean; order?: number; visible?: boolean; price?: number }[]>>({})
   const [dragLayoutId, setDragLayoutId] = useState<string | null>(null)
   const [dragOverLayoutId, setDragOverLayoutId] = useState<string | null>(null)
   const [showLayoutCreate, setShowLayoutCreate] = useState(false)
@@ -1387,6 +1387,24 @@ function AdminPageInner() {
                       )}
                     </div>
                     <span className="text-[11px] text-gray-400">{layout.printSize} · {layout.slots.length}칸</span>
+                    <span
+                      className="text-[10px] cursor-pointer hover:text-blue-500 bg-gray-100 px-1.5 py-0.5 rounded inline-block mt-0.5"
+                      onClick={e => {
+                        e.stopPropagation()
+                        e.preventDefault()
+                        const newPrice = prompt('레이아웃 가격 (원)\n비워두면 이벤트 기본 가격 사용', layout.price != null ? String(layout.price) : '')
+                        if (newPrice === null) return
+                        const price = newPrice.trim() === '' ? null : Number(newPrice)
+                        if (price !== null && isNaN(price)) return
+                        fetch(`/api/layouts/${layout._id}`, {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ price: price ?? undefined }),
+                        }).then(() => fetchEventLayouts(event._id))
+                      }}
+                    >
+                      {layout.price != null ? `💰 ${layout.price.toLocaleString()}원` : '💰 가격 미설정'}
+                    </span>
                   </a>
 
                   {/* Actions */}
