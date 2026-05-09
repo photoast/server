@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { findEventBySlug } from '@/lib/models'
 
-const NICEPAY_API_URL = process.env.NODE_ENV === 'production'
-  ? 'https://api.nicepay.co.kr'
-  : 'https://sandbox-api.nicepay.co.kr'
+function getNicepayApiUrl() {
+  const clientId = process.env.NEXT_PUBLIC_NICEPAY_CLIENT_ID || ''
+  const isSandbox = clientId.startsWith('S2_') || clientId.startsWith('S1_')
+  return isSandbox ? 'https://sandbox-api.nicepay.co.kr' : 'https://api.nicepay.co.kr'
+}
 
 // 나이스페이 결제 승인 API (returnUrl에서 리다이렉트 후 클라이언트가 호출)
 export async function POST(request: NextRequest) {
@@ -37,7 +39,7 @@ export async function POST(request: NextRequest) {
 
     const credentials = Buffer.from(`${clientId}:${secretKey}`).toString('base64')
 
-    const response = await fetch(`${NICEPAY_API_URL}/v1/payments/${tid}`, {
+    const response = await fetch(`${getNicepayApiUrl()}/v1/payments/${tid}`, {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${credentials}`,

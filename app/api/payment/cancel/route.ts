@@ -5,9 +5,11 @@ import { ObjectId } from 'mongodb'
 import { checkAuth } from '@/lib/middleware'
 import { sendCustomerEmail } from '@/lib/customer-email'
 
-const NICEPAY_API_URL = process.env.NODE_ENV === 'production'
-  ? 'https://api.nicepay.co.kr'
-  : 'https://sandbox-api.nicepay.co.kr'
+function getNicepayApiUrl() {
+  const clientId = process.env.NEXT_PUBLIC_NICEPAY_CLIENT_ID || ''
+  const isSandbox = clientId.startsWith('S2_') || clientId.startsWith('S1_')
+  return isSandbox ? 'https://sandbox-api.nicepay.co.kr' : 'https://api.nicepay.co.kr'
+}
 
 export async function POST(request: NextRequest) {
   if (!checkAuth(request)) {
@@ -42,7 +44,7 @@ export async function POST(request: NextRequest) {
 
     const credentials = Buffer.from(`${clientId}:${secretKey}`).toString('base64')
 
-    const response = await fetch(`${NICEPAY_API_URL}/v1/payments/${job.paymentTid}/cancel`, {
+    const response = await fetch(`${getNicepayApiUrl()}/v1/payments/${job.paymentTid}/cancel`, {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${credentials}`,
