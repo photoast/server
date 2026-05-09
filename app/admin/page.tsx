@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import QRCode from 'qrcode'
 import { logClientError } from '@/lib/errorLogger'
@@ -85,6 +86,8 @@ interface PrintJob {
 }
 
 export default function AdminPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [authenticated, setAuthenticated] = useState(false)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -155,13 +158,28 @@ export default function AdminPage() {
     checkAuth()
   }, [])
 
-  // Keep detailEvent in sync with events list
+  // Keep detailEvent in sync with events list & restore from URL
   useEffect(() => {
     if (detailEvent) {
       const updated = events.find(e => e._id === detailEvent._id)
       if (updated) setDetailEvent(updated)
+    } else if (events.length > 0) {
+      const eventId = searchParams.get('event')
+      if (eventId) {
+        const found = events.find(e => e._id === eventId)
+        if (found) setDetailEvent(found)
+      }
     }
   }, [events])
+
+  const selectEvent = useCallback((event: Event | null) => {
+    setDetailEvent(event)
+    if (event) {
+      router.replace(`/admin?event=${event._id}`, { scroll: false })
+    } else {
+      router.replace('/admin', { scroll: false })
+    }
+  }, [router])
 
   // Fetch recent print jobs for detail event
   useEffect(() => {
@@ -803,7 +821,7 @@ export default function AdminPage() {
           {/* Back + Header */}
           <div className="flex items-center gap-3">
             <button
-              onClick={() => { setDetailEvent(null); setEditingEventId(null); setEditingField(null) }}
+              onClick={() => { selectEvent(null); setEditingEventId(null); setEditingField(null) }}
               className="p-2 -ml-2 rounded-lg hover:bg-gray-200 transition-colors"
             >
               <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -889,7 +907,7 @@ export default function AdminPage() {
               try {
                 const res = await fetch(`/api/events/${event._id}`, { method: 'DELETE' })
                 if (!res.ok) throw new Error('삭제 실패')
-                setDetailEvent(null)
+                selectEvent(null)
                 fetchEvents()
               } catch (err: any) {
                 setError(err.message || '이벤트 삭제 실패')
@@ -2392,7 +2410,7 @@ export default function AdminPage() {
                 <div
                   key={event._id}
                   className="flex items-center gap-3 py-3 px-1 cursor-pointer hover:bg-gray-50 rounded-lg transition-colors -mx-1"
-                  onClick={() => setDetailEvent(event)}
+                  onClick={() => selectEvent(event)}
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
