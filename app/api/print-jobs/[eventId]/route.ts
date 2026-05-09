@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getPrintJobsByEventId, getAllPrinters, findUserById } from '@/lib/models'
+import { getPrintJobsByEventId, getAllPrinters, findUserById, getLayoutsByEventId } from '@/lib/models'
 import { checkAuth } from '@/lib/middleware'
 
 export async function GET(
@@ -15,12 +15,14 @@ export async function GET(
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'))
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '50')))
 
-    const [{ jobs: printJobs, total }, printers] = await Promise.all([
+    const [{ jobs: printJobs, total }, printers, layouts] = await Promise.all([
       getPrintJobsByEventId(params.eventId, { page, limit }),
       getAllPrinters(),
+      getLayoutsByEventId(params.eventId),
     ])
 
     const printerMap = new Map(printers.map(p => [p._id!.toString(), p.name]))
+    const layoutMap = new Map(layouts.map(l => [l._id.toString(), l.name]))
 
     const userIds = Array.from(new Set(printJobs.filter(j => j.userId).map(j => j.userId!)))
     const users = await Promise.all(userIds.map(id => findUserById(id)))
@@ -29,6 +31,7 @@ export async function GET(
     const enriched = printJobs.map(job => ({
       ...job,
       printerName: job.printerId ? printerMap.get(job.printerId) || null : null,
+      layoutName: job.layoutId ? layoutMap.get(job.layoutId) || null : null,
       userName: job.userId ? userMap.get(job.userId)?.name || null : null,
       userEmail: job.userId ? userMap.get(job.userId)?.email || null : null,
     }))

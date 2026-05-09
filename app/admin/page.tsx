@@ -77,6 +77,7 @@ interface PrintJob {
   errorMessage?: string
   authCode?: string
   layoutId?: string
+  layoutName?: string
   paymentTid?: string
   paymentAmount?: number
   customerEmail?: string
@@ -126,6 +127,7 @@ export default function AdminPage() {
   const [recentPrintJobs, setRecentPrintJobs] = useState<PrintJob[]>([])
   const [recentPrintJobsTotal, setRecentPrintJobsTotal] = useState(0)
   const [selectedImageForPreview, setSelectedImageForPreview] = useState<string | null>(null)
+  const [detailJob, setDetailJob] = useState<PrintJob | null>(null)
 
   // Event editing states
   const [editingEventId, setEditingEventId] = useState<string | null>(null)
@@ -1454,8 +1456,8 @@ export default function AdminPage() {
                         {job.printerName && (
                           <span className="text-[10px] text-gray-400">{job.printerName}</span>
                         )}
-                        {job.layoutId && (
-                          <span className="text-[10px] font-mono bg-indigo-100 text-indigo-600 px-1 rounded">L:{job.layoutId.slice(-6)}</span>
+                        {(job.layoutName || job.layoutId) && (
+                          <span className="text-[10px] bg-indigo-100 text-indigo-600 px-1 rounded">{job.layoutName || job.layoutId?.slice(-6)}</span>
                         )}
                         {job.authCode && (
                           <span className="text-[10px] font-mono bg-purple-100 text-purple-700 px-1 rounded">{job.authCode}</span>
@@ -1467,12 +1469,10 @@ export default function AdminPage() {
                           <span className="text-[10px] font-semibold bg-red-100 text-red-600 px-1 rounded">취소됨</span>
                         )}
                         <button
-                          onClick={() => {
-                            window.open(`/result/${job._id}`, '_blank')
-                          }}
+                          onClick={() => setDetailJob(job)}
                           className="text-[10px] text-blue-500 hover:text-blue-700 underline"
                         >
-                          링크
+                          상세
                         </button>
                         {job.paymentTid && !job.refunded && (
                           <button
@@ -1509,10 +1509,11 @@ export default function AdminPage() {
           </UICard>
         </div>
 
-        {/* ===== Modals (QR, Print History, Image Preview) ===== */}
+        {/* ===== Modals (QR, Print History, Image Preview, Job Detail) ===== */}
         {renderQRModal()}
         {renderPrintHistoryModal()}
         {renderImagePreviewModal()}
+        {renderJobDetailModal()}
       </div>
     )
   }
@@ -1657,8 +1658,8 @@ export default function AdminPage() {
                         {job.printerName && (
                           <span className="text-xs text-gray-400">{job.printerName}</span>
                         )}
-                        {job.layoutId && (
-                          <span className="text-xs font-mono bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded">레이아웃: {job.layoutId.slice(-6)}</span>
+                        {(job.layoutName || job.layoutId) && (
+                          <span className="text-xs bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded">레이아웃: {job.layoutName || job.layoutId?.slice(-6)}</span>
                         )}
                         {job.authCode && (
                           <span className="text-xs font-mono bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">인증코드: {job.authCode}</span>
@@ -1775,6 +1776,114 @@ export default function AdminPage() {
             <div className="relative w-full aspect-[1000/1500]">
               <Image src={selectedImageForPreview} alt="Full size preview" fill className="object-contain" />
             </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  function renderJobDetailModal() {
+    if (!detailJob) return null
+    const job = detailJob
+    return (
+      <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={() => setDetailJob(null)}>
+        <div className="bg-white rounded-2xl max-w-md w-full max-h-[85vh] overflow-y-auto p-5 space-y-4" onClick={e => e.stopPropagation()}>
+          <div className="flex justify-between items-center">
+            <h3 className="font-bold text-lg">인쇄 상세</h3>
+            <button onClick={() => setDetailJob(null)} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+          </div>
+
+          {/* Image */}
+          {job.imageUrl && (
+            <div className="rounded-xl overflow-hidden border border-gray-100">
+              <img src={job.imageUrl} alt="인쇄 이미지" className="w-full" />
+            </div>
+          )}
+
+          {/* Info table */}
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <div className="text-gray-400">인쇄번호</div>
+            <div className="font-mono font-semibold">#{job.orderNumber || '-'}</div>
+
+            <div className="text-gray-400">상태</div>
+            <div>
+              <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                job.status === 'DONE' ? 'bg-green-100 text-green-700' :
+                job.status === 'PENDING' ? 'bg-blue-100 text-blue-700' :
+                'bg-red-100 text-red-700'
+              }`}>{job.status}</span>
+              {job.refunded && <span className="ml-1 px-2 py-0.5 rounded text-xs font-semibold bg-orange-100 text-orange-700">환불</span>}
+            </div>
+
+            <div className="text-gray-400">생성일</div>
+            <div>{new Date(job.createdAt).toLocaleString('ko-KR')}</div>
+
+            {job.layoutName && <>
+              <div className="text-gray-400">레이아웃</div>
+              <div>{job.layoutName}</div>
+            </>}
+
+            {job.printerName && <>
+              <div className="text-gray-400">프린터</div>
+              <div>{job.printerName}</div>
+            </>}
+
+            {job.customerEmail && <>
+              <div className="text-gray-400">고객 이메일</div>
+              <div>{job.customerEmail}</div>
+            </>}
+
+            {job.authCode && <>
+              <div className="text-gray-400">인증코드</div>
+              <div className="font-mono">{job.authCode}</div>
+            </>}
+
+            {job.paymentTid && <>
+              <div className="text-gray-400">결제 TID</div>
+              <div className="font-mono text-xs break-all">{job.paymentTid}</div>
+            </>}
+
+            {job.paymentAmount != null && <>
+              <div className="text-gray-400">결제 금액</div>
+              <div>{job.paymentAmount.toLocaleString()}원</div>
+            </>}
+
+            {job.errorMessage && <>
+              <div className="text-gray-400">에러</div>
+              <div className="text-red-600 text-xs">{job.errorMessage}</div>
+            </>}
+
+            {job.deviceInfo && <>
+              <div className="text-gray-400">디바이스</div>
+              <div className="text-xs text-gray-500">{job.deviceInfo.os} · {job.deviceInfo.browser}</div>
+            </>}
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-2 pt-2">
+            <button
+              onClick={() => window.open(`/result/${job._id}`, '_blank')}
+              className="flex-1 py-2 text-sm rounded-xl bg-blue-500 text-white font-semibold hover:bg-blue-600"
+            >
+              결과 페이지
+            </button>
+            {job.paymentTid && !job.refunded && (
+              <button
+                onClick={async () => {
+                  if (!confirm('결제를 취소하시겠습니까?')) return
+                  const res = await fetch('/api/payment/cancel', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-admin': '1' },
+                    body: JSON.stringify({ printJobId: job._id }),
+                  })
+                  if (res.ok) { alert('취소 완료'); setDetailJob(null) }
+                  else { const d = await res.json(); alert(d.error || '취소 실패') }
+                }}
+                className="flex-1 py-2 text-sm rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600"
+              >
+                결제 취소
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -2322,6 +2431,7 @@ export default function AdminPage() {
       {renderQRModal()}
       {renderPrintHistoryModal()}
       {renderImagePreviewModal()}
+      {renderJobDetailModal()}
     </div>
   )
 }

@@ -1135,7 +1135,7 @@ export default function FrameLayoutPage({
                     onChange={e => handleEmailChange(e.target.value)}
                     onBlur={() => setTimeout(() => setShowEmailSuggestions(false), 150)}
                     placeholder="example@email.com"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                   {showEmailSuggestions && emailSuggestions.length > 0 && (
                     <ul className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
