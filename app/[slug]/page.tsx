@@ -949,6 +949,10 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
   // 나이스페이 결제 실행
   const handlePayment = () => {
+    if (!customerEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) {
+      setError('올바른 이메일을 입력해주세요')
+      return
+    }
     if (!window.AUTHNICE) {
       setError('결제 모듈을 불러오는 중입니다. 잠시 후 다시 시도해주세요.')
       return
@@ -1013,13 +1017,16 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
           }
 
           const savedAuthCode = localStorage.getItem('pendingAuthCode')
+          const savedEmail = localStorage.getItem('pendingCustomerEmail')
           const printRes = await fetch('/api/print', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               slug: params.slug,
               imageUrl: savedPreviewUrl,
+              paymentTid: tid,
               ...(savedAuthCode ? { authCode: savedAuthCode } : {}),
+              ...(savedEmail ? { customerEmail: savedEmail } : {}),
             }),
           })
 
@@ -1032,6 +1039,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
           localStorage.removeItem('pendingPrintUrl')
           localStorage.removeItem('pendingAuthCode')
+          localStorage.removeItem('pendingCustomerEmail')
           window.history.replaceState({}, '', window.location.pathname)
           updateStep('success')
 
@@ -1060,6 +1068,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     if (step === 'payment' && previewUrl) {
       localStorage.setItem('pendingPrintUrl', previewUrl)
       if (authCode) localStorage.setItem('pendingAuthCode', authCode)
+      if (customerEmail) localStorage.setItem('pendingCustomerEmail', customerEmail)
     }
   }, [step, previewUrl])
 

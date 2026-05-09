@@ -167,8 +167,9 @@ export interface PrintJob {
   errorMessage?: string
   userId?: string
   authCode?: string
-  paymentKey?: string
+  paymentTid?: string
   paymentAmount?: number
+  customerEmail?: string
   refunded?: boolean
 }
 

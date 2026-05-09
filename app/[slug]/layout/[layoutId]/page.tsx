@@ -202,13 +202,16 @@ export default function FrameLayoutPage({
           if (!savedPreviewUrl) throw new Error('프린트할 이미지를 찾을 수 없습니다')
 
           const savedAuthCode = localStorage.getItem('pendingAuthCode')
+          const savedEmail = localStorage.getItem('pendingCustomerEmail')
           const printRes = await fetch('/api/print', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               slug: params.slug,
               imageUrl: savedPreviewUrl,
+              paymentTid: tid,
               ...(savedAuthCode ? { authCode: savedAuthCode } : {}),
+              ...(savedEmail ? { customerEmail: savedEmail } : {}),
             }),
           })
           if (!printRes.ok) {
@@ -220,6 +223,7 @@ export default function FrameLayoutPage({
 
           localStorage.removeItem('pendingPrintUrl')
           localStorage.removeItem('pendingAuthCode')
+          localStorage.removeItem('pendingCustomerEmail')
           window.history.replaceState({}, '', window.location.pathname)
           setStep('success')
         } catch (err: any) {
@@ -245,6 +249,7 @@ export default function FrameLayoutPage({
     if (step === 'payment' && mergedUrl) {
       localStorage.setItem('pendingPrintUrl', mergedUrl)
       if (authCode) localStorage.setItem('pendingAuthCode', authCode)
+      if (customerEmail) localStorage.setItem('pendingCustomerEmail', customerEmail)
     }
   }, [step, mergedUrl])
 
@@ -497,6 +502,10 @@ export default function FrameLayoutPage({
   }
 
   const handlePayment = () => {
+    if (!customerEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) {
+      setError('올바른 이메일을 입력해주세요')
+      return
+    }
     if (!window.AUTHNICE || !event) {
       setError('결제 모듈을 불러오는 중입니다. 잠시 후 다시 시도해주세요.')
       return

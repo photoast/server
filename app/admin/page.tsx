@@ -76,6 +76,10 @@ interface PrintJob {
   deviceInfo?: DeviceInfo
   errorMessage?: string
   authCode?: string
+  paymentTid?: string
+  paymentAmount?: number
+  customerEmail?: string
+  refunded?: boolean
 }
 
 export default function AdminPage() {
@@ -1452,6 +1456,12 @@ export default function AdminPage() {
                         {job.authCode && (
                           <span className="text-[10px] font-mono bg-purple-100 text-purple-700 px-1 rounded">{job.authCode}</span>
                         )}
+                        {job.customerEmail && (
+                          <span className="text-[10px] text-gray-400">{job.customerEmail}</span>
+                        )}
+                        {job.refunded && (
+                          <span className="text-[10px] font-semibold bg-red-100 text-red-600 px-1 rounded">취소됨</span>
+                        )}
                         <button
                           onClick={() => {
                             window.open(`/result/${job._id}`, '_blank')
@@ -1460,6 +1470,29 @@ export default function AdminPage() {
                         >
                           링크
                         </button>
+                        {job.paymentTid && !job.refunded && (
+                          <button
+                            onClick={async () => {
+                              if (!confirm('결제를 취소하시겠습니까?')) return
+                              const res = await fetch('/api/payment/cancel', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ printJobId: job._id }),
+                              })
+                              if (res.ok) {
+                                setRecentPrintJobs(prev => prev.map(j =>
+                                  j._id === job._id ? { ...j, refunded: true } : j
+                                ))
+                              } else {
+                                const data = await res.json()
+                                alert(data.error || '취소 실패')
+                              }
+                            }}
+                            className="text-[10px] text-red-500 hover:text-red-700 underline"
+                          >
+                            결제취소
+                          </button>
+                        )}
                       </div>
                       <p className="text-[11px] text-gray-400 mt-0.5">
                         {new Date(job.createdAt).toLocaleString()}
@@ -1623,6 +1656,12 @@ export default function AdminPage() {
                         {job.authCode && (
                           <span className="text-xs font-mono bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">인증코드: {job.authCode}</span>
                         )}
+                        {job.customerEmail && (
+                          <span className="text-xs text-gray-400">{job.customerEmail}</span>
+                        )}
+                        {job.refunded && (
+                          <span className="text-xs font-semibold bg-red-100 text-red-600 px-1.5 py-0.5 rounded">취소됨</span>
+                        )}
                         <span className="text-sm text-gray-600">
                           {new Date(job.createdAt).toLocaleString()}
                         </span>
@@ -1634,6 +1673,29 @@ export default function AdminPage() {
                         >
                           결과 링크
                         </button>
+                        {job.paymentTid && !job.refunded && (
+                          <button
+                            onClick={async () => {
+                              if (!confirm('결제를 취소하시겠습니까?')) return
+                              const res = await fetch('/api/payment/cancel', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ printJobId: job._id }),
+                              })
+                              if (res.ok) {
+                                setPrintJobs(prev => prev.map(j =>
+                                  j._id === job._id ? { ...j, refunded: true } : j
+                                ))
+                              } else {
+                                const data = await res.json()
+                                alert(data.error || '취소 실패')
+                              }
+                            }}
+                            className="text-[11px] text-red-500 hover:text-red-700 underline"
+                          >
+                            결제취소
+                          </button>
+                        )}
                       </div>
                       {job.errorMessage && <p className="text-sm text-red-600">Error: {job.errorMessage}</p>}
                       {job.deviceInfo && (
