@@ -354,14 +354,14 @@ export default function FrameLayoutPage({
     setCompletedSlotData(slotData)
     const layoutBgColor = layout?.backgroundColor || '#FFFFFF'
     const canCustomize = layout?.backgroundColorCustomizable ?? true
-    const colors = event?.backgroundColors?.length ? event.backgroundColors : ['#FFFFFF']
+    const defColors = ['#FFFFFF', '#000000', '#FFB6C1', '#87CEEB', '#90EE90', '#DDA0DD']
+    const colors = event?.backgroundColors?.length ? event.backgroundColors : defColors
     if (canCustomize && colors.length > 1) {
       setSelectedColor(layoutBgColor)
       setStep('select-bg-color')
     } else {
-      const finalColor = canCustomize ? colors[0] : layoutBgColor
-      setSelectedColor(finalColor)
-      performMerge(slotData, finalColor)
+      setSelectedColor(layoutBgColor)
+      performMerge(slotData, layoutBgColor)
     }
   }
 
@@ -814,7 +814,8 @@ export default function FrameLayoutPage({
 
   const isPuzzleAvailable = event.puzzleEnabled === true
   const canCustomizeBg = layout.backgroundColorCustomizable ?? true
-  const availableColors = event.backgroundColors?.length ? event.backgroundColors : ['#FFFFFF']
+  const defaultColors = ['#FFFFFF', '#000000', '#FFB6C1', '#87CEEB', '#90EE90', '#DDA0DD']
+  const availableColors = event.backgroundColors?.length ? event.backgroundColors : defaultColors
   const showColorStep = canCustomizeBg && availableColors.length > 1
 
   const stepBarSteps = showColorStep
