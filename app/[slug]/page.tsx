@@ -1661,13 +1661,14 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
           {/* Step 5: Success */}
           {step === 'success' && (() => {
             const hasPending = printJobStatuses.some(j => j.status === 'PENDING')
+            const hasPrinting = printJobStatuses.some(j => j.status === 'PRINTING')
             const hasFailed = printJobStatuses.some(j => j.status === 'FAILED')
             const allDone = allJobsSettled && !hasFailed
             const allFailed = allJobsSettled && printJobStatuses.every(j => j.status === 'FAILED')
             const maxQueue = Math.max(...printJobStatuses.filter(j => j.status === 'PENDING').map(j => j.queuePosition || 0), 0)
 
             let statusType: 'processing' | 'success' | 'error' = 'processing'
-            let statusMessage = maxQueue > 1 ? `인쇄 대기 중 · 대기 ${maxQueue}번째` : '인쇄 대기 중 · 곧 인쇄가 시작됩니다'
+            let statusMessage = hasPrinting ? '인쇄 중...' : maxQueue > 1 ? `인쇄 대기 중 · 대기 ${maxQueue}번째` : '인쇄 대기 중 · 곧 인쇄가 시작됩니다'
 
             if (allDone) {
               statusType = 'success'
@@ -1745,9 +1746,9 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                       사진 저장
                     </UIButton>
                   )}
-                  {hasPending && printJobIds.length > 0 && (
+                  {hasPending && !hasPrinting && printJobIds.length > 0 && (
                     <UIButton fullWidth variant="danger" onClick={async () => {
-                      if (!confirm('인쇄를 취소하시겠습니까?')) return
+                      if (!confirm('인쇄를 취소하시겠습니까? 환불 처리됩니다.')) return
                       try {
                         const results = await Promise.all(
                           printJobIds.map(id =>
@@ -1758,6 +1759,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                         if (failed.length > 0) {
                           alert(failed[0].error)
                         } else {
+                          alert('취소 및 환불이 완료되었습니다.')
                           handleReset()
                         }
                       } catch {
@@ -1766,6 +1768,9 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                     }}>
                       인쇄 취소
                     </UIButton>
+                  )}
+                  {hasPrinting && (
+                    <p className="text-center text-xs text-gray-400">현재 인쇄 중이므로 취소할 수 없습니다</p>
                   )}
                   <UIButton fullWidth variant="secondary" onClick={handleReset}>새로운 사진 만들기</UIButton>
                 </div>
