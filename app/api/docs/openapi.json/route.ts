@@ -15,7 +15,7 @@ API Key는 어드민 패널 → 프린터 설정에서 확인할 수 있습니�
 1. \`GET /api/printer-client/jobs\` 를 주기적으로 폴링 (3~5초 간격 권장)
 2. \`jobs\` 배열에 항목이 있으면 \`imageUrl\`에서 이미지 다운로드
 3. 로컬 프린터로 인쇄
-4. \`PATCH /api/printer-client/jobs/{jobId}\` 로 결과 보고 (DONE 또는 FAILED)`,
+4. \`PATCH /api/printer-client/jobs/{jobId}\` 로 상태 업데이트 (PRINTING → DONE 또는 FAILED)`,
   },
   servers: [{ url: '/' }],
   security: [{ BearerAuth: [] }],
@@ -40,7 +40,7 @@ API Key는 어드민 패널 → 프린터 설정에서 확인할 수 있습니�
         type: 'object',
         required: ['status'],
         properties: {
-          status: { type: 'string', enum: ['DONE', 'FAILED'], description: '인쇄 결과' },
+          status: { type: 'string', enum: ['PRINTING', 'DONE', 'FAILED'], description: '인쇄 결과' },
           errorMessage: { type: 'string', description: '실패 시 에러 메시지', example: 'Paper jam' },
         },
       },
@@ -85,7 +85,7 @@ API Key는 어드민 패널 → 프린터 설정에서 확인할 수 있습니�
     '/api/printer-client/jobs/{jobId}': {
       patch: {
         summary: '인쇄 결과 보고',
-        description: '인쇄 완료 후 결과를 보고합니다. PENDING 상태인 작업만 업데이트 가능합니다.',
+        description: '인쇄 상태를 업데이트합니다. PRINTING(인쇄 시작), DONE(완료), FAILED(실패). 이미 DONE/FAILED인 작업은 변경 불가.',
         tags: ['Print Jobs'],
         parameters: [
           {
@@ -102,6 +102,10 @@ API Key는 어드민 패널 → 프린터 설정에서 확인할 수 있습니�
             'application/json': {
               schema: { $ref: '#/components/schemas/JobStatusUpdate' },
               examples: {
+                printing: {
+                  summary: '인쇄 시작',
+                  value: { status: 'PRINTING' },
+                },
                 success: {
                   summary: '인쇄 성공',
                   value: { status: 'DONE' },
@@ -130,7 +134,7 @@ API Key는 어드민 패널 → 프린터 설정에서 확인할 수 있습니�
               },
             },
           },
-          '400': { description: 'status 값이 DONE 또는 FAILED가 아님' },
+          '400': { description: 'status 값이 PRINTING, DONE 또는 FAILED가 아님' },
           '401': { description: 'API Key가 없거나 유효하지 않음' },
           '403': { description: '이 프린터의 작업이 아님' },
           '404': { description: '작업을 찾을 수 없음' },
