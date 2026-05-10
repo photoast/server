@@ -33,6 +33,7 @@ API Key는 어드민 패널 → 프린터 설정에서 확인할 수 있습니�
         properties: {
           jobId: { type: 'string', description: '인쇄 작업 ID', example: '507f1f77bcf86cd799439011' },
           imageUrl: { type: 'string', format: 'uri', description: '인쇄할 이미지 URL (절대 경로, 보정 적용됨)', example: 'https://example.com/api/serve-image/corrected-123456.jpg' },
+          printSize: { type: 'string', nullable: true, description: '인쇄 규격 (레이아웃 기반)', example: '4x6' },
           createdAt: { type: 'string', format: 'date-time', description: '작업 생성 시간', example: '2026-03-02T10:30:00.000Z' },
         },
       },
@@ -71,6 +72,7 @@ API Key는 어드민 패널 → 프린터 설정에서 확인할 수 있습니�
                     {
                       jobId: '507f1f77bcf86cd799439011',
                       imageUrl: 'https://example.com/api/serve-image/corrected-123456.jpg',
+                      printSize: '4x6',
                       createdAt: '2026-03-02T10:30:00.000Z',
                     },
                   ],

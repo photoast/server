@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authenticatePrinterClient } from '@/lib/printer-auth'
-import { getPendingJobsByPrinterId } from '@/lib/models'
+import { getPendingJobsByPrinterId, getLayoutById } from '@/lib/models'
 import { getDb, COLLECTIONS } from '@/lib/mongodb'
 import { ObjectId } from 'mongodb'
 
@@ -19,12 +19,17 @@ export async function GET(request: NextRequest) {
 
     const jobs = await getPendingJobsByPrinterId(printer._id!.toString())
 
+    const layoutIds = Array.from(new Set(jobs.filter(j => j.layoutId).map(j => j.layoutId!)))
+    const layouts = await Promise.all(layoutIds.map(id => getLayoutById(id).catch(() => null)))
+    const layoutMap = new Map(layouts.filter(Boolean).map(l => [l!._id.toString(), l!.printSize]))
+
     const baseUrl = request.nextUrl.origin
     const response = jobs.map(job => {
       const imgUrl = job.printedImageUrl || job.imageUrl
       return {
         jobId: job._id!.toString(),
         imageUrl: imgUrl.startsWith('http') ? imgUrl : `${baseUrl}${imgUrl}`,
+        printSize: job.layoutId ? layoutMap.get(job.layoutId) || null : null,
         createdAt: job.createdAt.toISOString(),
       }
     })
