@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import sharp from 'sharp'
-import { findEventBySlug, findPrinterById, createPrintJob, updatePrinter, createErrorLog, verifyAndUseAuthCode, linkAuthCodeToPrintJob } from '@/lib/models'
+import { findEventBySlug, findPrinterById, createPrintJob, updatePrinter, createErrorLog, verifyAndUseAuthCode, linkAuthCodeToPrintJob, getLayoutById } from '@/lib/models'
 import { printImage } from '@/lib/printer'
 import { printViaEpsonApi } from '@/lib/epson-api'
 import { applyPrinterCorrection } from '@/lib/image-correction'
@@ -88,6 +88,10 @@ export async function POST(request: NextRequest) {
     const jobIds: string[] = []
     const errors: string[] = []
 
+    // 레이아웃 printSize 확인 (2x6 → 4x6 변환 필요 여부)
+    const layoutInfo = layoutId ? await getLayoutById(layoutId).catch(() => null) : null
+    const printSize = layoutInfo?.printSize || '4x6'
+
     // Print multiple copies
     for (let i = 0; i < printQuantity; i++) {
       console.log(`[Print API] Sending print job ${i + 1}/${printQuantity}`)
@@ -101,6 +105,19 @@ export async function POST(request: NextRequest) {
             imageBuffer = Buffer.from(base64Data, 'base64')
           } else {
             imageBuffer = await readImageBuffer(imageUrl)
+          }
+
+          // 2x6 이미지를 4x6 용지에 맞게 2장 나란히 배치
+          if (printSize === '2x6') {
+            const meta = await sharp(imageBuffer).metadata()
+            const w = meta.width || 600
+            const h = meta.height || 1800
+            imageBuffer = Buffer.from(await sharp({
+              create: { width: w * 2, height: h, channels: 3, background: { r: 255, g: 255, b: 255 } }
+            }).composite([
+              { input: imageBuffer, left: 0, top: 0 },
+              { input: imageBuffer, left: w, top: 0 },
+            ]).jpeg({ quality: 100 }).toBuffer())
           }
 
           // Rotate landscape images for 4x6 printing
@@ -150,6 +167,19 @@ export async function POST(request: NextRequest) {
             imageBuffer = Buffer.from(base64Data, 'base64')
           } else {
             imageBuffer = await readImageBuffer(imageUrl)
+          }
+
+          // 2x6 이미지를 4x6 용지에 맞게 2장 나란히 배치
+          if (printSize === '2x6') {
+            const metaDup = await sharp(imageBuffer).metadata()
+            const w = metaDup.width || 600
+            const h = metaDup.height || 1800
+            imageBuffer = Buffer.from(await sharp({
+              create: { width: w * 2, height: h, channels: 3, background: { r: 255, g: 255, b: 255 } }
+            }).composite([
+              { input: imageBuffer, left: 0, top: 0 },
+              { input: imageBuffer, left: w, top: 0 },
+            ]).jpeg({ quality: 100 }).toBuffer())
           }
 
           // Rotate landscape images for 4x6 printing
@@ -205,8 +235,28 @@ export async function POST(request: NextRequest) {
             createErrorLog({ level: 'error', message: `Epson API 인쇄 실패: ${result.error}`, eventSlug: slug, additionalData: { printerId: printer._id?.toString(), copy: i + 1 } })
           }
         } else {
-          // Email: send via Epson Email Print
-          const result = await printImage(imageUrl, {
+          // Email: 2x6 → 4x6 변환 후 전송
+          let emailImageUrl = imageUrl
+          if (printSize === '2x6') {
+            let buf: Buffer
+            if (imageUrl.startsWith('data:')) {
+              buf = Buffer.from(imageUrl.split(',')[1], 'base64')
+            } else {
+              buf = await readImageBuffer(imageUrl)
+            }
+            const metaEmail = await sharp(buf).metadata()
+            const w = metaEmail.width || 600
+            const h = metaEmail.height || 1800
+            const merged = await sharp({
+              create: { width: w * 2, height: h, channels: 3, background: { r: 255, g: 255, b: 255 } }
+            }).composite([
+              { input: buf, left: 0, top: 0 },
+              { input: buf, left: w, top: 0 },
+            ]).jpeg({ quality: 100 }).toBuffer()
+            const fn = `email-2x6-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`
+            emailImageUrl = await uploadToBlob(fn, Buffer.from(merged))
+          }
+          const result = await printImage(emailImageUrl, {
             borderCorrection: printer.borderCorrectionEnabled,
             shrinkPercent: printer.shrinkPercent,
             verticalOffsetPx: printer.verticalOffsetPx,

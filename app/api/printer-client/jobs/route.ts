@@ -26,10 +26,14 @@ export async function GET(request: NextRequest) {
     const baseUrl = request.nextUrl.origin
     const response = jobs.map(job => {
       const imgUrl = job.printedImageUrl || job.imageUrl
+      const printSize = job.layoutId ? layoutMap.get(job.layoutId) || null : null
+      const paperSizeMap: Record<string, string> = { '2x6': '4x6', '6x4': '4x6' }
+      const paperSize = printSize ? (paperSizeMap[printSize] || printSize) : null
       return {
         jobId: job._id!.toString(),
         imageUrl: imgUrl.startsWith('http') ? imgUrl : `${baseUrl}${imgUrl}`,
-        printSize: job.layoutId ? layoutMap.get(job.layoutId) || null : null,
+        printSize,
+        paperSize,
         createdAt: job.createdAt.toISOString(),
       }
     })
