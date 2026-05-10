@@ -142,6 +142,34 @@ API Key는 어드민 패널 → 프린터 설정에서 확인할 수 있습니�
         },
       },
     },
+    '/api/printer-client/status': {
+      post: {
+        summary: '프린터 상태 보고',
+        description: '프린터 클라이언트가 자신의 상태를 서버에 보고합니다. 주기적으로 호출하면 어드민에서 온라인 상태를 확인할 수 있습니다.',
+        tags: ['Printer Status'],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  paperStatus: { type: 'string', enum: ['ok', 'low', 'empty', 'unknown'], description: '용지 상태' },
+                  inkStatus: { type: 'string', enum: ['ok', 'low', 'empty', 'unknown'], description: '잉크 상태' },
+                  errorMessage: { type: 'string', description: '에러 메시지 (있을 경우)' },
+                  version: { type: 'string', description: '클라이언트 버전', example: '1.0.0' },
+                },
+              },
+              example: { paperStatus: 'ok', inkStatus: 'ok', version: '1.0.0' },
+            },
+          },
+        },
+        responses: {
+          '200': { description: '상태 업데이트 성공' },
+          '401': { description: 'API Key가 없거나 유효하지 않음' },
+        },
+      },
+    },
   },
 }
 

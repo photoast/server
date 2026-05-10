@@ -30,6 +30,14 @@ interface Printer {
   shrinkPercent: number
   verticalOffsetPx: number
   createdAt: string
+  lastSeen?: string
+  statusInfo?: {
+    online: boolean
+    paperStatus?: 'ok' | 'low' | 'empty' | 'unknown'
+    inkStatus?: 'ok' | 'low' | 'empty' | 'unknown'
+    errorMessage?: string
+    version?: string
+  }
 }
 
 interface Event {
@@ -939,6 +947,10 @@ function AdminPageInner() {
                     <UIBadge variant={printer.printMethod === 'email' ? 'default' : 'info'}>
                       {printer.printMethod === 'email' ? '이메일' : printer.printMethod === 'epson_api' ? 'API' : '폴링'}
                     </UIBadge>
+                    {printer.printMethod === 'polling' && (() => {
+                      const isOnline = printer.lastSeen && (Date.now() - new Date(printer.lastSeen).getTime()) < 60000
+                      return <UIBadge variant={isOnline ? 'success' : 'error'}>{isOnline ? '온라인' : '오프라인'}</UIBadge>
+                    })()}
                   </div>
                   {printer.email && <p className="text-xs text-gray-500">{printer.email}</p>}
                   <p className="text-xs text-gray-400">
@@ -2322,9 +2334,21 @@ function AdminPageInner() {
                     <UIBadge variant={printer.printMethod === 'polling' ? 'info' : 'default'}>
                       {printer.printMethod === 'email' ? '이메일' : printer.printMethod === 'epson_api' ? 'API' : '폴링'}
                     </UIBadge>
+                    {printer.printMethod === 'polling' && (() => {
+                      const isOnline = printer.lastSeen && (Date.now() - new Date(printer.lastSeen).getTime()) < 60000
+                      return <UIBadge variant={isOnline ? 'success' : 'error'}>{isOnline ? '온라인' : '오프라인'}</UIBadge>
+                    })()}
                   </div>
                   {printer.email && <p className="text-xs text-gray-400 mt-0.5">{printer.email}</p>}
                   {printer.supportedSizes && <p className="text-xs text-gray-400 mt-0.5">지원: {printer.supportedSizes.join(', ')}</p>}
+                  {printer.printMethod === 'polling' && printer.lastSeen && (
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      마지막 응답: {new Date(printer.lastSeen).toLocaleString('ko-KR')}
+                      {printer.statusInfo?.paperStatus && printer.statusInfo.paperStatus !== 'unknown' && ` · 용지: ${printer.statusInfo.paperStatus === 'ok' ? '정상' : printer.statusInfo.paperStatus === 'low' ? '부족' : '없음'}`}
+                      {printer.statusInfo?.inkStatus && printer.statusInfo.inkStatus !== 'unknown' && ` · 잉크: ${printer.statusInfo.inkStatus === 'ok' ? '정상' : printer.statusInfo.inkStatus === 'low' ? '부족' : '없음'}`}
+                      {printer.statusInfo?.errorMessage && ` · ${printer.statusInfo.errorMessage}`}
+                    </p>
+                  )}
                 </div>
                 <button
                   onClick={() => setEditingPrinter(editingPrinter?._id === printer._id ? null : printer)}

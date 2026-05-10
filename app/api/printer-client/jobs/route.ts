@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authenticatePrinterClient } from '@/lib/printer-auth'
 import { getPendingJobsByPrinterId } from '@/lib/models'
+import { getDb, COLLECTIONS } from '@/lib/mongodb'
+import { ObjectId } from 'mongodb'
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,6 +10,12 @@ export async function GET(request: NextRequest) {
     if (!printer) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const db = await getDb()
+    db.collection(COLLECTIONS.printers).updateOne(
+      { _id: new ObjectId(printer._id!.toString()) },
+      { $set: { lastSeen: new Date() } }
+    ).catch(() => {})
 
     const jobs = await getPendingJobsByPrinterId(printer._id!.toString())
 

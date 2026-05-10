@@ -111,6 +111,14 @@ export interface Printer {
   shrinkPercent: number     // default: 97.5
   verticalOffsetPx: number  // default: 0
   createdAt: Date
+  lastSeen?: Date
+  statusInfo?: {
+    online: boolean
+    paperStatus?: 'ok' | 'low' | 'empty' | 'unknown'
+    inkStatus?: 'ok' | 'low' | 'empty' | 'unknown'
+    errorMessage?: string
+    version?: string
+  }
 }
 
 export interface AuthCode {
