@@ -658,7 +658,7 @@ export default function FrameLayoutPage({
 
   // Poll print job status when on success screen
   const allJobsSettled = printJobStatuses.length > 0 &&
-    printJobStatuses.every(j => j.status === 'DONE' || j.status === 'FAILED')
+    printJobStatuses.every(j => j.status === 'DONE' || j.status === 'FAILED' || j.status === 'CANCELLED')
 
   useEffect(() => {
     if (step !== 'success' || printJobIds.length === 0 || allJobsSettled) return
@@ -774,6 +774,30 @@ export default function FrameLayoutPage({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
                 사진 저장
+              </UIButton>
+            )}
+            {hasPending && printJobIds.length > 0 && (
+              <UIButton fullWidth variant="danger" onClick={async () => {
+                if (!confirm('인쇄를 취소하시겠습니까?')) return
+                try {
+                  const results = await Promise.all(
+                    printJobIds.map(id =>
+                      fetch(`/api/print-jobs/job/${id}/cancel`, { method: 'POST' }).then(r => r.json())
+                    )
+                  )
+                  const failed = results.filter(r => r.error)
+                  if (failed.length > 0) {
+                    alert(failed[0].error)
+                  } else {
+                    setStep('fill-photos')
+                    setPrintJobIds([])
+                    setPrintJobStatuses([])
+                  }
+                } catch {
+                  alert('취소 처리 중 오류가 발생했습니다')
+                }
+              }}>
+                인쇄 취소
               </UIButton>
             )}
             <UIButton fullWidth variant="secondary" onClick={() => router.push(`/${params.slug}`)}>새로운 사진 만들기</UIButton>
