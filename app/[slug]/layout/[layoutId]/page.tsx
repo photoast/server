@@ -180,6 +180,13 @@ export default function FrameLayoutPage({
   const gridSize = puzzleGrid === '4x4' ? 4 : puzzleGrid === '3x3' ? 3 : 2
   const totalPieces = gridSize * gridSize
 
+  const isPaymentReturn = useRef(false)
+
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    if (urlParams.get('payment')) isPaymentReturn.current = true
+  }, [])
+
   useEffect(() => {
     const load = async () => {
       try {
@@ -193,7 +200,6 @@ export default function FrameLayoutPage({
         setEvent(ev)
         setLayout(lay)
         if (lay.backgroundColor) setSelectedColor(lay.backgroundColor)
-        // Fetch all layouts for layout switching
         if (ev._id) {
           fetch(`/api/layouts?eventId=${ev._id}&visibleOnly=true`)
             .then(r => r.ok ? r.json() : [])
@@ -201,7 +207,9 @@ export default function FrameLayoutPage({
             .catch(() => {})
         }
       } catch (err: any) {
-        setError(err.message || '불러오기 실패')
+        if (!isPaymentReturn.current) {
+          setError(err.message || '불러오기 실패')
+        }
       } finally {
         setLoading(false)
       }
@@ -242,12 +250,13 @@ export default function FrameLayoutPage({
 
           const savedAuthCode = localStorage.getItem('pendingAuthCode')
           const savedEmail = localStorage.getItem('pendingCustomerEmail')
+          const savedLayoutId = params.layoutId || localStorage.getItem('pendingLayoutId')
           const printRes = await fetch('/api/print', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               slug: params.slug,
-              layoutId: params.layoutId,
+              layoutId: savedLayoutId,
               imageUrl: savedPreviewUrl,
               paymentTid: tid,
               ...(savedAuthCode ? { authCode: savedAuthCode } : {}),
@@ -265,6 +274,8 @@ export default function FrameLayoutPage({
           localStorage.removeItem('pendingPrintUrl')
           localStorage.removeItem('pendingAuthCode')
           localStorage.removeItem('pendingCustomerEmail')
+          localStorage.removeItem('pendingLayoutId')
+          localStorage.removeItem('pendingPaymentReturn')
           window.history.replaceState({}, '', window.location.pathname)
           setStep('success')
         } catch (err: any) {
@@ -569,6 +580,8 @@ export default function FrameLayoutPage({
       localStorage.setItem('pendingCustomerEmail', customerEmail)
       localStorage.setItem('lastCustomerEmail', customerEmail)
     }
+    localStorage.setItem('pendingPaymentReturn', window.location.pathname)
+    localStorage.setItem('pendingLayoutId', params.layoutId)
 
     window.AUTHNICE.requestPay({
       clientId: NICEPAY_CLIENT_ID,
