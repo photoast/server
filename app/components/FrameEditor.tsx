@@ -148,6 +148,54 @@ export default function FrameEditor({ layout, onSave }: Props) {
   const [eraserPreviewImg, setEraserPreviewImg] = useState<HTMLImageElement | null>(null)
   const eraserBrushingRef = useRef(false)
 
+  // --- Alignment guides ---
+  type AlignGuide = { orient: 'V' | 'H'; pos: number }
+  const [alignGuides, setAlignGuides] = useState<AlignGuide[]>([])
+  const alignTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const SNAP_THRESH = 4
+
+  const computeAlignGuides = (movingId: string, mx: number, my: number, mw: number, mh: number): AlignGuide[] => {
+    const guides: AlignGuide[] = []
+    const edges = {
+      left: mx, centerX: mx + mw / 2, right: mx + mw,
+      top: my, centerY: my + mh / 2, bottom: my + mh,
+    }
+    for (const s of slots) {
+      if (s.id === movingId) continue
+      const refs = {
+        left: s.x, centerX: s.x + s.width / 2, right: s.x + s.width,
+        top: s.y, centerY: s.y + s.height / 2, bottom: s.y + s.height,
+      }
+      for (const ek of ['left', 'centerX', 'right'] as const) {
+        for (const rk of ['left', 'centerX', 'right'] as const) {
+          if (Math.abs(edges[ek] - refs[rk]) < SNAP_THRESH) {
+            guides.push({ orient: 'V', pos: refs[rk] })
+          }
+        }
+      }
+      for (const ek of ['top', 'centerY', 'bottom'] as const) {
+        for (const rk of ['top', 'centerY', 'bottom'] as const) {
+          if (Math.abs(edges[ek] - refs[rk]) < SNAP_THRESH) {
+            guides.push({ orient: 'H', pos: refs[rk] })
+          }
+        }
+      }
+    }
+    const seen = new Set<string>()
+    return guides.filter(g => {
+      const k = `${g.orient}:${g.pos}`
+      if (seen.has(k)) return false
+      seen.add(k)
+      return true
+    })
+  }
+
+  const showGuidesTemporarily = (guides: AlignGuide[]) => {
+    setAlignGuides(guides)
+    if (alignTimerRef.current) clearTimeout(alignTimerRef.current)
+    alignTimerRef.current = setTimeout(() => setAlignGuides([]), 600)
+  }
+
   const stageRef = useRef<Konva.Stage>(null)
   const trRef = useRef<Konva.Transformer>(null)
   const slotNodeRefs = useRef<Map<string, Konva.Rect>>(new Map())
@@ -266,6 +314,8 @@ export default function FrameEditor({ layout, onSave }: Props) {
         const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0
         const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0
         if (selectedSlotId) {
+          const s = slots.find(s => s.id === selectedSlotId)
+          if (s) showGuidesTemporarily(computeAlignGuides(s.id, s.x + dx, s.y + dy, s.width, s.height))
           setSlots(prev => prev.map(s => s.id === selectedSlotId ? { ...s, x: s.x + dx, y: s.y + dy } : s))
           e.preventDefault()
         } else if (selectedFrameLayerId) {
@@ -476,7 +526,14 @@ export default function FrameEditor({ layout, onSave }: Props) {
   }
 
   // --- Slot update helpers ---
+  const onSlotDragMove = (id: string, x: number, y: number) => {
+    const s = slots.find(s => s.id === id)
+    if (!s) return
+    setAlignGuides(computeAlignGuides(id, x / scale, y / scale, s.width, s.height))
+  }
+
   const onSlotDragEnd = (id: string, x: number, y: number) => {
+    setAlignGuides([])
     setSlots(prev => prev.map(s => s.id === id ? { ...s, x: x / scale, y: y / scale } : s))
   }
 
@@ -1236,6 +1293,7 @@ export default function FrameEditor({ layout, onSave }: Props) {
                           draggable
                           onClick={() => { setSelectedSlotId(slot.id); setSelectedFrameLayerId(null) }}
                           onTap={() => { setSelectedSlotId(slot.id); setSelectedFrameLayerId(null) }}
+                          onDragMove={e => onSlotDragMove(slot.id, e.target.x(), e.target.y())}
                           onDragEnd={e => onSlotDragEnd(slot.id, e.target.x(), e.target.y())}
                           onTransformEnd={e => onSlotTransformEnd(slot.id, e.target as Konva.Rect)}
                         />
@@ -1328,6 +1386,13 @@ export default function FrameEditor({ layout, onSave }: Props) {
                 }
                 return gridLines
               })()}
+
+              {/* Alignment guides */}
+              {!previewMode && alignGuides.map((g, i) =>
+                g.orient === 'V'
+                  ? <Line key={`ag-${i}`} points={[g.pos * scale, 0, g.pos * scale, displayH]} stroke="#f43f5e" strokeWidth={1} dash={[4, 3]} listening={false} />
+                  : <Line key={`ag-${i}`} points={[0, g.pos * scale, DISPLAY_W, g.pos * scale]} stroke="#f43f5e" strokeWidth={1} dash={[4, 3]} listening={false} />
+              )}
 
               {/* Eraser brush cursor */}
               {eraserActive && eraserMode === 'brush' && eraserCursorPos && (
