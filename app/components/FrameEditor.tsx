@@ -929,7 +929,15 @@ export default function FrameEditor({ layout, onSave }: Props) {
   }
 
   const moveLayer = (itemId: string, itemType: 'slot' | 'frame', direction: 'up' | 'down') => {
-    const allItems = buildLayerList()
+    let allItems = buildLayerList()
+
+    const hasDupes = new Set(allItems.map(i => i.zIndex)).size < allItems.length
+    if (hasDupes) {
+      const reversed = [...allItems].reverse()
+      reversed.forEach((item, i) => { item.zIndex = i + 1 })
+      allItems = [...reversed].reverse()
+    }
+
     const idx = allItems.findIndex(i => i.id === itemId && i.type === itemType)
     if (idx < 0) return
     const swapIdx = direction === 'up' ? idx - 1 : idx + 1
@@ -938,15 +946,21 @@ export default function FrameEditor({ layout, onSave }: Props) {
     const target = allItems[swapIdx]
     const newCurrentZ = target.zIndex
     const newTargetZ = current.zIndex
+
+    const zMap = new Map<string, number>()
+    if (hasDupes) {
+      for (const item of allItems) zMap.set(`${item.type}:${item.id}`, item.zIndex)
+    }
+    zMap.set(`${current.type}:${current.id}`, newCurrentZ)
+    zMap.set(`${target.type}:${target.id}`, newTargetZ)
+
     setSlots(prev => prev.map(s => {
-      if (s.id === current.id && current.type === 'slot') return { ...s, zIndex: newCurrentZ }
-      if (s.id === target.id && target.type === 'slot') return { ...s, zIndex: newTargetZ }
-      return s
+      const z = zMap.get(`slot:${s.id}`)
+      return z != null ? { ...s, zIndex: z } : s
     }))
     setFrameLayers(prev => prev.map(l => {
-      if (l.id === current.id && current.type === 'frame') return { ...l, zIndex: newCurrentZ }
-      if (l.id === target.id && target.type === 'frame') return { ...l, zIndex: newTargetZ }
-      return l
+      const z = zMap.get(`frame:${l.id}`)
+      return z != null ? { ...l, zIndex: z } : l
     }))
   }
 
