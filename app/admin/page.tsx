@@ -492,25 +492,23 @@ function AdminPageInner() {
       const ctx = canvas.getContext('2d')
       if (!ctx) throw new Error('Failed to get canvas context')
 
-      // Load QR code image
-      const qrImage = document.createElement('img')
-      await new Promise((resolve, reject) => {
-        qrImage.onload = () => resolve(true)
-        qrImage.onerror = (e) => reject(e)
-        qrImage.src = qrDataUrl
-      })
+      const loadImg = (src: string): Promise<HTMLImageElement | null> =>
+        new Promise(resolve => {
+          const img = document.createElement('img')
+          img.crossOrigin = 'anonymous'
+          img.onload = () => resolve(img)
+          img.onerror = () => resolve(null)
+          img.src = src
+        })
 
-      // Load logo image
-      const logoImage = document.createElement('img')
-      await new Promise((resolve, reject) => {
-        logoImage.onload = () => resolve(true)
-        logoImage.onerror = () => resolve(false) // logo is optional
-        logoImage.src = '/logo-without-bg.png'
-      })
+      const [qrImage, logoImage] = await Promise.all([
+        loadImg(qrDataUrl),
+        loadImg(event.logoUrl || '/logo-without-bg.png'),
+      ])
+      if (!qrImage) throw new Error('QR 이미지 로드 실패')
 
-      const font = '-apple-system, "Helvetica Neue", Arial, sans-serif'
+      const font = '"Pretendard Variable", Pretendard, -apple-system, "Noto Sans KR", sans-serif'
 
-      // Helper: rounded rect path
       const roundRect = (x: number, y: number, w: number, h: number, r: number) => {
         ctx.beginPath()
         ctx.moveTo(x + r, y)
@@ -525,83 +523,99 @@ function AdminPageInner() {
         ctx.closePath()
       }
 
-      // ── Background: soft gradient
-      const bgGrad = ctx.createLinearGradient(0, 0, 0, H)
-      bgGrad.addColorStop(0, '#F8F0FF')
-      bgGrad.addColorStop(0.5, '#FFFFFF')
-      bgGrad.addColorStop(1, '#FFF5F0')
-      ctx.fillStyle = bgGrad
+      // ── Background: clean white
+      ctx.fillStyle = '#FFFFFF'
       ctx.fillRect(0, 0, W, H)
 
-      // ── Decorative top accent bar
-      const accentGrad = ctx.createLinearGradient(0, 0, W, 0)
-      accentGrad.addColorStop(0, '#8B5CF6')
-      accentGrad.addColorStop(0.5, '#EC4899')
-      accentGrad.addColorStop(1, '#F97316')
-      ctx.fillStyle = accentGrad
-      ctx.fillRect(0, 0, W, 14)
+      // ── Subtle top line accent
+      ctx.fillStyle = '#111111'
+      ctx.fillRect(0, 0, W, 6)
 
+      const isFree = (event.price ?? 0) === 0
       const hasDonation = showDonation && event.donation?.enabled && event.donation.account
-      const qrSize = 700
-      const cardPad = 44
-      const stepGap = 86
 
-      // ── Event name
-      let y = 120
-      ctx.fillStyle = '#1A1A2E'
-      ctx.font = `bold 110px ${font}`
+      // ── Logo + Event name (top area)
+      let y = 130
+      if (logoImage) {
+        const logoSize = 96
+        ctx.drawImage(logoImage, (W - logoSize) / 2, y - logoSize / 2, logoSize, logoSize)
+        y += 70
+      }
+
+      ctx.fillStyle = '#111111'
+      ctx.font = `700 88px ${font}`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.fillText(event.name, W / 2, y)
 
-      // ── Subtitle
-      y += 110
-      ctx.fillStyle = '#6B7280'
-      ctx.font = `600 54px ${font}`
-      ctx.fillText('📸 무료 핸드폰 사진 이벤트 🎉', W / 2, y)
+      // ── Subtitle (different for free vs paid)
+      y += 80
+      ctx.fillStyle = '#666666'
+      ctx.font = `500 42px ${font}`
+      if (isFree) {
+        ctx.fillText('사진을 찍고, 바로 인쇄하세요', W / 2, y)
+      } else {
+        ctx.fillText('특별한 순간을 사진으로 남기세요', W / 2, y)
+      }
 
-      // ── "무료" badge (bigger, bolder)
-      y += 90
-      const freeW = 900
-      const freeH = 84
-      const freeX = (W - freeW) / 2
-      const freeGrad = ctx.createLinearGradient(freeX, y, freeX + freeW, y)
-      freeGrad.addColorStop(0, '#7C3AED')
-      freeGrad.addColorStop(0.5, '#DB2777')
-      freeGrad.addColorStop(1, '#EA580C')
-      roundRect(freeX, y - freeH / 2, freeW, freeH, freeH / 2)
-      ctx.fillStyle = freeGrad
-      ctx.fill()
-      ctx.fillStyle = '#FFFFFF'
-      ctx.font = `bold 44px ${font}`
-      ctx.fillText('🎊  참여비 무료 · 인쇄 무료 · 몇 장이든 무료  🎊', W / 2, y)
+      // ── Badge
+      y += 72
+      const badgeH = 64
+      if (isFree) {
+        const badgeText = '무료 포토 프린트'
+        ctx.font = `700 34px ${font}`
+        const badgeW = ctx.measureText(badgeText).width + 64
+        const badgeX = (W - badgeW) / 2
+        roundRect(badgeX, y - badgeH / 2, badgeW, badgeH, badgeH / 2)
+        ctx.fillStyle = '#111111'
+        ctx.fill()
+        ctx.fillStyle = '#FFFFFF'
+        ctx.fillText(badgeText, W / 2, y)
+      } else {
+        const badgeText = `1매 ${(event.price ?? 0).toLocaleString()}원`
+        ctx.font = `700 34px ${font}`
+        const badgeW = ctx.measureText(badgeText).width + 64
+        const badgeX = (W - badgeW) / 2
+        roundRect(badgeX, y - badgeH / 2, badgeW, badgeH, badgeH / 2)
+        ctx.fillStyle = '#111111'
+        ctx.fill()
+        ctx.fillStyle = '#FFFFFF'
+        ctx.fillText(badgeText, W / 2, y)
+      }
+
+      // ── "한정판 프레임" tag
+      y += 60
+      ctx.fillStyle = '#999999'
+      ctx.font = `500 32px ${font}`
+      ctx.fillText('한정판 프레임으로 특별하게', W / 2, y)
 
       // ── QR code area
-      y += freeH / 2 + 50
+      const qrSize = 620
+      const qrPad = 36
+      y += 56
       const qrX = (W - qrSize) / 2
       const qrY = y
 
-      // Card behind QR
+      // QR card with subtle shadow
       ctx.save()
-      ctx.shadowColor = 'rgba(139, 92, 246, 0.15)'
-      ctx.shadowBlur = 60
-      ctx.shadowOffsetY = 12
-      roundRect(qrX - cardPad, qrY - cardPad, qrSize + cardPad * 2, qrSize + cardPad * 2, 28)
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.06)'
+      ctx.shadowBlur = 40
+      ctx.shadowOffsetY = 8
+      roundRect(qrX - qrPad, qrY - qrPad, qrSize + qrPad * 2, qrSize + qrPad * 2, 24)
       ctx.fillStyle = '#FFFFFF'
       ctx.fill()
-      ctx.strokeStyle = '#F3E8FF'
-      ctx.lineWidth = 3
+      ctx.strokeStyle = '#E5E5E5'
+      ctx.lineWidth = 1.5
       ctx.stroke()
       ctx.restore()
 
       // QR code
       ctx.drawImage(qrImage, qrX, qrY, qrSize, qrSize)
 
-      // ── Logo in center of QR
-      const hasLogo = logoImage.complete && logoImage.naturalWidth > 0
-      if (hasLogo) {
-        const logoSize = 140
-        const logoPad = 14
+      // Logo in center of QR
+      if (logoImage) {
+        const logoSize = 120
+        const logoPad = 12
         const logoX = qrX + (qrSize - logoSize) / 2
         const logoY2 = qrY + (qrSize - logoSize) / 2
         ctx.fillStyle = '#FFFFFF'
@@ -612,83 +626,81 @@ function AdminPageInner() {
       }
 
       // ── Scan instruction
-      y = qrY + qrSize + cardPad + 66
-      ctx.fillStyle = '#374151'
-      ctx.font = `bold 54px ${font}`
+      y = qrY + qrSize + qrPad + 56
+      ctx.fillStyle = '#111111'
+      ctx.font = `600 44px ${font}`
       ctx.textAlign = 'center'
-      ctx.fillText('📱 QR 코드를 스캔하세요!', W / 2, y)
+      ctx.fillText('QR 코드를 스캔하세요', W / 2, y)
 
       // ── URL display
       if (showUrl) {
-        y += 68
+        y += 54
         const eventUrl = `${window.location.host}/${event.slug}`
-        ctx.fillStyle = '#7C3AED'
-        ctx.font = `600 48px ${font}`
+        ctx.fillStyle = '#AAAAAA'
+        ctx.font = `400 36px ${font}`
         ctx.fillText(eventUrl, W / 2, y)
       }
 
       // ── Steps
-      y += 90
-      const steps = [
-        'QR 스캔 후 레이아웃 선택',
-        '사진을 선택하고 꾸미기',
-        '프린트! 여러 장도 자유롭게 🎉',
-      ]
+      y += 80
+      const steps = isFree
+        ? ['QR 스캔 후 프레임 선택', '사진을 올리고 편집', '무료로 바로 인쇄']
+        : ['QR 스캔 후 프레임 선택', '사진을 올리고 편집', '간편결제 후 즉석 인쇄']
+      const stepGap = 72
 
       steps.forEach((text, i) => {
         const sy = y + i * stepGap
+        const numX = 160
 
-        const pillW = 52, pillH = 52
-        const pillX = 120
-        roundRect(pillX - pillW / 2, sy - pillH / 2, pillW, pillH, pillH / 2)
-        const pillGrad = ctx.createLinearGradient(pillX - pillW / 2, sy, pillX + pillW / 2, sy)
-        pillGrad.addColorStop(0, '#8B5CF6')
-        pillGrad.addColorStop(1, '#EC4899')
-        ctx.fillStyle = pillGrad
-        ctx.fill()
-
-        ctx.fillStyle = '#FFFFFF'
-        ctx.font = `bold 30px ${font}`
+        ctx.fillStyle = '#111111'
+        ctx.font = `700 28px ${font}`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
-        ctx.fillText(String(i + 1), pillX, sy)
+        ctx.fillText(String(i + 1), numX, sy)
 
-        ctx.fillStyle = '#374151'
-        ctx.font = `600 52px ${font}`
-        ctx.textAlign = 'left'
-        ctx.textBaseline = 'middle'
-        ctx.fillText(text, pillX + 42, sy)
-      })
-
-      // ── Donation info (pinned to bottom)
-      if (hasDonation) {
-        const boxW = W - 160
-        const boxX = 80
-        const boxH = 86
-        const boxY = H - 70 - boxH // above the Photo Toast text
-        roundRect(boxX, boxY, boxW, boxH, 16)
-        ctx.fillStyle = '#FEF3C7'
-        ctx.fill()
-        ctx.strokeStyle = '#FCD34D'
-        ctx.lineWidth = 2
+        // Circle outline
+        ctx.beginPath()
+        ctx.arc(numX, sy, 22, 0, Math.PI * 2)
+        ctx.strokeStyle = '#DDDDDD'
+        ctx.lineWidth = 1.5
         ctx.stroke()
 
+        ctx.fillStyle = '#333333'
+        ctx.font = `500 38px ${font}`
+        ctx.textAlign = 'left'
+        ctx.textBaseline = 'middle'
+        ctx.fillText(text, numX + 40, sy)
+      })
+
+      // ── Donation info
+      if (hasDonation) {
         const don = event.donation!
-        const donText = `💛 후원계좌: ${don.bank || ''} ${don.account} ${don.holder ? `(${don.holder})` : ''}`
-        ctx.fillStyle = '#92400E'
-        ctx.font = `600 28px ${font}`
+        const donText = `후원계좌  ${don.bank || ''} ${don.account}${don.holder ? ` (${don.holder})` : ''}`
+        const boxW = W - 160
+        const boxX = 80
+        const boxH = 72
+        const boxY = H - 110 - boxH
+        roundRect(boxX, boxY, boxW, boxH, 12)
+        ctx.fillStyle = '#F9F9F9'
+        ctx.fill()
+        ctx.strokeStyle = '#E5E5E5'
+        ctx.lineWidth = 1
+        ctx.stroke()
+
+        ctx.fillStyle = '#666666'
+        ctx.font = `500 28px ${font}`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
         ctx.fillText(donText, W / 2, boxY + boxH / 2)
       }
 
-      // ── Bottom: Photo Toast + accent bar
-      ctx.fillStyle = '#D1D5DB'
-      ctx.font = `500 24px ${font}`
+      // ── Bottom
+      ctx.fillStyle = '#CCCCCC'
+      ctx.font = `400 22px ${font}`
       ctx.textAlign = 'center'
-      ctx.fillText('Photo Toast', W / 2, H - 34)
-      ctx.fillStyle = accentGrad
-      ctx.fillRect(0, H - 14, W, 14)
+      ctx.fillText('Photo Toast', W / 2, H - 40)
+      ctx.fillStyle = '#111111'
+      ctx.fillRect(0, H - 6, W, 6)
 
       const blob = await new Promise<Blob>((resolve, reject) => {
         canvas.toBlob((b) => {
