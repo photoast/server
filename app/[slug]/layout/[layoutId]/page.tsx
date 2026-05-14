@@ -586,7 +586,7 @@ export default function FrameLayoutPage({
 
     window.AUTHNICE.requestPay({
       clientId: NICEPAY_CLIENT_ID,
-      method: 'cardAndEasyPay',
+      method: 'card',
       orderId,
       amount: paymentAmount,
       goodsName: puzzleMode ? `퍼즐 프린트 ${totalPieces}조각` : `포토 프린트 ${printQuantity}매`,
