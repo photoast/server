@@ -1011,7 +1011,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
     window.AUTHNICE.requestPay({
       clientId: NICEPAY_CLIENT_ID,
-      method: 'card',
+      method: 'cartAndEasyPay',
       orderId,
       amount: paymentAmount,
       goodsName: `포토 프린트 ${printQuantity}매`,
