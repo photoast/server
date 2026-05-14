@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import Cropper from 'react-easy-crop'
 import type { Area, Point } from 'react-easy-crop'
 import Image from 'next/image'
@@ -63,6 +63,21 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
   const [gallery, setGallery] = useState<GalleryImage[]>([])
   const [swapSourceIndex, setSwapSourceIndex] = useState<number | null>(null)
   const [photoPickerSlot, setPhotoPickerSlot] = useState<number | null>(null)
+
+  const [imageDims, setImageDims] = useState<Map<string, { w: number; h: number }>>(new Map())
+
+  useEffect(() => {
+    slotStates.forEach(state => {
+      if (state.previewUrl && !imageDims.has(state.previewUrl)) {
+        const img = new window.Image()
+        const url = state.previewUrl
+        img.onload = () => {
+          setImageDims(prev => new Map(prev).set(url, { w: img.naturalWidth, h: img.naturalHeight }))
+        }
+        img.src = url
+      }
+    })
+  }, [slotStates, imageDims])
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const filePickerSlotRef = useRef<number | null>(null)
@@ -480,6 +495,52 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
               )
             })
         })()}
+
+        {/* Full image overflow preview (dimmed, behind slots) */}
+        {sortedSlots.map((slot, i) => {
+          const state = slotStates[i]
+          if (!state.previewUrl || !state.cropArea || !state.croppedUrl) return null
+          const dims = imageDims.get(state.previewUrl)
+          if (!dims) return null
+
+          const { cropArea } = state
+          const pctX = (slot.x / layout.canvasWidth) * 100
+          const pctY = (slot.y / layout.canvasHeight) * 100
+          const pctW = (slot.width / layout.canvasWidth) * 100
+          const pctH = (slot.height / layout.canvasHeight) * 100
+
+          const imgWidthPct = (dims.w / cropArea.width) * 100
+          const imgHeightPct = (dims.h / cropArea.height) * 100
+          const imgLeftPct = -(cropArea.x / cropArea.width) * 100
+          const imgTopPct = -(cropArea.y / cropArea.height) * 100
+
+          return (
+            <div key={`overflow-${slot.id}`}
+              className="absolute pointer-events-none"
+              style={{
+                left: `${pctX}%`, top: `${pctY}%`,
+                width: `${pctW}%`, height: `${pctH}%`,
+                zIndex: (slot.zIndex ?? 10) - 1,
+                overflow: 'visible',
+                transform: (slot.rotation ?? 0) !== 0 ? `rotate(${slot.rotation}deg)` : undefined,
+                transformOrigin: 'top left',
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={state.previewUrl}
+                alt=""
+                style={{
+                  position: 'absolute',
+                  left: `${imgLeftPct}%`, top: `${imgTopPct}%`,
+                  width: `${imgWidthPct}%`, height: `${imgHeightPct}%`,
+                  opacity: 0.15,
+                  pointerEvents: 'none',
+                }}
+              />
+            </div>
+          )
+        })}
 
         {/* Slot buttons */}
         {sortedSlots.map((slot, i) => {
