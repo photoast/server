@@ -1270,7 +1270,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="mb-4 px-1 flex items-center gap-3">
-          <img src={event.logoUrl || '/logo-without-bg.png'} alt={event.name} className="w-10 h-10 object-contain" />
+          <img src={event.logoUrl || '/logo-without-bg.png'} alt={event.name} className="w-10 h-10 rounded-full object-cover" />
           <div>
             <h1 className="text-xl font-bold text-gray-900">{event.name}</h1>
             <p className="text-sm text-gray-400 mt-0.5">사진을 선택해 인쇄해보세요</p>

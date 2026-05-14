@@ -589,17 +589,25 @@ function AdminPageInner() {
       // QR code
       ctx.drawImage(qrImage, qrX, qrY, qrSize, qrSize)
 
-      // Logo in center of QR
+      // Logo in center of QR (circular, clipped)
       if (logoImage) {
-        const logoSize = 120
-        const logoPad = 12
-        const logoX = qrX + (qrSize - logoSize) / 2
-        const logoY2 = qrY + (qrSize - logoSize) / 2
+        const logoSize = 110
+        const logoPad = 14
+        const cx = qrX + qrSize / 2
+        const cy = qrY + qrSize / 2
+        const radius = logoSize / 2
+        // White circle background
         ctx.fillStyle = '#FFFFFF'
         ctx.beginPath()
-        ctx.arc(logoX + logoSize / 2, logoY2 + logoSize / 2, logoSize / 2 + logoPad, 0, Math.PI * 2)
+        ctx.arc(cx, cy, radius + logoPad, 0, Math.PI * 2)
         ctx.fill()
-        ctx.drawImage(logoImage, logoX, logoY2, logoSize, logoSize)
+        // Clip logo to circle
+        ctx.save()
+        ctx.beginPath()
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2)
+        ctx.clip()
+        ctx.drawImage(logoImage, cx - radius, cy - radius, logoSize, logoSize)
+        ctx.restore()
       }
 
       // ── Scan instruction
