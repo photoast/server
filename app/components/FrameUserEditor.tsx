@@ -417,38 +417,71 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
             onZoomChange={onZoomChange}
             onCropComplete={onCropComplete}
           />
-          {/* Frame overlay: show how frame layers cover this slot */}
+          {/* Minimap: show current slot position within the full frame */}
           {frameLayers.length > 0 && (
-            <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 3 }}>
-              {frameLayers
-                .sort((a, b) => a.zIndex - b.zIndex)
-                .map(layer => {
-                  const lx = layer.x ?? 0
-                  const ly = layer.y ?? 0
-                  const lw = layer.width ?? layout.canvasWidth
-                  const lh = layer.height ?? layout.canvasHeight
-                  const leftPct = ((lx - editingSlot.x) / editingSlot.width) * 100
-                  const topPct = ((ly - editingSlot.y) / editingSlot.height) * 100
-                  const widthPct = (lw / editingSlot.width) * 100
-                  const heightPct = (lh / editingSlot.height) * 100
+            <div className="absolute top-3 right-3 pointer-events-none" style={{ zIndex: 10 }}>
+              <div
+                className="relative overflow-hidden rounded-lg border border-white/30 shadow-lg bg-black/40"
+                style={{
+                  width: layout.canvasWidth >= layout.canvasHeight ? 72 : Math.round(72 * (layout.canvasWidth / layout.canvasHeight)),
+                  height: layout.canvasHeight >= layout.canvasWidth ? 72 : Math.round(72 * (layout.canvasHeight / layout.canvasWidth)),
+                }}
+              >
+                {/* Frame layers (dark + transparent, shape only) */}
+                {frameLayers
+                  .sort((a, b) => a.zIndex - b.zIndex)
+                  .map(layer => {
+                    const lx = layer.x ?? 0
+                    const ly = layer.y ?? 0
+                    const lw = layer.width ?? layout.canvasWidth
+                    const lh = layer.height ?? layout.canvasHeight
+                    return (
+                      <img
+                        key={layer.id}
+                        src={layer.imageUrl}
+                        alt=""
+                        className="absolute"
+                        style={{
+                          left: `${(lx / layout.canvasWidth) * 100}%`,
+                          top: `${(ly / layout.canvasHeight) * 100}%`,
+                          width: `${(lw / layout.canvasWidth) * 100}%`,
+                          height: `${(lh / layout.canvasHeight) * 100}%`,
+                          opacity: 0.5,
+                          filter: 'brightness(0.3)',
+                          transform: layer.rotation ? `rotate(${layer.rotation}deg)` : undefined,
+                          transformOrigin: 'top left',
+                        }}
+                      />
+                    )
+                  })}
+                {/* Current slot highlight */}
+                <div
+                  className="absolute border-2 border-white rounded-sm"
+                  style={{
+                    left: `${(editingSlot.x / layout.canvasWidth) * 100}%`,
+                    top: `${(editingSlot.y / layout.canvasHeight) * 100}%`,
+                    width: `${(editingSlot.width / layout.canvasWidth) * 100}%`,
+                    height: `${(editingSlot.height / layout.canvasHeight) * 100}%`,
+                    boxShadow: '0 0 0 1px rgba(0,0,0,0.3), inset 0 0 0 1px rgba(255,255,255,0.3)',
+                  }}
+                />
+                {/* Other slots (dimmed) */}
+                {sortedSlots.map((slot, i) => {
+                  if (i === editingSlotIndex) return null
                   return (
-                    <img
-                      key={layer.id}
-                      src={layer.imageUrl}
-                      alt=""
-                      className="absolute"
+                    <div
+                      key={slot.id}
+                      className="absolute bg-white/10 border border-white/20 rounded-sm"
                       style={{
-                        left: `${leftPct}%`,
-                        top: `${topPct}%`,
-                        width: `${widthPct}%`,
-                        height: `${heightPct}%`,
-                        opacity: (layer.opacity ?? 1) * 0.6,
-                        transform: layer.rotation ? `rotate(${layer.rotation}deg)` : undefined,
-                        transformOrigin: 'top left',
+                        left: `${(slot.x / layout.canvasWidth) * 100}%`,
+                        top: `${(slot.y / layout.canvasHeight) * 100}%`,
+                        width: `${(slot.width / layout.canvasWidth) * 100}%`,
+                        height: `${(slot.height / layout.canvasHeight) * 100}%`,
                       }}
                     />
                   )
                 })}
+              </div>
             </div>
           )}
         </div>
