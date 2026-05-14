@@ -721,7 +721,11 @@ export default function FrameLayoutPage({
 
           <UIStatusBanner type={statusType} message={statusMessage} />
 
-          <p className="text-center text-sm text-gray-500">📸 자유롭게 여러 장 뽑아도 괜찮아요! 마음껏 즐겨주세요</p>
+          {(layout?.price ?? event.price ?? 0) === 0 ? (
+            <p className="text-center text-sm text-gray-500">📸 자유롭게 여러 장 뽑아도 괜찮아요! 마음껏 즐겨주세요</p>
+          ) : (
+            <p className="text-center text-sm text-gray-500">📸 사진이 마음에 드셨다면 한 장 더 뽑아보세요!</p>
+          )}
 
           {mergedUrl && (
             <div className="flex justify-center">

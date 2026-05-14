@@ -392,6 +392,12 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
     const aspectRatio = ASPECT_MAP[editingSlot.aspectRatio]
     const displayAspect = aspectRatio ?? (editingSlot.width / editingSlot.height)
 
+    const frameLayers: FrameLayer[] = (layout.frameLayers && layout.frameLayers.length > 0)
+      ? layout.frameLayers.filter(l => l.visible)
+      : layout.frameUrl
+        ? [{ id: 'legacy', name: '프레임', imageUrl: layout.frameUrl, zIndex: 100, opacity: 1, visible: true }]
+        : []
+
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -411,7 +417,45 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
             onZoomChange={onZoomChange}
             onCropComplete={onCropComplete}
           />
+          {/* Frame overlay: show how frame layers cover this slot */}
+          {frameLayers.length > 0 && (
+            <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 3 }}>
+              {frameLayers
+                .sort((a, b) => a.zIndex - b.zIndex)
+                .map(layer => {
+                  const lx = layer.x ?? 0
+                  const ly = layer.y ?? 0
+                  const lw = layer.width ?? layout.canvasWidth
+                  const lh = layer.height ?? layout.canvasHeight
+                  const leftPct = ((lx - editingSlot.x) / editingSlot.width) * 100
+                  const topPct = ((ly - editingSlot.y) / editingSlot.height) * 100
+                  const widthPct = (lw / editingSlot.width) * 100
+                  const heightPct = (lh / editingSlot.height) * 100
+                  return (
+                    <img
+                      key={layer.id}
+                      src={layer.imageUrl}
+                      alt=""
+                      className="absolute"
+                      style={{
+                        left: `${leftPct}%`,
+                        top: `${topPct}%`,
+                        width: `${widthPct}%`,
+                        height: `${heightPct}%`,
+                        opacity: (layer.opacity ?? 1) * 0.6,
+                        transform: layer.rotation ? `rotate(${layer.rotation}deg)` : undefined,
+                        transformOrigin: 'top left',
+                      }}
+                    />
+                  )
+                })}
+            </div>
+          )}
         </div>
+
+        <p className="text-xs text-gray-400 text-center">
+          두 손가락으로 확대/축소 · 드래그로 위치 조정
+        </p>
 
         <div className="flex gap-2">
           <UIButton fullWidth variant="secondary" onClick={cancelCrop}>취소</UIButton>
