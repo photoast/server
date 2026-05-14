@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { Stage, Layer, Rect, Image as KonvaImage, Transformer, Text, Line, Circle } from 'react-konva'
+import { Stage, Layer, Rect, Image as KonvaImage, Transformer, Text, Line, Circle, Group } from 'react-konva'
 import type Konva from 'konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { PhotoSlot, FrameLayout, FrameLayer } from '@/lib/types'
@@ -1239,18 +1239,39 @@ export default function FrameEditor({ layout, onSave }: Props) {
                   const tImg = testImages.get(slot.id)
                   return (
                     <React.Fragment key={slot.id}>
-                      {/* Test image fill */}
-                      {tImg && (
-                        <KonvaImage
-                          image={tImg}
-                          x={slot.x * scale}
-                          y={slot.y * scale}
-                          width={slot.width * scale}
-                          height={slot.height * scale}
-                          rotation={slot.rotation ?? 0}
-                          listening={false}
-                        />
-                      )}
+                      {/* Test image fill — cover fit with dimmed overflow */}
+                      {tImg && (() => {
+                        const imgRatio = tImg.naturalWidth / tImg.naturalHeight
+                        const slotRatio = slot.width / slot.height
+                        let drawW: number, drawH: number
+                        if (imgRatio > slotRatio) {
+                          drawH = slot.height
+                          drawW = slot.height * imgRatio
+                        } else {
+                          drawW = slot.width
+                          drawH = slot.width / imgRatio
+                        }
+                        const offsetX = (slot.width - drawW) / 2
+                        const offsetY = (slot.height - drawH) / 2
+                        const imgX = (slot.x + offsetX) * scale
+                        const imgY = (slot.y + offsetY) * scale
+                        const imgW = drawW * scale
+                        const imgH = drawH * scale
+                        const sx = slot.x * scale
+                        const sy = slot.y * scale
+                        const sw = slot.width * scale
+                        const sh = slot.height * scale
+                        return (
+                          <>
+                            <KonvaImage image={tImg} x={imgX} y={imgY} width={imgW} height={imgH}
+                              rotation={slot.rotation ?? 0} opacity={0.2} listening={false} />
+                            <Group clipFunc={(ctx: { rect: (x: number, y: number, w: number, h: number) => void }) => { ctx.rect(sx, sy, sw, sh) }}>
+                              <KonvaImage image={tImg} x={imgX} y={imgY} width={imgW} height={imgH}
+                                rotation={slot.rotation ?? 0} listening={false} />
+                            </Group>
+                          </>
+                        )
+                      })()}
                       {/* Shimmer background for empty slots */}
                       {!tImg && !previewMode && (
                         <Rect
