@@ -47,7 +47,8 @@ interface Event {
   printerId?: string
   availableLayouts?: string[]
   price?: number
-  paymentMethods?: ('authCode' | 'card')[]
+  authCodeRequired?: boolean
+  paymentMethods?: ('card' | 'kakaopay' | 'naverpay')[]
   backgroundColors?: string[]
   logoUrl?: string
   donation?: {
@@ -203,7 +204,7 @@ function AdminPageInner() {
       } catch {}
     }
     fetchRecent()
-    if ((detailEvent?.paymentMethods ?? []).includes('authCode')) fetchAuthCodes(detailEvent._id)
+    if (detailEvent?.authCodeRequired) fetchAuthCodes(detailEvent._id)
   }, [detailEvent?._id])
 
   const checkAuth = async () => {
@@ -450,7 +451,7 @@ function AdminPageInner() {
     }
   }
 
-  const handleUpdateEvent = async (eventId: string, updates: { name?: string; slug?: string; printerId?: string; availableLayouts?: string[]; price?: number; paymentMethods?: ('authCode' | 'card')[]; backgroundColors?: string[]; donation?: Event['donation']; logoUrl?: string }) => {
+  const handleUpdateEvent = async (eventId: string, updates: { name?: string; slug?: string; printerId?: string; availableLayouts?: string[]; price?: number; paymentMethods?: ('card' | 'kakaopay' | 'naverpay')[]; backgroundColors?: string[]; donation?: Event['donation']; logoUrl?: string }) => {
     try {
       const updateRes = await fetch(`/api/events/${eventId}`, {
         method: 'PATCH',
@@ -1035,39 +1036,30 @@ function AdminPageInner() {
 
           {/* Payment Methods */}
           <UICard>
-            <UIFormField label="결제 방식">
+            <UIFormField label="결제 방식" hint="선택한 방식만 결제창에 표시됩니다">
               <div className="space-y-3">
-                <span className="text-xs text-gray-400">아무것도 선택하지 않으면 무료로 운영됩니다</span>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={(event.paymentMethods ?? []).includes('card')}
-                    onChange={e => {
-                      const methods = new Set(event.paymentMethods ?? [])
-                      e.target.checked ? methods.add('card') : methods.delete('card')
-                      handleUpdateEvent(event._id, { paymentMethods: Array.from(methods) })
-                    }}
-                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-gray-700">카드결제</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={(event.paymentMethods ?? []).includes('authCode')}
-                    onChange={e => {
-                      const methods = new Set(event.paymentMethods ?? [])
-                      e.target.checked ? methods.add('authCode') : methods.delete('authCode')
-                      handleUpdateEvent(event._id, { paymentMethods: Array.from(methods) })
-                      if (e.target.checked) fetchAuthCodes(event._id)
-                    }}
-                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-gray-700">인증코드</span>
-                </label>
-                {(event.paymentMethods ?? []).length === 0 && <UIBadge variant="success">무료</UIBadge>}
+                {([
+                  { key: 'card' as const, label: '카드결제' },
+                  { key: 'kakaopay' as const, label: '카카오페이머니' },
+                  { key: 'naverpay' as const, label: '네이버페이머니' },
+                ]).map(({ key, label }) => (
+                  <label key={key} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={(event.paymentMethods ?? []).includes(key)}
+                      onChange={e => {
+                        const methods = new Set(event.paymentMethods ?? [])
+                        e.target.checked ? methods.add(key) : methods.delete(key)
+                        handleUpdateEvent(event._id, { paymentMethods: Array.from(methods) })
+                      }}
+                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-700">{label}</span>
+                  </label>
+                ))}
+                {(event.paymentMethods ?? []).length === 0 && <UIBadge variant="success">전체 허용</UIBadge>}
 
-                {(event.paymentMethods ?? []).includes('authCode') && (
+                {event.authCodeRequired && (
                   <div className="space-y-3 pt-2 border-t">
                     <div className="flex items-center gap-2">
                       <UITextInput
@@ -2481,7 +2473,7 @@ function AdminPageInner() {
                       {(event.price ?? 0) > 0 && (
                         <UIBadge variant="warning">{event.price!.toLocaleString()}원</UIBadge>
                       )}
-                      {(event.paymentMethods ?? []).includes('authCode') && (
+                      {event.authCodeRequired && (
                         <UIBadge variant="info">인증코드</UIBadge>
                       )}
                       {(event.paymentMethods ?? []).includes('card') && (

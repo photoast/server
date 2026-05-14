@@ -140,6 +140,7 @@ export interface Event {
   puzzleEnabled?: boolean
   price?: number
   authCodeRequired?: boolean
+  paymentMethods?: ('card' | 'kakaopay' | 'naverpay')[]
   backgroundColors?: string[]
   logoUrl?: string
   donation?: {

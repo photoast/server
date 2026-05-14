@@ -28,6 +28,7 @@ interface Event {
   supportedSizes?: string[]
   price?: number
   authCodeRequired?: boolean
+  paymentMethods?: ('card' | 'kakaopay' | 'naverpay')[]
   logoUrl?: string
   donation?: {
     enabled: boolean
@@ -1009,9 +1010,12 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       localStorage.setItem('lastCustomerEmail', customerEmail)
     }
 
+    const methods = event?.paymentMethods ?? []
+    const nicepayMethod = methods.length === 1 ? methods[0] : 'cardAndEasyPay'
+
     window.AUTHNICE.requestPay({
       clientId: NICEPAY_CLIENT_ID,
-      method: 'cartAndEasyPay',
+      method: nicepayMethod,
       orderId,
       amount: paymentAmount,
       goodsName: `포토 프린트 ${printQuantity}매`,

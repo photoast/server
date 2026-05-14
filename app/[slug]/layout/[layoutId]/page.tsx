@@ -42,6 +42,7 @@ interface Event {
   price?: number
   puzzleEnabled?: boolean
   authCodeRequired?: boolean
+  paymentMethods?: ('card' | 'kakaopay' | 'naverpay')[]
   backgroundColors?: string[]
   logoUrl?: string
   donation?: {
@@ -584,9 +585,12 @@ export default function FrameLayoutPage({
     localStorage.setItem('pendingPaymentReturn', window.location.pathname)
     localStorage.setItem('pendingLayoutId', params.layoutId)
 
+    const methods = event.paymentMethods ?? []
+    const nicepayMethod = methods.length === 1 ? methods[0] : 'cardAndEasyPay'
+
     window.AUTHNICE.requestPay({
       clientId: NICEPAY_CLIENT_ID,
-      method: 'cartAndEasyPay',
+      method: nicepayMethod,
       orderId,
       amount: paymentAmount,
       goodsName: puzzleMode ? `퍼즐 프린트 ${totalPieces}조각` : `포토 프린트 ${printQuantity}매`,
