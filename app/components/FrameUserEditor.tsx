@@ -392,12 +392,6 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
     const aspectRatio = ASPECT_MAP[editingSlot.aspectRatio]
     const displayAspect = aspectRatio ?? (editingSlot.width / editingSlot.height)
 
-    const frameLayers: FrameLayer[] = (layout.frameLayers && layout.frameLayers.length > 0)
-      ? layout.frameLayers.filter(l => l.visible)
-      : layout.frameUrl
-        ? [{ id: 'legacy', name: '프레임', imageUrl: layout.frameUrl, zIndex: 100, opacity: 1, visible: true }]
-        : []
-
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -417,73 +411,6 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
             onZoomChange={onZoomChange}
             onCropComplete={onCropComplete}
           />
-          {/* Minimap: show current slot position within the full frame */}
-          {frameLayers.length > 0 && (
-            <div className="absolute top-3 right-3 pointer-events-none" style={{ zIndex: 10 }}>
-              <div
-                className="relative overflow-hidden rounded-lg border border-white/30 shadow-lg bg-black/40"
-                style={{
-                  width: layout.canvasWidth >= layout.canvasHeight ? 72 : Math.round(72 * (layout.canvasWidth / layout.canvasHeight)),
-                  height: layout.canvasHeight >= layout.canvasWidth ? 72 : Math.round(72 * (layout.canvasHeight / layout.canvasWidth)),
-                }}
-              >
-                {/* Frame layers (dark + transparent, shape only) */}
-                {frameLayers
-                  .sort((a, b) => a.zIndex - b.zIndex)
-                  .map(layer => {
-                    const lx = layer.x ?? 0
-                    const ly = layer.y ?? 0
-                    const lw = layer.width ?? layout.canvasWidth
-                    const lh = layer.height ?? layout.canvasHeight
-                    return (
-                      <img
-                        key={layer.id}
-                        src={layer.imageUrl}
-                        alt=""
-                        className="absolute"
-                        style={{
-                          left: `${(lx / layout.canvasWidth) * 100}%`,
-                          top: `${(ly / layout.canvasHeight) * 100}%`,
-                          width: `${(lw / layout.canvasWidth) * 100}%`,
-                          height: `${(lh / layout.canvasHeight) * 100}%`,
-                          opacity: 0.5,
-                          filter: 'brightness(0.3)',
-                          transform: layer.rotation ? `rotate(${layer.rotation}deg)` : undefined,
-                          transformOrigin: 'top left',
-                        }}
-                      />
-                    )
-                  })}
-                {/* Current slot highlight */}
-                <div
-                  className="absolute border-2 border-white rounded-sm"
-                  style={{
-                    left: `${(editingSlot.x / layout.canvasWidth) * 100}%`,
-                    top: `${(editingSlot.y / layout.canvasHeight) * 100}%`,
-                    width: `${(editingSlot.width / layout.canvasWidth) * 100}%`,
-                    height: `${(editingSlot.height / layout.canvasHeight) * 100}%`,
-                    boxShadow: '0 0 0 1px rgba(0,0,0,0.3), inset 0 0 0 1px rgba(255,255,255,0.3)',
-                  }}
-                />
-                {/* Other slots (dimmed) */}
-                {sortedSlots.map((slot, i) => {
-                  if (i === editingSlotIndex) return null
-                  return (
-                    <div
-                      key={slot.id}
-                      className="absolute bg-white/10 border border-white/20 rounded-sm"
-                      style={{
-                        left: `${(slot.x / layout.canvasWidth) * 100}%`,
-                        top: `${(slot.y / layout.canvasHeight) * 100}%`,
-                        width: `${(slot.width / layout.canvasWidth) * 100}%`,
-                        height: `${(slot.height / layout.canvasHeight) * 100}%`,
-                      }}
-                    />
-                  )
-                })}
-              </div>
-            </div>
-          )}
         </div>
 
         <p className="text-xs text-gray-400 text-center">

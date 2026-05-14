@@ -43,6 +43,7 @@ interface Event {
   puzzleEnabled?: boolean
   authCodeRequired?: boolean
   backgroundColors?: string[]
+  logoUrl?: string
   donation?: {
     enabled: boolean
     bank: string
@@ -841,7 +842,7 @@ export default function FrameLayoutPage({
       <div className="max-w-sm mx-auto space-y-5">
         {/* Header */}
         <div className="px-1 flex items-center gap-3">
-          <img src="/logo-without-bg.png" alt="Photo Toast" className="w-10 h-10" />
+          <img src={event.logoUrl || '/logo-without-bg.png'} alt={event.name} className="w-10 h-10 object-contain" />
           <div>
             <h1 className="text-xl font-bold text-gray-900">{event.name}</h1>
             <p className="text-sm text-gray-400 mt-0.5">{layout.name}</p>

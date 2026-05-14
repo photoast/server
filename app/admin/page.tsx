@@ -49,6 +49,7 @@ interface Event {
   price?: number
   paymentMethods?: ('authCode' | 'card')[]
   backgroundColors?: string[]
+  logoUrl?: string
   donation?: {
     enabled: boolean
     bank: string
@@ -449,7 +450,7 @@ function AdminPageInner() {
     }
   }
 
-  const handleUpdateEvent = async (eventId: string, updates: { name?: string; slug?: string; printerId?: string; availableLayouts?: string[]; price?: number; paymentMethods?: ('authCode' | 'card')[]; backgroundColors?: string[]; donation?: Event['donation'] }) => {
+  const handleUpdateEvent = async (eventId: string, updates: { name?: string; slug?: string; printerId?: string; availableLayouts?: string[]; price?: number; paymentMethods?: ('authCode' | 'card')[]; backgroundColors?: string[]; donation?: Event['donation']; logoUrl?: string }) => {
     try {
       const updateRes = await fetch(`/api/events/${eventId}`, {
         method: 'PATCH',
@@ -920,6 +921,55 @@ function AdminPageInner() {
               }
             }} className="!text-red-500 !hover:bg-red-50">삭제</UIButton>
           </div>
+
+          {/* Logo */}
+          <UICard>
+            <UIFormField label="이벤트 로고" hint="사용자 페이지 상단에 표시됩니다. 미등록 시 기본 로고 사용">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl border border-gray-200 overflow-hidden flex-shrink-0 bg-gray-50 flex items-center justify-center">
+                  {event.logoUrl ? (
+                    <img src={event.logoUrl} alt="로고" className="w-full h-full object-contain" />
+                  ) : (
+                    <img src="/logo-without-bg.png" alt="기본 로고" className="w-8 h-8 opacity-40" />
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <label className="px-3 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors">
+                    {event.logoUrl ? '변경' : '업로드'}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0]
+                        if (!file) return
+                        try {
+                          const formData = new FormData()
+                          formData.append('file', file)
+                          formData.append('type', 'logo')
+                          const res = await fetch('/api/upload', { method: 'POST', body: formData })
+                          if (!res.ok) throw new Error('업로드 실패')
+                          const { url } = await res.json()
+                          await handleUpdateEvent(event._id, { logoUrl: url })
+                        } catch (err: any) {
+                          setError(err.message || '로고 업로드 실패')
+                        }
+                        e.target.value = ''
+                      }}
+                    />
+                  </label>
+                  {event.logoUrl && (
+                    <button
+                      onClick={() => handleUpdateEvent(event._id, { logoUrl: '' })}
+                      className="px-3 py-1.5 text-xs font-semibold text-red-500 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+                    >
+                      제거
+                    </button>
+                  )}
+                </div>
+              </div>
+            </UIFormField>
+          </UICard>
 
           {/* Printer Selection */}
           <UICard>

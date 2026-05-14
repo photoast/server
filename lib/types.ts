@@ -141,6 +141,7 @@ export interface Event {
   price?: number
   authCodeRequired?: boolean
   backgroundColors?: string[]
+  logoUrl?: string
   donation?: {
     enabled: boolean
     bank: string        // e.g. "카카오뱅크"
