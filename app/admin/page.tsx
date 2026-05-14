@@ -628,7 +628,7 @@ function AdminPageInner() {
 
       // ── Steps
       y += 80
-      const steps = ['QR 스캔 후 프레임 선택', '사진을 올리고 편집', '바로 인쇄']
+      const steps = ['QR 스캔 후 프레임 선택', '사진을 올리고 편집', '결제 후 인쇄']
       const stepGap = 72
 
       steps.forEach((text, i) => {
