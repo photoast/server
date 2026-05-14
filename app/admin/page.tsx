@@ -531,57 +531,34 @@ function AdminPageInner() {
       ctx.fillStyle = '#111111'
       ctx.fillRect(0, 0, W, 6)
 
-      const isFree = (event.price ?? 0) === 0
       const hasDonation = showDonation && event.donation?.enabled && event.donation.account
 
-      // ── Logo + Event name (top area)
-      let y = 130
-      if (logoImage) {
-        const logoSize = 96
-        ctx.drawImage(logoImage, (W - logoSize) / 2, y - logoSize / 2, logoSize, logoSize)
-        y += 70
-      }
-
+      // ── Event name (top area)
+      let y = 160
       ctx.fillStyle = '#111111'
       ctx.font = `700 88px ${font}`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.fillText(event.name, W / 2, y)
 
-      // ── Subtitle (different for free vs paid)
+      // ── Subtitle
       y += 80
       ctx.fillStyle = '#666666'
       ctx.font = `500 42px ${font}`
-      if (isFree) {
-        ctx.fillText('사진을 찍고, 바로 인쇄하세요', W / 2, y)
-      } else {
-        ctx.fillText('특별한 순간을 사진으로 남기세요', W / 2, y)
-      }
+      ctx.fillText('특별한 순간을 사진으로 남기세요', W / 2, y)
 
       // ── Badge
       y += 72
       const badgeH = 64
-      if (isFree) {
-        const badgeText = '무료 포토 프린트'
-        ctx.font = `700 34px ${font}`
-        const badgeW = ctx.measureText(badgeText).width + 64
-        const badgeX = (W - badgeW) / 2
-        roundRect(badgeX, y - badgeH / 2, badgeW, badgeH, badgeH / 2)
-        ctx.fillStyle = '#111111'
-        ctx.fill()
-        ctx.fillStyle = '#FFFFFF'
-        ctx.fillText(badgeText, W / 2, y)
-      } else {
-        const badgeText = `1매 ${(event.price ?? 0).toLocaleString()}원`
-        ctx.font = `700 34px ${font}`
-        const badgeW = ctx.measureText(badgeText).width + 64
-        const badgeX = (W - badgeW) / 2
-        roundRect(badgeX, y - badgeH / 2, badgeW, badgeH, badgeH / 2)
-        ctx.fillStyle = '#111111'
-        ctx.fill()
-        ctx.fillStyle = '#FFFFFF'
-        ctx.fillText(badgeText, W / 2, y)
-      }
+      const badgeText = '즉석 포토 프린트'
+      ctx.font = `700 34px ${font}`
+      const badgeW = ctx.measureText(badgeText).width + 64
+      const badgeX = (W - badgeW) / 2
+      roundRect(badgeX, y - badgeH / 2, badgeW, badgeH, badgeH / 2)
+      ctx.fillStyle = '#111111'
+      ctx.fill()
+      ctx.fillStyle = '#FFFFFF'
+      ctx.fillText(badgeText, W / 2, y)
 
       // ── "한정판 프레임" tag
       y += 60
@@ -643,9 +620,7 @@ function AdminPageInner() {
 
       // ── Steps
       y += 80
-      const steps = isFree
-        ? ['QR 스캔 후 프레임 선택', '사진을 올리고 편집', '무료로 바로 인쇄']
-        : ['QR 스캔 후 프레임 선택', '사진을 올리고 편집', '간편결제 후 즉석 인쇄']
+      const steps = ['QR 스캔 후 프레임 선택', '사진을 올리고 편집', '바로 인쇄']
       const stepGap = 72
 
       steps.forEach((text, i) => {
