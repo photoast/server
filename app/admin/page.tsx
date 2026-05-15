@@ -141,6 +141,7 @@ function AdminPageInner() {
   const [recentPrintJobsTotal, setRecentPrintJobsTotal] = useState(0)
   const [selectedImageForPreview, setSelectedImageForPreview] = useState<string | null>(null)
   const [detailJob, setDetailJob] = useState<PrintJob | null>(null)
+  const [pageViewStats, setPageViewStats] = useState<{ total: number; today: number; daily: { date: string; count: number }[] } | null>(null)
 
   // Event editing states
   const [editingEventId, setEditingEventId] = useState<string | null>(null)
@@ -191,9 +192,9 @@ function AdminPageInner() {
     }
   }, [router])
 
-  // Fetch recent print jobs for detail event
+  // Fetch recent print jobs + page views for detail event
   useEffect(() => {
-    if (!detailEvent) { setRecentPrintJobs([]); return }
+    if (!detailEvent) { setRecentPrintJobs([]); setPageViewStats(null); return }
     const fetchRecent = async () => {
       try {
         const res = await fetch(`/api/print-jobs/${detailEvent._id}?limit=5`)
@@ -204,7 +205,14 @@ function AdminPageInner() {
         }
       } catch {}
     }
+    const fetchPageViews = async () => {
+      try {
+        const res = await fetch(`/api/page-views?slug=${detailEvent.slug}`)
+        if (res.ok) setPageViewStats(await res.json())
+      } catch {}
+    }
     fetchRecent()
+    fetchPageViews()
     if (detailEvent?.authCodeRequired) fetchAuthCodes(detailEvent._id)
   }, [detailEvent?._id])
 
@@ -928,6 +936,47 @@ function AdminPageInner() {
               }
             }} className="!text-red-500 !hover:bg-red-50">삭제</UIButton>
           </div>
+
+          {/* Page View Stats */}
+          {pageViewStats && (
+            <UICard>
+              <UIFormField label="페이지 접속 통계">
+                <div className="space-y-3">
+                  <div className="flex gap-3">
+                    <div className="flex-1 bg-blue-50 rounded-xl p-3 text-center">
+                      <div className="text-2xl font-bold text-blue-700">{pageViewStats.today}</div>
+                      <div className="text-xs text-blue-500 mt-0.5">오늘</div>
+                    </div>
+                    <div className="flex-1 bg-gray-50 rounded-xl p-3 text-center">
+                      <div className="text-2xl font-bold text-gray-700">{pageViewStats.total.toLocaleString()}</div>
+                      <div className="text-xs text-gray-500 mt-0.5">전체</div>
+                    </div>
+                  </div>
+                  {pageViewStats.daily.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-xs text-gray-400 font-medium">최근 7일</p>
+                      <div className="flex items-end gap-1 h-16">
+                        {pageViewStats.daily.map(d => {
+                          const max = Math.max(...pageViewStats.daily.map(x => x.count), 1)
+                          const pct = (d.count / max) * 100
+                          return (
+                            <div key={d.date} className="flex-1 flex flex-col items-center gap-0.5">
+                              <span className="text-[10px] text-gray-500 font-medium">{d.count}</span>
+                              <div
+                                className="w-full bg-blue-400 rounded-t"
+                                style={{ height: `${Math.max(pct, 4)}%` }}
+                              />
+                              <span className="text-[9px] text-gray-400">{d.date.slice(5)}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </UIFormField>
+            </UICard>
+          )}
 
           {/* Logo */}
           <UICard>

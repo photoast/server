@@ -242,6 +242,12 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         const data = await res.json()
         setEvent(data)
 
+        fetch('/api/page-views', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug: params.slug }),
+        }).catch(() => {})
+
         // Fetch frame layouts for this event
         if (data._id) {
           fetch(`/api/layouts?eventId=${data._id}&visibleOnly=true`)

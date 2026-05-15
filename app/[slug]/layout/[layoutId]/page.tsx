@@ -205,6 +205,13 @@ export default function FrameLayoutPage({
         setEvent(ev)
         setLayout(lay)
         if (lay.backgroundColor) setSelectedColor(lay.backgroundColor)
+
+        fetch('/api/page-views', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug: params.slug }),
+        }).catch(() => {})
+
         if (ev._id) {
           fetch(`/api/layouts?eventId=${ev._id}&visibleOnly=true`)
             .then(r => r.ok ? r.json() : [])

@@ -474,3 +474,38 @@ export async function deleteAuthCodesByEventId(eventId: string): Promise<number>
   const result = await db.collection(COLLECTIONS.authCodes).deleteMany({ eventId })
   return result.deletedCount
 }
+
+// ==================== Page Views ====================
+
+export async function recordPageView(slug: string, meta?: { userAgent?: string; referrer?: string }) {
+  const db = await getDb()
+  await db.collection(COLLECTIONS.pageViews).insertOne({
+    slug,
+    viewedAt: new Date(),
+    ...(meta?.userAgent && { userAgent: meta.userAgent }),
+    ...(meta?.referrer && { referrer: meta.referrer }),
+  })
+}
+
+export async function getPageViewStats(slug: string): Promise<{ total: number; today: number; daily: { date: string; count: number }[] }> {
+  const db = await getDb()
+  const col = db.collection(COLLECTIONS.pageViews)
+
+  const total = await col.countDocuments({ slug })
+
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
+  const today = await col.countDocuments({ slug, viewedAt: { $gte: todayStart } })
+
+  const sevenDaysAgo = new Date()
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6)
+  sevenDaysAgo.setHours(0, 0, 0, 0)
+
+  const daily = await col.aggregate<{ _id: string; count: number }>([
+    { $match: { slug, viewedAt: { $gte: sevenDaysAgo } } },
+    { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$viewedAt', timezone: 'Asia/Seoul' } }, count: { $sum: 1 } } },
+    { $sort: { _id: 1 } },
+  ]).toArray()
+
+  return { total, today, daily: daily.map(d => ({ date: d._id, count: d.count })) }
+}
