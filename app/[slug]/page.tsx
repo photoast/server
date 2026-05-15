@@ -1013,8 +1013,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       localStorage.setItem('lastCustomerEmail', customerEmail)
     }
 
-    const methods = event?.paymentMethods ?? []
-    const nicepayMethod = methods.length === 1 ? methods[0] : 'cardAndEasyPay'
+    const nicepayMethod = 'card'
 
     window.AUTHNICE.requestPay({
       clientId: NICEPAY_CLIENT_ID,

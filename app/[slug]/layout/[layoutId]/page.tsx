@@ -587,8 +587,7 @@ export default function FrameLayoutPage({
     localStorage.setItem('pendingPaymentReturn', window.location.pathname)
     localStorage.setItem('pendingLayoutId', params.layoutId)
 
-    const methods = event.paymentMethods ?? []
-    const nicepayMethod = methods.length === 1 ? methods[0] : 'cardAndEasyPay'
+    const nicepayMethod = 'card'
 
     window.AUTHNICE.requestPay({
       clientId: NICEPAY_CLIENT_ID,
