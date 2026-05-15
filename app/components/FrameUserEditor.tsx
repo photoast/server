@@ -6,6 +6,7 @@ import type { Area, Point } from 'react-easy-crop'
 import Image from 'next/image'
 import type { FrameLayout, PhotoSlot, FrameLayer } from '@/lib/types'
 import { UIButton, UIStatusBanner } from './ui'
+import { useI18n } from '../[slug]/i18n'
 
 // Aspect ratio map for react-easy-crop
 const ASPECT_MAP: Record<string, number | undefined> = {
@@ -53,6 +54,7 @@ interface Props {
 }
 
 export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '#FFFFFF', onComplete, onPhotosReady, onBack, onLayoutChange }: Props) {
+  const { t } = useI18n()
   const [slotStates, setSlotStates] = useState<SlotState[]>(
     layout.slots.map(() => initSlot())
   )
@@ -271,7 +273,7 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
       })
       setEditingSlotIndex(null)
     } catch (err) {
-      setError('이미지 처리에 실패했습니다')
+      setError(t('error.imageProcess'))
     }
   }
 
@@ -283,7 +285,7 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
   const handleComplete = async () => {
     const allFilled = slotStates.every(s => s.croppedUrl !== null)
     if (!allFilled) {
-      setError('모든 슬롯에 사진을 추가해주세요')
+      setError(t('error.allSlots'))
       return
     }
 
@@ -379,7 +381,7 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
       const mergedDataUrl = canvas.toDataURL('image/jpeg', 0.95)
       onComplete(mergedDataUrl)
     } catch (err: any) {
-      setError(err.message || '처리에 실패했습니다')
+      setError(err.message || t('error.imageProcess'))
     } finally {
       setProcessing(false)
     }
@@ -396,7 +398,7 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <p className="text-sm font-semibold text-gray-700">
-            슬롯 {editingSlotIndex + 1} 사진 편집
+            {t('crop.slot')} {editingSlotIndex + 1} {t('crop.title')}
           </p>
           <span className="text-xs text-gray-400">{editingSlot.aspectRatio}</span>
         </div>
@@ -414,12 +416,12 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
         </div>
 
         <p className="text-xs text-gray-400 text-center">
-          두 손가락으로 확대/축소 · 드래그로 위치 조정
+          {t('crop.hint')}
         </p>
 
         <div className="flex gap-2">
-          <UIButton fullWidth variant="secondary" onClick={cancelCrop}>취소</UIButton>
-          <UIButton fullWidth onClick={confirmCrop}>확인</UIButton>
+          <UIButton fullWidth variant="secondary" onClick={cancelCrop}>{t('crop.cancel')}</UIButton>
+          <UIButton fullWidth onClick={confirmCrop}>{t('crop.confirm')}</UIButton>
         </div>
       </div>
     )
@@ -437,26 +439,26 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
                 onClick={onLayoutChange}
                 className="text-xs text-blue-500 font-semibold hover:text-blue-600 transition-colors"
               >
-                변경
+                {t('layout.change')}
               </button>
             )}
           </div>
-          <p className="text-xs text-gray-400 mt-0.5">{layout.printSize} · 슬롯 {layout.slots.length}개</p>
+          <p className="text-xs text-gray-400 mt-0.5">{layout.printSize} · {layout.slots.length} {t('layout.slots')}</p>
         </div>
         <div className="text-right">
           <div className="text-xl font-bold text-gray-900 tabular-nums">{filledCount}/{layout.slots.length}</div>
-          <div className="text-xs text-gray-400">사진 완료</div>
+          <div className="text-xs text-gray-400">{t('photo.done')}</div>
         </div>
       </div>
 
       {swapSourceIndex !== null ? (
         <div className="flex items-center justify-between bg-blue-50 rounded-xl px-4 py-3">
-          <span className="text-sm font-semibold text-blue-700">이동할 위치를 선택하세요</span>
-          <button onClick={() => setSwapSourceIndex(null)} className="text-xs font-semibold text-blue-500 hover:text-blue-600">취소</button>
+          <span className="text-sm font-semibold text-blue-700">{t('crop.swapHint')}</span>
+          <button onClick={() => setSwapSourceIndex(null)} className="text-xs font-semibold text-blue-500 hover:text-blue-600">{t('crop.cancel')}</button>
         </div>
       ) : filledCount === layout.slots.length
-        ? <UIStatusBanner type="success" message="모든 슬롯이 준비됐어요. 완료 버튼을 눌러 합성하세요." />
-        : <UIStatusBanner type="info" message="슬롯을 탭해서 사진을 추가해주세요." />
+        ? <UIStatusBanner type="success" message={t('photo.allReady')} />
+        : <UIStatusBanner type="info" message={t('photo.tapSlot')} />
       }
 
       {error && <UIStatusBanner type="error" message={error} />}
@@ -573,17 +575,17 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
             >
               {state.croppedUrl ? (
                 <>
-                  <img src={state.croppedUrl} alt={`슬롯 ${i + 1}`} className="w-full h-full object-cover" />
+                  <img src={state.croppedUrl} alt={`${t('crop.slot')} ${i + 1}`} className="w-full h-full object-cover" />
                   {/* Hover overlay with edit hint */}
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
                     <span className="text-white text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 px-2 py-1 rounded-lg">
-                      {swapSourceIndex !== null ? '여기로 이동' : '편집'}
+                      {swapSourceIndex !== null ? t('crop.swapHere') : t('crop.edit2')}
                     </span>
                   </div>
                 </>
               ) : swapSourceIndex !== null && swapSourceIndex !== i ? (
                 <div className="relative flex flex-col items-center justify-center w-full h-full gap-1 bg-blue-50/60">
-                  <span className="text-xs font-semibold text-blue-400">여기로 이동</span>
+                  <span className="text-xs font-semibold text-blue-400">{t('crop.swapHere')}</span>
                 </div>
               ) : (
                 <div className="relative flex flex-col items-center justify-center w-full h-full gap-1">
@@ -611,7 +613,7 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
             onClick={e => e.stopPropagation()}
           >
             <p className="text-sm font-bold text-gray-900 text-center mb-3">
-              슬롯 {actionMenuSlot + 1}
+              {t('crop.slot')} {actionMenuSlot + 1}
             </p>
             <button
               onClick={() => editSlotCrop(actionMenuSlot)}
@@ -620,7 +622,7 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14" />
               </svg>
-              크롭 편집
+              {t('crop.edit')}
             </button>
             <button
               onClick={() => handleSwapStart(actionMenuSlot)}
@@ -629,7 +631,7 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
               </svg>
-              위치 변경
+              {t('crop.swap')}
             </button>
             <button
               onClick={() => changeSlotImage(actionMenuSlot)}
@@ -638,7 +640,7 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
               </svg>
-              다른 사진으로 변경
+              {t('crop.change')}
             </button>
             <button
               onClick={() => clearSlot(actionMenuSlot)}
@@ -647,13 +649,13 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
-              삭제
+              {t('crop.delete')}
             </button>
             <button
               onClick={() => setActionMenuSlot(null)}
               className="w-full py-3 text-sm font-semibold text-gray-400 rounded-xl hover:bg-gray-50 transition-colors mt-1"
             >
-              취소
+              {t('crop.cancel')}
             </button>
           </div>
         </div>
@@ -667,7 +669,7 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
             onClick={e => e.stopPropagation()}
           >
             <p className="text-sm font-bold text-gray-900 text-center">
-              슬롯 {photoPickerSlot + 1} — 사진 선택
+              {t('crop.slot')} {photoPickerSlot + 1} — {t('picker.title')}
             </p>
 
             {/* Gallery grid */}
@@ -699,20 +701,20 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              새 사진 추가
+              {t('picker.new')}
             </button>
 
             <button
               onClick={() => setPhotoPickerSlot(null)}
               className="w-full py-3 text-sm font-semibold text-gray-400 rounded-xl hover:bg-gray-50 transition-colors"
             >
-              취소
+              {t('crop.cancel')}
             </button>
           </div>
         </div>
       )}
 
-      {processing && <UIStatusBanner type="processing" message="이미지 합성 중..." />}
+      {processing && <UIStatusBanner type="processing" message={t('photo.merging')} />}
 
       <div className="space-y-2">
         <UIButton
@@ -724,10 +726,10 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
-          완성하기
+          {t('btn.complete')}
         </UIButton>
         <UIButton fullWidth variant="secondary" onClick={onBack} disabled={processing}>
-          이전으로
+          {t('btn.prevStep')}
         </UIButton>
       </div>
 

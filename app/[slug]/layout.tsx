@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { findEventBySlug } from '@/lib/models'
+import { I18nProvider } from './i18n'
 
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   const event = await findEventBySlug(params.slug)
@@ -31,5 +32,5 @@ export async function generateMetadata({ params }: { params: { slug: string } })
 }
 
 export default function SlugLayout({ children }: { children: React.ReactNode }) {
-  return children
+  return <I18nProvider>{children}</I18nProvider>
 }

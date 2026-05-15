@@ -18,6 +18,7 @@ import {
 import { LAYOUT_OPTIONS, getPhotoCount, getCropAspectRatioForSlot } from './layoutConfig'
 import type { FrameType } from '@/lib/types'
 import { logClientError, logClientInfo } from '@/lib/errorLogger'
+import { useI18n, LanguageToggle } from './i18n'
 
 interface Event {
   _id: string
@@ -96,24 +97,26 @@ declare global {
 }
 
 const BACKGROUND_COLORS = [
-  { name: '블랙', value: '#000000' },
-  { name: '화이트', value: '#FFFFFF' },
-  { name: '핑크', value: '#FFB6C1' },
-  { name: '블루', value: '#87CEEB' },
-  { name: '그린', value: '#90EE90' },
-  { name: '퍼플', value: '#DDA0DD' }
-]
-
-const STEP_BAR_STEPS = [
-  { id: 'select-layout', label: '레이아웃' },
-  { id: 'select-color', label: '색상' },
-  { id: 'fill-photos', label: '사진' },
-  { id: 'payment', label: '완료' },
+  { nameKey: 'color.black' as const, value: '#000000' },
+  { nameKey: 'color.white' as const, value: '#FFFFFF' },
+  { nameKey: 'color.pink' as const, value: '#FFB6C1' },
+  { nameKey: 'color.blue' as const, value: '#87CEEB' },
+  { nameKey: 'color.green' as const, value: '#90EE90' },
+  { nameKey: 'color.purple' as const, value: '#DDA0DD' }
 ]
 
 export default function GuestPage({ params }: { params: { slug: string } }) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { t } = useI18n()
+
+  const stepBarSteps = [
+    { id: 'select-layout', label: t('step.layout') },
+    { id: 'select-color', label: t('step.color') },
+    { id: 'fill-photos', label: t('step.photo') },
+    { id: 'payment', label: t('step.done') },
+  ]
+
   const [customerEmail, setCustomerEmail] = useState('')
   const [emailSuggestions, setEmailSuggestions] = useState<string[]>([])
   const [showEmailSuggestions, setShowEmailSuggestions] = useState(false)
@@ -492,7 +495,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       const validPhotos = photoSlots.filter(slot => slot.croppedImageUrl !== null)
 
       if (validPhotos.length !== expectedPhotoCount) {
-        throw new Error('모든 사진을 선택하고 편집해주세요')
+        throw new Error(t('error.allPhotos'))
       }
 
       // 클라이언트에서 Canvas로 렌더링
@@ -519,7 +522,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       logClientInfo('[Mobile] Fetch response received', params.slug, { status: res.status, ok: res.ok })
 
       if (!res.ok) {
-        let errorMsg = `미리보기 생성 실패: ${res.status}`
+        let errorMsg = `${t('error.process')}: ${res.status}`
         let errorDetails = null
         try {
           const data = await res.json()
@@ -551,19 +554,19 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       logClientInfo('[Mobile] Preview URL received', params.slug, { url: data.url })
 
       if (!data.url) {
-        throw new Error('미리보기 URL을 받지 못했습니다')
+        throw new Error(t('error.process'))
       }
 
       // Validate URL format
       if (typeof data.url !== 'string' || data.url.length === 0) {
-        throw new Error('잘못된 미리보기 URL 형식')
+        throw new Error(t('error.process'))
       }
 
       setPreviewUrl(data.url)
       console.log('Preview URL set successfully')
       logClientInfo('[Mobile] Preview URL set successfully', params.slug, { frameType })
     } catch (err: any) {
-      const errorMessage = err.message || '미리보기 생성에 실패했습니다'
+      const errorMessage = err.message || t('error.process')
       console.error('[handleProcess] ERROR:', err)
       console.error('[handleProcess] Error details:', {
         message: err.message,
@@ -686,7 +689,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         logClientError('Failed to convert HEIC to JPEG', error as Error, undefined, {
           fileName: file.name
         })
-        throw new Error('HEIC 변환에 실패했습니다')
+        throw new Error(t('error.imageProcess'))
       }
     }
 
@@ -890,7 +893,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       }
     } catch (err: any) {
       if (err?.name !== 'AbortError') {
-        setError('다운로드에 실패했습니다')
+        setError(t('error.download'))
         logClientError('Failed to download image', err, params.slug, { previewUrl, frameType })
       }
     }
@@ -940,7 +943,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     if (!event?.authCodeRequired) return true
     if (authCodeVerified) return true
     if (!authCode.trim()) {
-      setAuthCodeError('인증코드를 입력해주세요')
+      setAuthCodeError(t('auth.required'))
       return false
     }
     try {
@@ -955,10 +958,10 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         setAuthCodeError('')
         return true
       }
-      setAuthCodeError(data.error || '유효하지 않은 인증코드입니다')
+      setAuthCodeError(data.error || t('auth.invalid'))
       return false
     } catch {
-      setAuthCodeError('인증코드 확인 중 오류가 발생했습니다')
+      setAuthCodeError(t('auth.error'))
       return false
     }
   }
@@ -988,11 +991,11 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   // 나이스페이 결제 실행
   const handlePayment = () => {
     if (!customerEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) {
-      setError('올바른 이메일을 입력해주세요')
+      setError(t('pay.emailError'))
       return
     }
     if (!window.AUTHNICE) {
-      setError('결제 모듈을 불러오는 중입니다. 잠시 후 다시 시도해주세요.')
+      setError(t('pay.moduleLoading'))
       return
     }
 
@@ -1022,7 +1025,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       returnUrl: `${window.location.origin}/api/payment/nicepay-return`,
       mallReserved: window.location.pathname,
       fnError: (result) => {
-        setError(result.errorMsg || '결제 중 오류가 발생했습니다')
+        setError(result.errorMsg || t('error.payment'))
         setPaymentProcessing(false)
       },
     })
@@ -1060,12 +1063,12 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
           if (!paymentRes.ok) {
             const data = await paymentRes.json()
-            throw new Error(data.error || '결제 승인에 실패했습니다')
+            throw new Error(data.error || t('error.paymentConfirm'))
           }
 
           const savedPreviewUrl = localStorage.getItem('pendingPrintUrl')
           if (!savedPreviewUrl) {
-            throw new Error('프린트할 이미지를 찾을 수 없습니다')
+            throw new Error(t('error.print'))
           }
 
           const savedAuthCode = localStorage.getItem('pendingAuthCode')
@@ -1084,7 +1087,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
           if (!printRes.ok) {
             const data = await printRes.json()
-            throw new Error(data.error || '프린트에 실패했습니다')
+            throw new Error(data.error || t('error.print'))
           }
           const printData = await printRes.json()
           if (printData.jobIds) setPrintJobIds(printData.jobIds)
@@ -1098,7 +1101,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
         } catch (err: any) {
           console.error('Payment confirmation error:', err)
-          setError(err.message || '결제 처리 중 오류가 발생했습니다')
+          setError(err.message || t('error.paymentConfirm'))
           logClientError('Payment confirmation failed', err, params.slug)
           updateStep('payment-failed')
           window.history.replaceState({}, '', window.location.pathname)
@@ -1110,7 +1113,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       confirmPayment()
     } else if (paymentStatus === 'fail') {
       const errorMsg = urlParams.get('errorMsg')
-      setError(errorMsg || '결제가 실패했습니다. 다시 시도해주세요.')
+      setError(errorMsg || t('error.payment'))
       updateStep('payment-failed')
       window.history.replaceState({}, '', window.location.pathname)
     }
@@ -1243,8 +1246,8 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   if (paymentConfirming) {
     return (
       <UICardSpinner
-        label="결제 처리 중..."
-        sublabel="잠시만 기다려주세요"
+        label={t('misc.payProcessing')}
+        sublabel={t('misc.payWait')}
       />
     )
   }
@@ -1257,7 +1260,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     return (
       <div className="min-h-dvh flex items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50">
         <div className="text-center">
-          <p className="text-red-600 text-xl mb-4">이벤트를 찾을 수 없습니다</p>
+          <p className="text-red-600 text-xl mb-4">{t('error.event')}</p>
           <p className="text-gray-600">{error}</p>
         </div>
       </div>
@@ -1275,17 +1278,18 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         {/* Header */}
         <div className="mb-4 px-1 flex items-center gap-3">
           <img src={event.logoUrl || '/logo-without-bg.png'} alt={event.name} className="w-10 h-10 rounded-full object-cover" />
-          <div>
+          <div className="flex-1">
             <h1 className="text-xl font-bold text-gray-900">{event.name}</h1>
-            <p className="text-sm text-gray-400 mt-0.5">사진을 선택해 인쇄해보세요</p>
+            <p className="text-sm text-gray-400 mt-0.5">{t('header.subtitle')}</p>
           </div>
+          <LanguageToggle />
         </div>
 
         {/* Step Bar */}
         {step !== 'success' && (
           <div className="bg-white rounded-2xl border border-gray-100 px-5 py-4 mb-4">
             <UIStepBar
-              steps={STEP_BAR_STEPS.filter(s => {
+              steps={stepBarSteps.filter(s => {
                 if (s.id === 'select-color' && frameType === 'single') return false
                 return true
               })}
@@ -1299,7 +1303,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
           {/* Step 1: Select Layout */}
           {step === 'select-layout' && (
             <div className="space-y-6">
-              <UISectionHeading title="레이아웃 선택" subtitle="원하는 스타일을 골라보세요" />
+              <UISectionHeading title={t('layout.title')} subtitle={t('layout.subtitle')} />
 
               {/* FrameLayout 기반 레이아웃 그리드 (통합) */}
               <div className="grid grid-cols-2 gap-3">
@@ -1361,9 +1365,9 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                         </div>
                         <div className="text-center">
                           <div className="font-semibold text-sm text-gray-700">{sl.name}</div>
-                          <div className="text-xs text-gray-400 mt-0.5">{sl.printSize} · {sl.slots.length}칸</div>
+                          <div className="text-xs text-gray-400 mt-0.5">{sl.printSize} · {sl.slots.length} {t('layout.slots')}</div>
                           {(sl.price ?? event?.price ?? 0) > 0 && (
-                            <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded mt-1 inline-block">{(sl.price ?? event?.price ?? 0).toLocaleString()}원</span>
+                            <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded mt-1 inline-block">{(sl.price ?? event?.price ?? 0).toLocaleString()}{t('misc.won')}</span>
                           )}
                         </div>
                       </div>
@@ -1373,7 +1377,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
               </div>
               {frameLayouts.length > 1 && (
-                <p className="text-xs text-gray-400 text-center mt-2">사진 선택 후에도 레이아웃을 변경할 수 있어요</p>
+                <p className="text-xs text-gray-400 text-center mt-2">{t('layout.changeHint')}</p>
               )}
             </div>
           )}
@@ -1381,7 +1385,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
           {/* Step 2: Select Color (skip for single photo) */}
           {step === 'select-color' && (
             <div className="space-y-5">
-              <UISectionHeading title="배경 색상" subtitle="배경색을 선택해주세요" />
+              <UISectionHeading title={t('color.title')} subtitle={t('color.subtitle')} />
 
               <div className="grid grid-cols-3 gap-2">
                 {BACKGROUND_COLORS.map((color) => (
@@ -1396,7 +1400,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                       style={{ backgroundColor: color.value }}
                     />
                     <div className={`text-xs font-semibold ${backgroundColor === color.value ? 'text-blue-600' : 'text-gray-600'}`}>
-                      {color.name}
+                      {t(color.nameKey)}
                     </div>
                   </UISelectItem>
                 ))}
@@ -1404,10 +1408,10 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
               <div className="flex gap-2">
                 <UIButton variant="secondary" size="md" className="flex-1" onClick={() => updateStep('select-layout')}>
-                  이전
+                  {t('btn.prev')}
                 </UIButton>
                 <UIButton size="md" className="flex-1" onClick={() => updateStep('fill-photos')}>
-                  다음으로
+                  {t('btn.next')}
                 </UIButton>
               </div>
             </div>
@@ -1430,24 +1434,24 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                   <div className="text-xl font-bold text-gray-900 tabular-nums">
                     {photoSlots.filter(s => s.file).length}/{photoSlots.length}
                   </div>
-                  <div className="text-xs text-gray-400">사진 완료</div>
+                  <div className="text-xs text-gray-400">{t('photo.done')}</div>
                 </div>
               </div>
 
               {/* Status Banner */}
               {allSlotsFilled ? (
-                <UIStatusBanner type="success" message="준비됐어요. 아래 버튼으로 프린트할 수 있어요." />
+                <UIStatusBanner type="success" message={t('photo.ready')} />
               ) : (
-                <UIStatusBanner type="info" message="사진 영역을 탭해서 추가해주세요." />
+                <UIStatusBanner type="info" message={t('photo.tapToAdd')} />
               )}
 
               {/* Layout Preview */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-gray-700">미리보기</h3>
+                  <h3 className="text-sm font-semibold text-gray-700">{t('photo.preview')}</h3>
                   {allSlotsFilled && (
                     <span className="text-xs bg-green-50 text-green-600 px-2.5 py-1 rounded-full font-medium">
-                      준비 완료
+                      {t('photo.readyBadge')}
                     </span>
                   )}
                 </div>
@@ -1456,18 +1460,18 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                 </div>
                 <div className="bg-gray-50 rounded-xl p-3">
                   <p className="text-center text-sm text-gray-500">
-                    사진을 탭해 추가하거나 변경할 수 있어요
+                    {t('photo.tapHint')}
                   </p>
                   {frameType === 'four-cut' && (
                     <p className="text-center text-xs text-gray-400 mt-1">
-                      중앙을 세로로 자르면 동일한 스트립 2개가 나와요
+                      {t('photo.fourCutHint')}
                     </p>
                   )}
                 </div>
               </div>
 
               {/* Processing indicator */}
-              {processing && <UIStatusBanner type="processing" message="미리보기 생성 중..." />}
+              {processing && <UIStatusBanner type="processing" message={t('photo.processing')} />}
 
               {error && <UIStatusBanner type="error" message={error} />}
 
@@ -1481,21 +1485,21 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                     max={10}
                     onChange={setPrintQuantity}
                     disabled={printing}
-                    label="인쇄 매수"
-                    hint="최대 10매까지 선택 가능합니다"
+                    label={t('photo.printCount')}
+                    hint={t('photo.maxHint')}
                   />
                 )}
 
                 {/* Auth Code Input */}
                 {allSlotsFilled && previewUrl && !processing && event?.authCodeRequired && !authCodeVerified && (
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">인증코드</label>
+                    <label className="text-sm font-medium text-gray-700">{t('auth.label')}</label>
                     <div className="flex gap-2">
                       <input
                         type="text"
                         value={authCode}
                         onChange={e => { setAuthCode(e.target.value.toUpperCase()); setAuthCodeError('') }}
-                        placeholder="인증코드 6자리 입력"
+                        placeholder={t('auth.placeholder')}
                         maxLength={6}
                         className="flex-1 px-3 py-2 border rounded-lg text-center font-mono text-lg tracking-widest uppercase focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
@@ -1506,7 +1510,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                 {allSlotsFilled && previewUrl && !processing && event?.authCodeRequired && authCodeVerified && (
                   <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 px-3 py-2 rounded-lg">
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-                    인증코드 확인됨
+                    {t('auth.verified')}
                   </div>
                 )}
 
@@ -1516,7 +1520,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                     </svg>
-                    {(event?.price ?? 0) === 0 ? `무료 프린트 ${printQuantity}매` : `${(event?.price ?? 0) * printQuantity}원 결제하기`}
+                    {(event?.price ?? 0) === 0 ? `${t('btn.freePrint')} ${printQuantity}${t('misc.copies')}` : `${((event?.price ?? 0) * printQuantity).toLocaleString()}${t('misc.won')} ${t('btn.pay')}`}
                   </UIButton>
                 )}
 
@@ -1530,7 +1534,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                   }}
                   disabled={printing}
                 >
-                  이전으로
+                  {t('btn.prevStep')}
                 </UIButton>
               </div>
 
@@ -1549,13 +1553,13 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
           {step === 'payment' && (
             <div className="space-y-6">
               <UISectionHeading
-                title="결제"
-                subtitle={`${printQuantity}매 프린트 비용을 결제해주세요`}
+                title={t('pay.title')}
+                subtitle={`${printQuantity}${t('misc.copies')} ${t('pay.subtitleCount')}`}
               />
 
               {/* 이메일 입력 */}
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">이메일 (결제 확인용)</label>
+                <label className="text-sm font-medium text-gray-700">{t('pay.emailLabel')}</label>
                 <div className="relative">
                   <input
                     type="email"
@@ -1592,7 +1596,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                   <div className="relative w-32 h-48 rounded-lg overflow-hidden shadow-lg">
                     <Image
                       src={previewUrl}
-                      alt="프린트 미리보기"
+                      alt={t('misc.printPreview')}
                       fill
                       className="object-cover"
                     />
@@ -1604,17 +1608,17 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
               <div className="bg-gray-50 rounded-xl p-4">
                 <div className="space-y-2">
                   <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-500">단가</span>
-                    <span className="text-gray-700">{event?.price?.toLocaleString()}원</span>
+                    <span className="text-gray-500">{t('pay.unitPrice')}</span>
+                    <span className="text-gray-700">{event?.price?.toLocaleString()}{t('misc.won')}</span>
                   </div>
                   <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-500">수량</span>
-                    <span className="text-gray-700">{printQuantity}매</span>
+                    <span className="text-gray-500">{t('pay.quantity')}</span>
+                    <span className="text-gray-700">{printQuantity}{t('misc.copies')}</span>
                   </div>
                   <div className="border-t border-gray-200 pt-2 mt-2 flex justify-between items-center">
-                    <span className="text-sm font-semibold text-gray-700">총 결제 금액</span>
+                    <span className="text-sm font-semibold text-gray-700">{t('pay.total')}</span>
                     <span className="text-xl font-bold text-gray-900">
-                      {((event?.price ?? 0) * printQuantity).toLocaleString()}원
+                      {((event?.price ?? 0) * printQuantity).toLocaleString()}{t('misc.won')}
                     </span>
                   </div>
                 </div>
@@ -1633,7 +1637,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                   </svg>
-                  카드/간편결제 {((event?.price ?? 0) * printQuantity).toLocaleString()}원
+                  {t('pay.card')} {((event?.price ?? 0) * printQuantity).toLocaleString()}{t('misc.won')}
                 </UIButton>
 
                 <UIButton
@@ -1643,7 +1647,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                   onClick={() => updateStep('fill-photos')}
                   disabled={paymentProcessing || printing}
                 >
-                  이전으로
+                  {t('btn.prevStep')}
                 </UIButton>
               </div>
             </div>
@@ -1652,13 +1656,13 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
           {/* Step: Payment Failed */}
           {step === 'payment-failed' && (
             <div className="space-y-4">
-              <UISectionHeading title="결제 실패" subtitle="결제 처리 중 문제가 발생했습니다" />
-              <UIStatusBanner type="error" message={error || '결제에 실패했습니다'} />
+              <UISectionHeading title={t('pay.failed.title')} subtitle={t('pay.failed.subtitle')} />
+              <UIStatusBanner type="error" message={error || t('error.payment')} />
               <UIButton fullWidth onClick={() => updateStep('payment')}>
-                다시 결제하기
+                {t('pay.failed.retry')}
               </UIButton>
               <UIButton fullWidth variant="secondary" onClick={() => updateStep('fill-photos')}>
-                처음으로
+                {t('pay.failed.back')}
               </UIButton>
             </div>
           )}
@@ -1673,37 +1677,37 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
             const maxQueue = Math.max(...printJobStatuses.filter(j => j.status === 'PENDING').map(j => j.queuePosition || 0), 0)
 
             let statusType: 'processing' | 'success' | 'error' = 'processing'
-            let statusMessage = hasPrinting ? '인쇄 중...' : maxQueue > 1 ? `인쇄 대기 중 · 대기 ${maxQueue}번째` : '인쇄 대기 중 · 곧 인쇄가 시작됩니다'
+            let statusMessage = hasPrinting ? t('success.printing') : maxQueue > 1 ? `${t('success.pendingQueue')} ${maxQueue}${t('success.queueSuffix')}` : t('success.pending')
 
             if (allDone) {
               statusType = 'success'
-              statusMessage = '인쇄가 완료되었습니다'
+              statusMessage = t('success.done')
             } else if (allFailed) {
               statusType = 'error'
-              statusMessage = '인쇄에 실패했습니다. 관리자에게 문의해 주세요.'
+              statusMessage = t('success.allFailed')
             } else if (!hasPending && printJobStatuses.length === 0) {
               statusType = 'success'
-              statusMessage = '프린트 전송 완료 · 잠시 후 출력됩니다'
+              statusMessage = t('success.sent')
             } else if (hasFailed && !allFailed) {
               statusType = 'error'
-              statusMessage = '일부 인쇄가 실패했습니다. 관리자에게 문의해 주세요.'
+              statusMessage = t('success.someFailed')
             }
 
             return (
               <div className="space-y-6">
-                <UISectionHeading title="완료" subtitle="사진이 준비되었습니다" />
+                <UISectionHeading title={t('success.title')} subtitle={t('success.subtitle')} />
 
                 <UIStatusBanner type={statusType} message={statusMessage} />
 
                 {(event?.price ?? 0) === 0 ? (
-                  <p className="text-center text-sm text-gray-500">📸 자유롭게 여러 장 뽑아도 괜찮아요! 마음껏 즐겨주세요</p>
+                  <p className="text-center text-sm text-gray-500">{t('success.freeMsg')}</p>
                 ) : (
-                  <p className="text-center text-sm text-gray-500">📸 사진이 마음에 드셨다면 한 장 더 뽑아보세요!</p>
+                  <p className="text-center text-sm text-gray-500">{t('success.paidMsg')}</p>
                 )}
 
                 {previewUrl && (
                   <div className="flex justify-center">
-                    <img src={previewUrl} alt="인쇄 사진" className="rounded-lg shadow-lg object-contain" style={{ maxHeight: '40vh', maxWidth: '100%' }} />
+                    <img src={previewUrl} alt={t('misc.printPhoto')} className="rounded-lg shadow-lg object-contain" style={{ maxHeight: '40vh', maxWidth: '100%' }} />
                   </div>
                 )}
 
@@ -1711,9 +1715,9 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                 {event?.donation?.enabled && (
                   <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-2xl p-5 border border-yellow-200/80 text-center space-y-3">
                     <p className="text-base font-bold text-gray-900">
-                      🎉 {event.donation.message || '즐거우셨다면 자유롭게 응원해주세요!'} 💕
+                      🎉 {event.donation.message || t('donate.defaultMsg')} 💕
                     </p>
-                    <p className="text-xs text-gray-400">부담 없이, 마음만으로도 충분해요 ☺️</p>
+                    <p className="text-xs text-gray-400">{t('donate.hint')} ☺️</p>
                     {event.donation.link && (
                       <a
                         href={event.donation.link}
@@ -1721,7 +1725,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-yellow-400 text-yellow-900 hover:bg-yellow-500 active:scale-95 transition-all font-bold text-[15px] shadow-md"
                       >
-                        ☕ 후원하기
+                        ☕ {t('donate.btn')}
                       </a>
                     )}
                     {event.donation.account && (
@@ -1734,12 +1738,12 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                           onClick={() => {
                             navigator.clipboard.writeText(event.donation!.account.replace(/-/g, ''))
                             const btn = document.getElementById('copy-account-btn')
-                            if (btn) { btn.textContent = '복사됨'; setTimeout(() => { btn.textContent = '복사' }, 1500) }
+                            if (btn) { btn.textContent = t('donate.copied'); setTimeout(() => { btn.textContent = t('donate.copy') }, 1500) }
                           }}
                           id="copy-account-btn"
                           className="text-xs px-3 py-1.5 rounded-lg bg-yellow-400 text-yellow-900 hover:bg-yellow-500 transition-colors font-semibold shrink-0"
                         >
-                          복사
+                          {t('donate.copy')}
                         </button>
                       </div>
                     )}
@@ -1752,12 +1756,12 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                       </svg>
-                      사진 저장
+                      {t('btn.download')}
                     </UIButton>
                   )}
                   {hasPending && !hasPrinting && printJobIds.length > 0 && (
                     <UIButton fullWidth variant="danger" onClick={async () => {
-                      if (!confirm('인쇄를 취소하시겠습니까? 환불 처리됩니다.')) return
+                      if (!confirm(t('success.confirmCancel'))) return
                       try {
                         const results = await Promise.all(
                           printJobIds.map(id =>
@@ -1768,20 +1772,20 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                         if (failed.length > 0) {
                           alert(failed[0].error)
                         } else {
-                          alert('취소 및 환불이 완료되었습니다.')
+                          alert(t('success.cancelled'))
                           handleReset()
                         }
                       } catch {
-                        alert('취소 처리 중 오류가 발생했습니다')
+                        alert(t('success.cancelError'))
                       }
                     }}>
-                      인쇄 취소
+                      {t('btn.cancelPrint')}
                     </UIButton>
                   )}
                   {hasPrinting && (
-                    <p className="text-center text-xs text-gray-400">현재 인쇄 중이므로 취소할 수 없습니다</p>
+                    <p className="text-center text-xs text-gray-400">{t('success.cantCancel')}</p>
                   )}
-                  <UIButton fullWidth variant="secondary" onClick={handleReset}>새로운 사진 만들기</UIButton>
+                  <UIButton fullWidth variant="secondary" onClick={handleReset}>{t('btn.newPhoto')}</UIButton>
                 </div>
               </div>
             )
@@ -1794,9 +1798,9 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
           onClose={() => { setShowActionModal(false); setCurrentEditingSlot(null) }}
           title={currentEditingSlot !== null ? `사진 ${currentEditingSlot + 1}` : undefined}
         >
-          <UIButton fullWidth onClick={handleEditPhoto}>사진 편집</UIButton>
-          <UIButton fullWidth variant="secondary" onClick={handleReplacePhoto}>다른 사진으로 변경</UIButton>
-          <UIButton fullWidth variant="danger" onClick={handleDeletePhoto}>사진 삭제</UIButton>
+          <UIButton fullWidth onClick={handleEditPhoto}>{t('crop.edit')}</UIButton>
+          <UIButton fullWidth variant="secondary" onClick={handleReplacePhoto}>{t('crop.change')}</UIButton>
+          <UIButton fullWidth variant="danger" onClick={handleDeletePhoto}>{t('crop.delete')}</UIButton>
         </UIBottomSheet>
 
         {/* Crop Editor Modal */}

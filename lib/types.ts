@@ -143,6 +143,7 @@ export interface Event {
   paymentMethods?: ('card' | 'kakaopay' | 'naverpay')[]
   backgroundColors?: string[]
   logoUrl?: string
+  contactPhone?: string
   donation?: {
     enabled: boolean
     bank: string        // e.g. "카카오뱅크"

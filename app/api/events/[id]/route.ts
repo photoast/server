@@ -39,7 +39,7 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const { name, slug, printerId, availableLayouts, price, paymentMethods, backgroundColors, donation, logoUrl } = body
+    const { name, slug, printerId, availableLayouts, price, paymentMethods, backgroundColors, donation, logoUrl, contactPhone } = body
 
     const updates: any = {}
     if (name) updates.name = name
@@ -61,6 +61,7 @@ export async function PATCH(
     if (backgroundColors !== undefined) updates.backgroundColors = backgroundColors
     if (donation !== undefined) updates.donation = donation
     if (logoUrl !== undefined) updates.logoUrl = logoUrl
+    if (contactPhone !== undefined) updates.contactPhone = contactPhone
 
     const success = await updateEvent(params.id, updates)
 

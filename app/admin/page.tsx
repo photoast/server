@@ -51,6 +51,7 @@ interface Event {
   paymentMethods?: ('card' | 'kakaopay' | 'naverpay')[]
   backgroundColors?: string[]
   logoUrl?: string
+  contactPhone?: string
   donation?: {
     enabled: boolean
     bank: string
@@ -451,7 +452,7 @@ function AdminPageInner() {
     }
   }
 
-  const handleUpdateEvent = async (eventId: string, updates: { name?: string; slug?: string; printerId?: string; availableLayouts?: string[]; price?: number; paymentMethods?: ('card' | 'kakaopay' | 'naverpay')[]; backgroundColors?: string[]; donation?: Event['donation']; logoUrl?: string }) => {
+  const handleUpdateEvent = async (eventId: string, updates: { name?: string; slug?: string; printerId?: string; availableLayouts?: string[]; price?: number; paymentMethods?: ('card' | 'kakaopay' | 'naverpay')[]; backgroundColors?: string[]; donation?: Event['donation']; logoUrl?: string; contactPhone?: string }) => {
     try {
       const updateRes = await fetch(`/api/events/${eventId}`, {
         method: 'PATCH',
@@ -676,6 +677,16 @@ function AdminPageInner() {
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
         ctx.fillText(donText, W / 2, boxY + boxH / 2)
+      }
+
+      // ── Contact phone
+      if (event.contactPhone) {
+        const contactY = hasDonation ? H - 110 - 72 - 60 : H - 110
+        ctx.fillStyle = '#888888'
+        ctx.font = `500 30px ${font}`
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText(`문의 ${event.contactPhone}`, W / 2, contactY)
       }
 
       // ── Bottom
@@ -964,6 +975,16 @@ function AdminPageInner() {
                   )}
                 </div>
               </div>
+            </UIFormField>
+
+            <UIFormField label="문의 연락처" hint="QR 홍보 이미지 하단에 표시됩니다">
+              <input
+                type="tel"
+                value={event.contactPhone || ''}
+                onChange={e => handleUpdateEvent(event._id, { contactPhone: e.target.value })}
+                placeholder="010-0000-0000"
+                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             </UIFormField>
           </UICard>
 

@@ -9,6 +9,7 @@ import type { CompletedSlotData } from '@/app/components/FrameUserEditor'
 import { UIPageSpinner, UIStatusBanner, UIButton, UIStepBar, UICounterControl, UISectionHeading, UIBottomSheet, UISelectItem } from '@/app/components/ui'
 import Script from 'next/script'
 import { logClientError, logClientInfo } from '@/lib/errorLogger'
+import { useI18n, LanguageToggle } from '../../i18n'
 
 const FrameUserEditor = dynamic(() => import('@/app/components/FrameUserEditor'), { ssr: false })
 
@@ -104,6 +105,7 @@ export default function FrameLayoutPage({
   params: { slug: string; layoutId: string }
 }) {
   const router = useRouter()
+  const { t } = useI18n()
   const [customerEmail, setCustomerEmail] = useState('')
   const [emailSuggestions, setEmailSuggestions] = useState<string[]>([])
   const [showEmailSuggestions, setShowEmailSuggestions] = useState(false)
@@ -196,8 +198,8 @@ export default function FrameLayoutPage({
           fetch(`/api/events/slug/${params.slug}`),
           fetch(`/api/layouts/${params.layoutId}`),
         ])
-        if (!evRes.ok) throw new Error('이벤트를 찾을 수 없습니다')
-        if (!layoutRes.ok) throw new Error('레이아웃을 찾을 수 없습니다')
+        if (!evRes.ok) throw new Error(t('error.event'))
+        if (!layoutRes.ok) throw new Error(t('error.layout'))
         const [ev, lay] = await Promise.all([evRes.json(), layoutRes.json()])
         setEvent(ev)
         setLayout(lay)
@@ -210,7 +212,7 @@ export default function FrameLayoutPage({
         }
       } catch (err: any) {
         if (!isPaymentReturn.current) {
-          setError(err.message || '불러오기 실패')
+          setError(err.message || t('error.pageLoad'))
         }
       } finally {
         setLoading(false)
@@ -244,11 +246,11 @@ export default function FrameLayoutPage({
           })
           if (!paymentRes.ok) {
             const data = await paymentRes.json()
-            throw new Error(data.error || '결제 승인에 실패했습니다')
+            throw new Error(data.error || t('error.paymentConfirm'))
           }
 
           const savedPreviewUrl = localStorage.getItem('pendingPrintUrl')
-          if (!savedPreviewUrl) throw new Error('프린트할 이미지를 찾을 수 없습니다')
+          if (!savedPreviewUrl) throw new Error(t('error.print'))
 
           const savedAuthCode = localStorage.getItem('pendingAuthCode')
           const savedEmail = localStorage.getItem('pendingCustomerEmail')
@@ -267,7 +269,7 @@ export default function FrameLayoutPage({
           })
           if (!printRes.ok) {
             const data = await printRes.json()
-            throw new Error(data.error || '프린트에 실패했습니다')
+            throw new Error(data.error || t('error.print'))
           }
           const printData = await printRes.json()
           if (printData.jobIds) setPrintJobIds(printData.jobIds)
@@ -281,7 +283,7 @@ export default function FrameLayoutPage({
           window.history.replaceState({}, '', window.location.pathname)
           setStep('success')
         } catch (err: any) {
-          setError(err.message || '결제 처리 중 오류가 발생했습니다')
+          setError(err.message || t('error.paymentConfirm'))
           logClientError('Payment confirmation failed', err, params.slug)
           setStep('payment-failed')
           window.history.replaceState({}, '', window.location.pathname)
@@ -292,7 +294,7 @@ export default function FrameLayoutPage({
       confirmPayment()
     } else if (paymentStatus === 'fail') {
       const errorMsg = urlParams.get('errorMsg')
-      setError(errorMsg || '결제가 실패했습니다. 다시 시도해주세요.')
+      setError(errorMsg || t('error.payment'))
       setStep('payment-failed')
       window.history.replaceState({}, '', window.location.pathname)
     }
@@ -332,7 +334,7 @@ export default function FrameLayoutPage({
         setPuzzlePieceUrls(urls)
       })
       .catch(err => {
-        setError('퍼즐 조각 생성에 실패했습니다')
+        setError(t('error.imageProcess'))
         setPuzzleMode(false)
       })
   }, [puzzleMode, mergedUrl, gridSize])
@@ -453,7 +455,7 @@ export default function FrameLayoutPage({
       setMergedUrl(mergedDataUrl)
       setStep('fill-photos')
     } catch (err: any) {
-      setError(err.message || '처리에 실패했습니다')
+      setError(err.message || t('error.imageProcess'))
     } finally {
       setMerging(false)
     }
@@ -481,7 +483,7 @@ export default function FrameLayoutPage({
             })
             if (!res.ok) {
               const data = await res.json().catch(() => ({}))
-              throw new Error(data.error || `퍼즐 조각 ${i + 1} 프린트 실패`)
+              throw new Error(data.error || t('error.print'))
             }
             const data = await res.json()
             if (data.jobIds) collectedJobIds.push(...data.jobIds)
@@ -495,7 +497,7 @@ export default function FrameLayoutPage({
         })
         if (!res.ok) {
           const data = await res.json().catch(() => ({}))
-          throw new Error(data.error || '프린트 실패')
+          throw new Error(data.error || t('error.print'))
         }
         const data = await res.json()
         if (data.jobIds) collectedJobIds.push(...data.jobIds)
@@ -514,7 +516,7 @@ export default function FrameLayoutPage({
     if (!event?.authCodeRequired) return true
     if (authCodeVerified) return true
     if (!authCode.trim()) {
-      setAuthCodeError('인증코드를 입력해주세요')
+      setAuthCodeError(t('auth.required'))
       return false
     }
     try {
@@ -529,10 +531,10 @@ export default function FrameLayoutPage({
         setAuthCodeError('')
         return true
       }
-      setAuthCodeError(data.error || '유효하지 않은 인증코드입니다')
+      setAuthCodeError(data.error || t('auth.invalid'))
       return false
     } catch {
-      setAuthCodeError('인증코드 확인 중 오류가 발생했습니다')
+      setAuthCodeError(t('auth.error'))
       return false
     }
   }
@@ -560,11 +562,11 @@ export default function FrameLayoutPage({
 
   const handlePayment = () => {
     if (!customerEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) {
-      setError('올바른 이메일을 입력해주세요')
+      setError(t('pay.emailError'))
       return
     }
     if (!window.AUTHNICE || !event) {
-      setError('결제 모듈을 불러오는 중입니다. 잠시 후 다시 시도해주세요.')
+      setError(t('pay.moduleLoading'))
       return
     }
 
@@ -593,11 +595,11 @@ export default function FrameLayoutPage({
       method: nicepayMethod,
       orderId,
       amount: paymentAmount,
-      goodsName: puzzleMode ? `퍼즐 프린트 ${totalPieces}조각` : `포토 프린트 ${printQuantity}매`,
+      goodsName: puzzleMode ? `Puzzle ${totalPieces}pcs` : `Photo Print ${printQuantity}`,
       returnUrl: `${window.location.origin}/api/payment/nicepay-return`,
       mallReserved: window.location.pathname,
       fnError: (result) => {
-        setError(result.errorMsg || '결제 중 오류가 발생했습니다')
+        setError(result.errorMsg || t('error.payment'))
         setPaymentProcessing(false)
       },
     })
@@ -641,7 +643,7 @@ export default function FrameLayoutPage({
         }
       }
     } catch (err: any) {
-      if (err?.name !== 'AbortError') setError('다운로드에 실패했습니다')
+      if (err?.name !== 'AbortError') setError(t('error.download'))
     }
   }
 
@@ -688,7 +690,7 @@ export default function FrameLayoutPage({
   if (!event || !layout) {
     return (
       <div className="min-h-dvh flex items-center justify-center bg-gray-50">
-        <UIStatusBanner type="error" message={error || '페이지를 불러올 수 없습니다'} />
+        <UIStatusBanner type="error" message={error || t('error.pageLoad')} />
       </div>
     )
   }
@@ -703,38 +705,38 @@ export default function FrameLayoutPage({
     const maxQueue = Math.max(...printJobStatuses.filter(j => j.status === 'PENDING').map(j => j.queuePosition || 0), 0)
 
     let statusType: 'processing' | 'success' | 'error' = 'processing'
-    let statusMessage = hasPrinting ? '인쇄 중...' : maxQueue > 1 ? `인쇄 대기 중 · 대기 ${maxQueue}번째` : '인쇄 대기 중 · 곧 인쇄가 시작됩니다'
+    let statusMessage = hasPrinting ? t('success.printing') : maxQueue > 1 ? `${t('success.pendingQueue')} ${maxQueue}${t('success.queueSuffix')}` : t('success.pending')
 
     if (allDone) {
       statusType = 'success'
-      statusMessage = '인쇄가 완료되었습니다'
+      statusMessage = t('success.done')
     } else if (allFailed) {
       statusType = 'error'
-      statusMessage = '인쇄에 실패했습니다. 관리자에게 문의해 주세요.'
+      statusMessage = t('success.allFailed')
     } else if (!hasPending && printJobStatuses.length === 0) {
       statusType = 'success'
-      statusMessage = '프린트 전송 완료 · 잠시 후 출력됩니다'
+      statusMessage = t('success.sent')
     } else if (hasFailed && !allFailed) {
       statusType = 'error'
-      statusMessage = '일부 인쇄가 실패했습니다. 관리자에게 문의해 주세요.'
+      statusMessage = t('success.someFailed')
     }
 
     return (
       <div className="min-h-dvh bg-gray-50 flex flex-col items-center px-4 py-8">
         <div className="w-full max-w-sm space-y-6">
-          <UISectionHeading title="완료" subtitle="사진이 준비되었습니다" />
+          <UISectionHeading title={t('success.title')} subtitle={t('success.subtitle')} />
 
           <UIStatusBanner type={statusType} message={statusMessage} />
 
           {(layout?.price ?? event.price ?? 0) === 0 ? (
-            <p className="text-center text-sm text-gray-500">📸 자유롭게 여러 장 뽑아도 괜찮아요! 마음껏 즐겨주세요</p>
+            <p className="text-center text-sm text-gray-500">{t('success.freeMsg')}</p>
           ) : (
-            <p className="text-center text-sm text-gray-500">📸 사진이 마음에 드셨다면 한 장 더 뽑아보세요!</p>
+            <p className="text-center text-sm text-gray-500">{t('success.paidMsg')}</p>
           )}
 
           {mergedUrl && (
             <div className="flex justify-center">
-              <img src={mergedUrl} alt="인쇄 사진" className="rounded-lg shadow-lg object-contain" style={{ maxHeight: '40vh', maxWidth: '100%' }} />
+              <img src={mergedUrl} alt={t('misc.printPhoto')} className="rounded-lg shadow-lg object-contain" style={{ maxHeight: '40vh', maxWidth: '100%' }} />
             </div>
           )}
 
@@ -742,9 +744,9 @@ export default function FrameLayoutPage({
           {event?.donation?.enabled && (
             <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-2xl p-5 border border-yellow-200/80 text-center space-y-3">
               <p className="text-base font-bold text-gray-900">
-                🎉 {event.donation.message || '즐거우셨다면 자유롭게 응원해주세요!'} 💕
+                🎉 {event.donation.message || t('donate.defaultMsg')} 💕
               </p>
-              <p className="text-xs text-gray-400">부담 없이, 마음만으로도 충분해요 ☺️</p>
+              <p className="text-xs text-gray-400">{t('donate.hint')} ☺️</p>
               {event.donation.link && (
                 <a
                   href={event.donation.link}
@@ -752,7 +754,7 @@ export default function FrameLayoutPage({
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-yellow-400 text-yellow-900 hover:bg-yellow-500 active:scale-95 transition-all font-bold text-[15px] shadow-md"
                 >
-                  ☕ 후원하기
+                  ☕ {t('donate.btn')}
                 </a>
               )}
               {event.donation.account && (
@@ -765,12 +767,12 @@ export default function FrameLayoutPage({
                     onClick={() => {
                       navigator.clipboard.writeText(event.donation!.account.replace(/-/g, ''))
                       const btn = document.getElementById('copy-account-btn-layout')
-                      if (btn) { btn.textContent = '복사됨'; setTimeout(() => { btn.textContent = '복사' }, 1500) }
+                      if (btn) { btn.textContent = t('donate.copied'); setTimeout(() => { btn.textContent = t('donate.copy') }, 1500) }
                     }}
                     id="copy-account-btn-layout"
                     className="text-xs px-3 py-1.5 rounded-lg bg-yellow-400 text-yellow-900 hover:bg-yellow-500 transition-colors font-semibold shrink-0"
                   >
-                    복사
+                    {t('donate.copy')}
                   </button>
                 </div>
               )}
@@ -783,12 +785,12 @@ export default function FrameLayoutPage({
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
-                사진 저장
+                {t('btn.download')}
               </UIButton>
             )}
             {hasPending && !hasPrinting && printJobIds.length > 0 && (
               <UIButton fullWidth variant="danger" onClick={async () => {
-                if (!confirm('인쇄를 취소하시겠습니까? 환불 처리됩니다.')) return
+                if (!confirm(t('success.confirmCancel'))) return
                 try {
                   const results = await Promise.all(
                     printJobIds.map(id =>
@@ -799,22 +801,22 @@ export default function FrameLayoutPage({
                   if (failed.length > 0) {
                     alert(failed[0].error)
                   } else {
-                    alert('취소 및 환불이 완료되었습니다.')
+                    alert(t('success.cancelled'))
                     setStep('fill-photos')
                     setPrintJobIds([])
                     setPrintJobStatuses([])
                   }
                 } catch {
-                  alert('취소 처리 중 오류가 발생했습니다')
+                  alert(t('success.cancelError'))
                 }
               }}>
-                인쇄 취소
+                {t('btn.cancelPrint')}
               </UIButton>
             )}
             {hasPrinting && (
-              <p className="text-center text-xs text-gray-400">현재 인쇄 중이므로 취소할 수 없습니다</p>
+              <p className="text-center text-xs text-gray-400">{t('success.cantCancel')}</p>
             )}
-            <UIButton fullWidth variant="secondary" onClick={() => router.push(`/${params.slug}`)}>새로운 사진 만들기</UIButton>
+            <UIButton fullWidth variant="secondary" onClick={() => router.push(`/${params.slug}`)}>{t('btn.newPhoto')}</UIButton>
           </div>
         </div>
       </div>
@@ -829,15 +831,15 @@ export default function FrameLayoutPage({
 
   const stepBarSteps = showColorStep
     ? [
-        { id: 'layout', label: '레이아웃' },
-        { id: 'fill-photos', label: '사진' },
-        { id: 'select-bg-color', label: '배경색' },
-        { id: 'payment', label: '완료' },
+        { id: 'layout', label: t('step.layout') },
+        { id: 'fill-photos', label: t('step.photo') },
+        { id: 'select-bg-color', label: t('step.bgColor') },
+        { id: 'payment', label: t('step.done') },
       ]
     : [
-        { id: 'layout', label: '레이아웃' },
-        { id: 'fill-photos', label: '사진' },
-        { id: 'payment', label: '완료' },
+        { id: 'layout', label: t('step.layout') },
+        { id: 'fill-photos', label: t('step.photo') },
+        { id: 'payment', label: t('step.done') },
       ]
 
   return (
@@ -847,10 +849,11 @@ export default function FrameLayoutPage({
         {/* Header */}
         <div className="px-1 flex items-center gap-3">
           <img src={event.logoUrl || '/logo-without-bg.png'} alt={event.name} className="w-10 h-10 rounded-full object-cover" />
-          <div>
+          <div className="flex-1">
             <h1 className="text-xl font-bold text-gray-900">{event.name}</h1>
             <p className="text-sm text-gray-400 mt-0.5">{layout.name}</p>
           </div>
+          <LanguageToggle />
         </div>
 
         {/* Step Bar */}
@@ -877,7 +880,7 @@ export default function FrameLayoutPage({
           {/* Step: Select Background Color */}
           {step === 'select-bg-color' && completedSlotData && (
             <div className="space-y-5">
-              <UISectionHeading title="배경색 선택" subtitle="원하는 배경색을 골라주세요" />
+              <UISectionHeading title={t('color.selectTitle')} subtitle={t('color.selectSubtitle')} />
 
               {/* Preview with selected color */}
               <div
@@ -966,7 +969,7 @@ export default function FrameLayoutPage({
               {merging && (
                 <div className="flex items-center justify-center gap-2 py-3">
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600" />
-                  <span className="text-sm text-gray-500">이미지 합성 중...</span>
+                  <span className="text-sm text-gray-500">{t('photo.merging')}</span>
                 </div>
               )}
 
@@ -977,7 +980,7 @@ export default function FrameLayoutPage({
                   disabled={merging}
                   loading={merging}
                 >
-                  이 배경색으로 완성하기
+                  {t('color.confirm')}
                 </UIButton>
                 <UIButton
                   fullWidth
@@ -988,7 +991,7 @@ export default function FrameLayoutPage({
                   }}
                   disabled={merging}
                 >
-                  사진 다시 편집
+                  {t('color.reEdit')}
                 </UIButton>
               </div>
             </div>
@@ -997,7 +1000,7 @@ export default function FrameLayoutPage({
           {/* Preview after merge */}
           {step === 'fill-photos' && mergedUrl && (
             <div className="space-y-4">
-              <UISectionHeading title="미리보기" subtitle="확인 후 프린트하세요" />
+              <UISectionHeading title={t('preview.title')} subtitle={t('preview.subtitle')} />
 
               {/* Main preview or puzzle preview */}
               {puzzleMode && puzzlePieceUrls.length > 0 ? (
@@ -1048,7 +1051,7 @@ export default function FrameLayoutPage({
                     })}
                   </div>
                   <p className="text-xs text-center text-gray-400">
-                    {puzzleSplit ? `${totalPieces}조각이 각각 인쇄됩니다` : '조립하면 하나의 큰 사진이 돼요'}
+                    {puzzleSplit ? `${totalPieces} ${t('puzzle.split')}` : t('puzzle.combined')}
                   </p>
                 </div>
               ) : (
@@ -1056,7 +1059,7 @@ export default function FrameLayoutPage({
                   className="relative mx-auto overflow-hidden shadow"
                   style={{ aspectRatio: `${layout.canvasWidth} / ${layout.canvasHeight}`, maxWidth: 300 }}
                 >
-                  <Image src={mergedUrl} alt="합성 미리보기" fill className="object-cover" unoptimized />
+                  <Image src={mergedUrl} alt={t('misc.printPreview')} fill className="object-cover" unoptimized />
                 </div>
               )}
 
@@ -1068,7 +1071,7 @@ export default function FrameLayoutPage({
                   <label className="flex items-center justify-between py-2.5 px-3 cursor-pointer">
                     <div className="flex items-center gap-2">
                       <span className="text-lg">🧩</span>
-                      <span className="text-sm font-semibold text-purple-700">퍼즐 모드</span>
+                      <span className="text-sm font-semibold text-purple-700">{t('puzzle.label')}</span>
                     </div>
                     <div className="relative">
                       <input
@@ -1096,7 +1099,7 @@ export default function FrameLayoutPage({
                                 : 'bg-white text-purple-600 border border-purple-200'
                             }`}
                           >
-                            {grid} ({n * n}조각)
+                            {grid} ({n * n} {t('puzzle.pieces')})
                           </button>
                         )
                       })}
@@ -1108,7 +1111,7 @@ export default function FrameLayoutPage({
               {/* Print quantity */}
               <div className="flex items-center justify-between py-2">
                 <span className="text-sm font-semibold text-gray-700">
-                  {puzzleMode ? '퍼즐 세트 수' : '인쇄 수량'}
+                  {puzzleMode ? t('puzzle.sets') : t('puzzle.printCount')}
                 </span>
                 <UICounterControl
                   value={printQuantity}
@@ -1120,20 +1123,20 @@ export default function FrameLayoutPage({
 
               {puzzleMode && (
                 <p className="text-xs text-gray-400 text-center">
-                  {printQuantity}세트 x {totalPieces}조각 = 총 {printQuantity * totalPieces}장 인쇄
+                  {printQuantity} {t('misc.set')} x {totalPieces} {t('puzzle.pieces')} = {t('misc.total')} {printQuantity * totalPieces} {t('misc.sheets')}
                 </p>
               )}
 
               {/* Auth Code Input */}
               {event.authCodeRequired && !authCodeVerified && (
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">인증코드</label>
+                  <label className="text-sm font-medium text-gray-700">{t('auth.label')}</label>
                   <div className="flex gap-2">
                     <input
                       type="text"
                       value={authCode}
                       onChange={e => { setAuthCode(e.target.value.toUpperCase()); setAuthCodeError('') }}
-                      placeholder="인증코드 6자리 입력"
+                      placeholder={t('auth.placeholder')}
                       maxLength={6}
                       className="flex-1 px-3 py-2 border rounded-lg text-center font-mono text-lg tracking-widest uppercase focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
@@ -1144,7 +1147,7 @@ export default function FrameLayoutPage({
               {event.authCodeRequired && authCodeVerified && (
                 <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 px-3 py-2 rounded-lg">
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-                  인증코드 확인됨
+                  {t('auth.verified')}
                 </div>
               )}
 
@@ -1155,14 +1158,14 @@ export default function FrameLayoutPage({
                   </svg>
                   {(layout?.price ?? event.price ?? 0) === 0
                     ? puzzleMode
-                      ? `무료 프린트 (${printQuantity * totalPieces}장)`
-                      : `무료 프린트${printQuantity > 1 ? ` (${printQuantity}장)` : ''}`
-                    : `${((layout?.price ?? event.price ?? 0) * printQuantity * (puzzleMode ? totalPieces : 1)).toLocaleString()}원 결제`}
+                      ? `${t('btn.freePrint')} (${printQuantity * totalPieces}${t('misc.sheets')})`
+                      : `${t('btn.freePrint')}${printQuantity > 1 ? ` (${printQuantity}${t('misc.sheets')})` : ''}`
+                    : `${((layout?.price ?? event.price ?? 0) * printQuantity * (puzzleMode ? totalPieces : 1)).toLocaleString()}${t('misc.won')} ${t('btn.pay')}`}
                 </UIButton>
               </div>
-              <UIButton fullWidth variant="secondary" onClick={() => { setMergedUrl(null); setStep('fill-photos') }}>이전으로</UIButton>
+              <UIButton fullWidth variant="secondary" onClick={() => { setMergedUrl(null); setStep('fill-photos') }}>{t('btn.prevStep')}</UIButton>
               <p className="text-[11px] text-gray-400 text-center leading-relaxed pt-1">
-                업로드된 사진은 인쇄 후 최대 24시간 임시 보관 후 영구 파기됩니다.
+                {t('preview.privacy')}
               </p>
             </div>
           )}
@@ -1170,11 +1173,10 @@ export default function FrameLayoutPage({
           {/* Step: Payment */}
           {step === 'payment' && (
             <div className="space-y-4">
-              <UISectionHeading title="결제" subtitle="결제 방법을 선택해주세요" />
+              <UISectionHeading title={t('pay.title')} subtitle={t('pay.subtitle')} />
 
-              {/* 이메일 입력 */}
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">이메일 (결제 확인용)</label>
+                <label className="text-sm font-medium text-gray-700">{t('pay.emailLabel')}</label>
                 <div className="relative">
                   <input
                     type="email"
@@ -1213,10 +1215,10 @@ export default function FrameLayoutPage({
                 loading={paymentProcessing}
                 disabled={paymentProcessing}
               >
-                {paymentProcessing ? '결제 처리 중...' : `카드/간편결제 ${((layout?.price ?? event.price ?? 0) * printQuantity * (puzzleMode ? totalPieces : 1)).toLocaleString()}원`}
+                {paymentProcessing ? t('misc.payProcessing') : `${t('pay.card')} ${((layout?.price ?? event.price ?? 0) * printQuantity * (puzzleMode ? totalPieces : 1)).toLocaleString()}${t('misc.won')}`}
               </UIButton>
               <UIButton fullWidth variant="secondary" onClick={() => setStep('fill-photos')}>
-                이전으로
+                {t('btn.prevStep')}
               </UIButton>
             </div>
           )}
@@ -1224,20 +1226,20 @@ export default function FrameLayoutPage({
           {/* Step: Payment Failed */}
           {step === 'payment-failed' && (
             <div className="space-y-4">
-              <UISectionHeading title="결제 실패" subtitle="결제 처리 중 문제가 발생했습니다" />
-              <UIStatusBanner type="error" message={error || '결제에 실패했습니다'} />
+              <UISectionHeading title={t('pay.failed.title')} subtitle={t('pay.failed.subtitle')} />
+              <UIStatusBanner type="error" message={error || t('error.payment')} />
               <UIButton fullWidth onClick={() => setStep('payment')}>
-                다시 결제하기
+                {t('pay.failed.retry')}
               </UIButton>
               <UIButton fullWidth variant="secondary" onClick={handleReset}>
-                처음으로
+                {t('pay.failed.back')}
               </UIButton>
             </div>
           )}
         </div>
 
         {/* Layout picker bottom sheet */}
-        <UIBottomSheet open={showLayoutPicker} onClose={() => setShowLayoutPicker(false)} title="레이아웃 변경">
+        <UIBottomSheet open={showLayoutPicker} onClose={() => setShowLayoutPicker(false)} title={t('layout.changeLayout')}>
           <div className="grid grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto pb-3">
             {filteredLayouts.map((sl) => {
               const isCurrent = sl._id === layout._id
@@ -1289,14 +1291,14 @@ export default function FrameLayoutPage({
                     </div>
                     <div className="text-center">
                       <div className="font-semibold text-sm text-gray-700">{sl.name}</div>
-                      <div className="text-xs text-gray-400 mt-0.5">{sl.printSize} · {sl.slots.length}칸</div>
+                      <div className="text-xs text-gray-400 mt-0.5">{sl.printSize} · {sl.slots.length} {t('layout.slots')}</div>
                     </div>
                   </div>
                 </UISelectItem>
               )
             })}
           </div>
-          <UIButton fullWidth variant="secondary" onClick={() => setShowLayoutPicker(false)}>닫기</UIButton>
+          <UIButton fullWidth variant="secondary" onClick={() => setShowLayoutPicker(false)}>{t('btn.close')}</UIButton>
         </UIBottomSheet>
 
       </div>
