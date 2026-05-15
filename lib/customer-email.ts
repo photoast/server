@@ -100,6 +100,53 @@ function buildHtml(params: EmailParams): { subject: string; html: string } {
   return { subject: config.subject, html }
 }
 
+export async function sendAdminNotification(params: {
+  eventName: string
+  slug: string
+  jobId: string
+  quantity: number
+  amount?: number
+  paymentTid?: string
+}): Promise<void> {
+  const adminEmail = process.env.ADMIN_NOTIFY_EMAIL
+  if (!adminEmail) return
+
+  try {
+    const transporter = getTransporter()
+    const baseUrl = getBaseUrl()
+    const from = process.env.SMTP_FROM || process.env.SMTP_USER
+    const now = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })
+
+    const subject = `[포토토스트] 인쇄 요청 - ${params.eventName}`
+    const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <div style="max-width:480px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+    <div style="background:#FF9800;padding:24px;text-align:center;">
+      <h1 style="margin:0;color:#fff;font-size:20px;">🖨️ 새 인쇄 요청</h1>
+    </div>
+    <div style="padding:24px;">
+      <div style="background:#f9f9f9;border-radius:8px;padding:16px;">
+        <p style="margin:0 0 8px;color:#333;font-weight:600;">${params.eventName}</p>
+        <p style="margin:4px 0;color:#666;font-size:14px;">시간: ${now}</p>
+        <p style="margin:4px 0;color:#666;font-size:14px;">수량: ${params.quantity}매</p>
+        ${params.amount ? `<p style="margin:4px 0;color:#666;font-size:14px;">결제: ${params.amount.toLocaleString()}원</p>` : ''}
+        ${params.paymentTid ? `<p style="margin:4px 0;color:#666;font-size:14px;">TID: ${params.paymentTid}</p>` : ''}
+      </div>
+      <div style="margin:16px 0;text-align:center;">
+        <a href="${baseUrl}/admin" style="display:inline-block;padding:12px 24px;background:#FF9800;color:#fff;text-decoration:none;border-radius:8px;font-size:14px;">관리자 페이지</a>
+      </div>
+    </div>
+  </div>
+</body></html>`
+
+    await transporter.sendMail({ from, to: adminEmail, subject, html })
+    console.log(`[Admin Notify] Sent print notification to ${adminEmail}`)
+  } catch (error: any) {
+    console.error(`[Admin Notify] Failed:`, error.message)
+  }
+}
+
 export async function sendCustomerEmail(params: EmailParams): Promise<void> {
   if (!params.to) return
 

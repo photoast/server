@@ -6,7 +6,7 @@ import { printViaEpsonApi } from '@/lib/epson-api'
 import { applyPrinterCorrection } from '@/lib/image-correction'
 import { uploadToBlob, readImageBuffer } from '@/lib/blob'
 import { DeviceInfo } from '@/lib/types'
-import { sendCustomerEmail } from '@/lib/customer-email'
+import { sendCustomerEmail, sendAdminNotification } from '@/lib/customer-email'
 
 // Extract IP address from request
 function getClientIp(request: NextRequest): string {
@@ -317,6 +317,18 @@ export async function POST(request: NextRequest) {
         amount: event.price,
         jobId: jobIds[0],
       })
+    }
+
+    // Send admin notification
+    if (jobIds.length > 0) {
+      sendAdminNotification({
+        eventName: event.name,
+        slug,
+        jobId: jobIds[0],
+        quantity: jobIds.length,
+        amount: paymentTid ? event.price : undefined,
+        paymentTid,
+      }).catch(() => {})
     }
 
     // Return result
