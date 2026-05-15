@@ -206,10 +206,15 @@ export default function FrameLayoutPage({
         setLayout(lay)
         if (lay.backgroundColor) setSelectedColor(lay.backgroundColor)
 
+        let deviceId = localStorage.getItem('pt_device_id')
+        if (!deviceId) {
+          deviceId = crypto.randomUUID()
+          localStorage.setItem('pt_device_id', deviceId)
+        }
         fetch('/api/page-views', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ slug: params.slug }),
+          body: JSON.stringify({ slug: params.slug, deviceId }),
         }).catch(() => {})
 
         if (ev._id) {

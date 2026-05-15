@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { recordPageView, getPageViewStats } from '@/lib/models'
+import { recordPageView, getPageViewStats, getPageViewLogs } from '@/lib/models'
 import { checkAuth } from '@/lib/middleware'
 
 export async function POST(request: NextRequest) {
   try {
-    const { slug } = await request.json()
+    const { slug, deviceId } = await request.json()
     if (!slug) return NextResponse.json({ error: 'slug required' }, { status: 400 })
 
     const userAgent = request.headers.get('user-agent') || undefined
     const referrer = request.headers.get('referer') || undefined
 
-    await recordPageView(slug, { userAgent, referrer })
+    await recordPageView(slug, { userAgent, referrer, deviceId })
     return NextResponse.json({ ok: true })
   } catch {
     return NextResponse.json({ error: 'Failed to record' }, { status: 500 })
@@ -25,6 +25,13 @@ export async function GET(request: NextRequest) {
 
     const slug = request.nextUrl.searchParams.get('slug')
     if (!slug) return NextResponse.json({ error: 'slug required' }, { status: 400 })
+
+    const mode = request.nextUrl.searchParams.get('mode')
+    if (mode === 'logs') {
+      const page = parseInt(request.nextUrl.searchParams.get('page') || '1')
+      const logs = await getPageViewLogs(slug, page)
+      return NextResponse.json(logs)
+    }
 
     const stats = await getPageViewStats(slug)
     return NextResponse.json(stats)

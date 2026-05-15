@@ -242,10 +242,15 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         const data = await res.json()
         setEvent(data)
 
+        let deviceId = localStorage.getItem('pt_device_id')
+        if (!deviceId) {
+          deviceId = crypto.randomUUID()
+          localStorage.setItem('pt_device_id', deviceId)
+        }
         fetch('/api/page-views', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ slug: params.slug }),
+          body: JSON.stringify({ slug: params.slug, deviceId }),
         }).catch(() => {})
 
         // Fetch frame layouts for this event

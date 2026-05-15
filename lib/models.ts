@@ -477,11 +477,12 @@ export async function deleteAuthCodesByEventId(eventId: string): Promise<number>
 
 // ==================== Page Views ====================
 
-export async function recordPageView(slug: string, meta?: { userAgent?: string; referrer?: string }) {
+export async function recordPageView(slug: string, meta?: { userAgent?: string; referrer?: string; deviceId?: string }) {
   const db = await getDb()
   await db.collection(COLLECTIONS.pageViews).insertOne({
     slug,
     viewedAt: new Date(),
+    ...(meta?.deviceId && { deviceId: meta.deviceId }),
     ...(meta?.userAgent && { userAgent: meta.userAgent }),
     ...(meta?.referrer && { referrer: meta.referrer }),
   })
@@ -508,4 +509,28 @@ export async function getPageViewStats(slug: string): Promise<{ total: number; t
   ]).toArray()
 
   return { total, today, daily: daily.map(d => ({ date: d._id, count: d.count })) }
+}
+
+export async function getPageViewLogs(slug: string, page = 1, limit = 30) {
+  const db = await getDb()
+  const col = db.collection(COLLECTIONS.pageViews)
+  const skip = (page - 1) * limit
+
+  const [logs, total] = await Promise.all([
+    col.find({ slug }).sort({ viewedAt: -1 }).skip(skip).limit(limit).toArray(),
+    col.countDocuments({ slug }),
+  ])
+
+  return {
+    logs: logs.map(l => ({
+      _id: l._id.toString(),
+      viewedAt: l.viewedAt,
+      deviceId: l.deviceId || null,
+      userAgent: l.userAgent || null,
+      referrer: l.referrer || null,
+    })),
+    total,
+    page,
+    totalPages: Math.ceil(total / limit),
+  }
 }

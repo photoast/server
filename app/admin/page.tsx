@@ -142,6 +142,10 @@ function AdminPageInner() {
   const [selectedImageForPreview, setSelectedImageForPreview] = useState<string | null>(null)
   const [detailJob, setDetailJob] = useState<PrintJob | null>(null)
   const [pageViewStats, setPageViewStats] = useState<{ total: number; today: number; daily: { date: string; count: number }[] } | null>(null)
+  const [pageViewLogs, setPageViewLogs] = useState<{ _id: string; viewedAt: string; deviceId: string | null; userAgent: string | null; referrer: string | null }[]>([])
+  const [pageViewLogsPage, setPageViewLogsPage] = useState(1)
+  const [pageViewLogsTotalPages, setPageViewLogsTotalPages] = useState(1)
+  const [showPageViewLogs, setShowPageViewLogs] = useState(false)
 
   // Event editing states
   const [editingEventId, setEditingEventId] = useState<string | null>(null)
@@ -213,8 +217,24 @@ function AdminPageInner() {
     }
     fetchRecent()
     fetchPageViews()
+    setShowPageViewLogs(false)
+    setPageViewLogs([])
+    setPageViewLogsPage(1)
     if (detailEvent?.authCodeRequired) fetchAuthCodes(detailEvent._id)
   }, [detailEvent?._id])
+
+  const fetchPageViewLogs = async (page = 1) => {
+    if (!detailEvent) return
+    try {
+      const res = await fetch(`/api/page-views?slug=${detailEvent.slug}&mode=logs&page=${page}`)
+      if (res.ok) {
+        const data = await res.json()
+        setPageViewLogs(data.logs)
+        setPageViewLogsPage(data.page)
+        setPageViewLogsTotalPages(data.totalPages)
+      }
+    } catch {}
+  }
 
   const checkAuth = async () => {
     try {
@@ -975,6 +995,66 @@ function AdminPageInner() {
                   )}
                 </div>
               </UIFormField>
+              <button
+                className="text-xs text-blue-500 underline mt-1"
+                onClick={() => {
+                  if (!showPageViewLogs) fetchPageViewLogs(1)
+                  setShowPageViewLogs(!showPageViewLogs)
+                }}
+              >
+                {showPageViewLogs ? '접속 로그 닫기' : '상세 접속 로그 보기'}
+              </button>
+              {showPageViewLogs && (
+                <div className="mt-3 space-y-2">
+                  {pageViewLogs.length === 0 ? (
+                    <p className="text-xs text-gray-400">로그가 없습니다</p>
+                  ) : (
+                    <>
+                      <div className="max-h-80 overflow-y-auto space-y-1.5">
+                        {pageViewLogs.map(log => {
+                          const ua = log.userAgent || ''
+                          let device = 'Unknown'
+                          if (/iPhone/i.test(ua)) device = 'iPhone'
+                          else if (/Android/i.test(ua)) device = 'Android'
+                          else if (/iPad/i.test(ua)) device = 'iPad'
+                          else if (/Mac/i.test(ua)) device = 'Mac'
+                          else if (/Windows/i.test(ua)) device = 'Windows'
+                          else if (ua) device = 'Other'
+                          return (
+                            <div key={log._id} className="bg-gray-50 rounded-lg p-2 text-xs space-y-0.5">
+                              <div className="flex justify-between items-center">
+                                <span className="font-medium text-gray-700">{device}</span>
+                                <span className="text-gray-400">{new Date(log.viewedAt).toLocaleString('ko-KR')}</span>
+                              </div>
+                              {log.deviceId && (
+                                <div className="text-gray-400 truncate">ID: {log.deviceId.slice(0, 8)}...</div>
+                              )}
+                              {log.referrer && (
+                                <div className="text-gray-400 truncate">출처: {log.referrer}</div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                      {pageViewLogsTotalPages > 1 && (
+                        <div className="flex justify-center gap-2 pt-1">
+                          <button
+                            className="text-xs px-2 py-1 rounded bg-gray-200 disabled:opacity-40"
+                            disabled={pageViewLogsPage <= 1}
+                            onClick={() => fetchPageViewLogs(pageViewLogsPage - 1)}
+                          >이전</button>
+                          <span className="text-xs text-gray-500">{pageViewLogsPage} / {pageViewLogsTotalPages}</span>
+                          <button
+                            className="text-xs px-2 py-1 rounded bg-gray-200 disabled:opacity-40"
+                            disabled={pageViewLogsPage >= pageViewLogsTotalPages}
+                            onClick={() => fetchPageViewLogs(pageViewLogsPage + 1)}
+                          >다음</button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
             </UICard>
           )}
 
