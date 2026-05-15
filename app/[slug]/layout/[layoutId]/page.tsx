@@ -46,6 +46,7 @@ interface Event {
   paymentMethods?: ('card' | 'kakaopay' | 'naverpay')[]
   backgroundColors?: string[]
   logoUrl?: string
+  contactPhone?: string
   donation?: {
     enabled: boolean
     bank: string
@@ -776,6 +777,10 @@ export default function FrameLayoutPage({
                 </div>
               )}
             </div>
+          )}
+
+          {event.contactPhone && (
+            <p className="text-center text-xs text-gray-400">{t('misc.contact')} {event.contactPhone}</p>
           )}
 
           <div className="space-y-3">

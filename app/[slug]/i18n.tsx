@@ -161,6 +161,7 @@ const translations = {
   'error.imageProcess': { ko: '이미지 처리에 실패했습니다', en: 'Image processing failed', zh: '图片处理失败' },
 
   // Misc
+  'misc.contact': { ko: '문의', en: 'Contact', zh: '联系方式' },
   'misc.printPreview': { ko: '프린트 미리보기', en: 'Print preview', zh: '打印预览' },
   'misc.printPhoto': { ko: '인쇄 사진', en: 'Print photo', zh: '打印照片' },
   'misc.payProcessing': { ko: '결제 처리 중...', en: 'Processing payment...', zh: '正在处理支付...' },
