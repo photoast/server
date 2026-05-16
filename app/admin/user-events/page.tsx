@@ -435,11 +435,22 @@ function UserEventsContent() {
                   const isExpanded = expandedSession === session.sessionId
                   const lastEvent = session.events[0]
                   const lastAction = lastEvent ? (ACTION_LABELS[lastEvent.action]?.label || lastEvent.action) : ''
+                  const excludeList = excludeSessions.split(',').map(s => s.trim()).filter(Boolean)
+                  const isExcluded = excludeList.includes(session.sessionId)
+
+                  const toggleExclude = (e: React.MouseEvent) => {
+                    e.stopPropagation()
+                    if (isExcluded) {
+                      setExcludeSessions(excludeList.filter(s => s !== session.sessionId).join(','))
+                    } else {
+                      setExcludeSessions([...excludeList, session.sessionId].join(','))
+                    }
+                  }
 
                   return (
                     <div
                       key={session.sessionId}
-                      className={`bg-white rounded-xl border ${isActive ? 'border-green-200' : 'border-gray-100'} overflow-hidden`}
+                      className={`bg-white rounded-xl border ${isExcluded ? 'border-red-200 opacity-60' : isActive ? 'border-green-200' : 'border-gray-100'} overflow-hidden`}
                     >
                       {/* Session header */}
                       <button
@@ -461,6 +472,12 @@ function UserEventsContent() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
+                          <span
+                            onClick={toggleExclude}
+                            className={`text-[10px] px-2 py-0.5 rounded-full cursor-pointer transition-colors ${isExcluded ? 'bg-red-100 text-red-600 hover:bg-red-200' : 'bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-500'}`}
+                          >
+                            {isExcluded ? '제외됨' : '제외'}
+                          </span>
                           <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
                             {session.events.length}건
                           </span>
