@@ -222,6 +222,10 @@ function UserEventsContent() {
     if (typeof window !== 'undefined') return localStorage.getItem('pt_exclude_sessions') || ''
     return ''
   })
+  const [excludeDevices, setExcludeDevices] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('pt_exclude_devices') || ''
+    return ''
+  })
   const [showExclude, setShowExclude] = useState(false)
   const [tab, setTab] = useState<'stats' | 'sessions'>('stats')
   const [page, setPage] = useState(0)
@@ -239,6 +243,7 @@ function UserEventsContent() {
   }, [])
 
   const excludeParam = excludeSessions.split(',').map(s => s.trim()).filter(Boolean).join(',')
+  const excludeDeviceParam = excludeDevices.split(',').map(s => s.trim()).filter(Boolean).join(',')
 
   const fetchEvents = async () => {
     try {
@@ -246,6 +251,7 @@ function UserEventsContent() {
       if (slugFilter) params.set('slug', slugFilter)
       if (deviceFilter) params.set('deviceId', deviceFilter)
       if (excludeParam) params.set('excludeSessions', excludeParam)
+      if (excludeDeviceParam) params.set('excludeDevices', excludeDeviceParam)
       params.set('limit', '5000')
       const res = await fetch(`/api/user-events?${params}`)
       if (res.ok) {
@@ -262,6 +268,7 @@ function UserEventsContent() {
       const params = new URLSearchParams({ mode: 'stats', days: String(days), granularity: String(granularity) })
       if (slugFilter) params.set('slug', slugFilter)
       if (excludeParam) params.set('excludeSessions', excludeParam)
+      if (excludeDeviceParam) params.set('excludeDevices', excludeDeviceParam)
       const res = await fetch(`/api/user-events?${params}`)
       if (res.ok) setStats(await res.json())
     } catch {}
@@ -278,7 +285,7 @@ function UserEventsContent() {
   useEffect(() => {
     fetchEvents()
     fetchStats()
-  }, [slugFilter, deviceFilter, days, granularity, excludeParam])
+  }, [slugFilter, deviceFilter, days, granularity, excludeParam, excludeDeviceParam])
 
   useEffect(() => {
     if (autoRefresh) {
@@ -287,11 +294,15 @@ function UserEventsContent() {
     } else {
       if (intervalRef.current) clearInterval(intervalRef.current)
     }
-  }, [autoRefresh, slugFilter, deviceFilter, days, granularity, excludeParam])
+  }, [autoRefresh, slugFilter, deviceFilter, days, granularity, excludeParam, excludeDeviceParam])
 
   useEffect(() => {
     localStorage.setItem('pt_exclude_sessions', excludeSessions)
   }, [excludeSessions])
+
+  useEffect(() => {
+    localStorage.setItem('pt_exclude_devices', excludeDevices)
+  }, [excludeDevices])
 
   const activeSessions = sessions.filter(s => {
     const diff = Date.now() - new Date(s.lastActivity).getTime()
@@ -359,21 +370,19 @@ function UserEventsContent() {
             )}
           </div>
           <div className="flex gap-2 items-center">
-            {excludeParam ? (
-              <button
-                onClick={() => setShowExclude(v => !v)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-xl text-sm text-left text-gray-500 hover:bg-gray-50 truncate"
-              >
-                {showExclude ? '제외 목록 숨기기 ▲' : `제외 ${excludeParam.split(',').length}건 ▼`}
-              </button>
-            ) : (
-              <button
-                onClick={() => setShowExclude(v => !v)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-xl text-sm text-left text-gray-400 hover:bg-gray-50"
-              >
-                {showExclude ? '제외 목록 숨기기 ▲' : '제외할 세션 설정 ▼'}
-              </button>
-            )}
+            {(() => {
+              const sessionCount = excludeParam ? excludeParam.split(',').length : 0
+              const deviceCount = excludeDeviceParam ? excludeDeviceParam.split(',').length : 0
+              const total = sessionCount + deviceCount
+              return (
+                <button
+                  onClick={() => setShowExclude(v => !v)}
+                  className={`flex-1 px-4 py-2 border border-gray-300 rounded-xl text-sm text-left hover:bg-gray-50 truncate ${total > 0 ? 'text-gray-500' : 'text-gray-400'}`}
+                >
+                  {showExclude ? '제외 목록 숨기기 ▲' : total > 0 ? `제외 ${total}건 (세션 ${sessionCount} · 디바이스 ${deviceCount}) ▼` : '제외 설정 ▼'}
+                </button>
+              )
+            })()}
             <select
               value={granularity}
               onChange={e => setGranularity(Number(e.target.value))}
@@ -397,13 +406,22 @@ function UserEventsContent() {
             </select>
           </div>
           {showExclude && (
-            <input
-              type="text"
-              value={excludeSessions}
-              onChange={e => setExcludeSessions(e.target.value)}
-              placeholder="제외할 세션 ID (쉼표 구분)..."
-              className="w-full px-4 py-2 border border-gray-300 rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+            <div className="space-y-2">
+              <input
+                type="text"
+                value={excludeSessions}
+                onChange={e => setExcludeSessions(e.target.value)}
+                placeholder="제외할 세션 ID (쉼표 구분)..."
+                className="w-full px-4 py-2 border border-gray-300 rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <input
+                type="text"
+                value={excludeDevices}
+                onChange={e => setExcludeDevices(e.target.value)}
+                placeholder="제외할 디바이스 ID (쉼표 구분)..."
+                className="w-full px-4 py-2 border border-gray-300 rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
           )}
         </div>
 
@@ -503,15 +521,26 @@ function UserEventsContent() {
                       const isExpanded = expandedSession === session.sessionId
                       const purchaseEvent = session.events.find(e => e.action === 'purchase')
                       const purchaseAmount = purchaseEvent?.params?.value || 0
-                      const excludeList = excludeSessions.split(',').map(s => s.trim()).filter(Boolean)
-                      const isExcluded = excludeList.includes(session.sessionId)
+                      const sessionExcludeList = excludeSessions.split(',').map(s => s.trim()).filter(Boolean)
+                      const deviceExcludeList = excludeDevices.split(',').map(s => s.trim()).filter(Boolean)
+                      const isSessionExcluded = sessionExcludeList.includes(session.sessionId)
+                      const isDeviceExcluded = deviceExcludeList.includes(session.deviceId)
+                      const isExcluded = isSessionExcluded || isDeviceExcluded
 
-                      const toggleExclude = (e: React.MouseEvent) => {
+                      const toggleExcludeSession = (e: React.MouseEvent) => {
                         e.stopPropagation()
-                        if (isExcluded) {
-                          setExcludeSessions(excludeList.filter(s => s !== session.sessionId).join(','))
+                        if (isSessionExcluded) {
+                          setExcludeSessions(sessionExcludeList.filter(s => s !== session.sessionId).join(','))
                         } else {
-                          setExcludeSessions([...excludeList, session.sessionId].join(','))
+                          setExcludeSessions([...sessionExcludeList, session.sessionId].join(','))
+                        }
+                      }
+                      const toggleExcludeDevice = (e: React.MouseEvent) => {
+                        e.stopPropagation()
+                        if (isDeviceExcluded) {
+                          setExcludeDevices(deviceExcludeList.filter(s => s !== session.deviceId).join(','))
+                        } else {
+                          setExcludeDevices([...deviceExcludeList, session.deviceId].join(','))
                         }
                       }
 
@@ -545,10 +574,16 @@ function UserEventsContent() {
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
                               <span
-                                onClick={toggleExclude}
-                                className={`text-[10px] px-2 py-0.5 rounded-full cursor-pointer transition-colors ${isExcluded ? 'bg-red-100 text-red-600 hover:bg-red-200' : 'bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-500'}`}
+                                onClick={toggleExcludeSession}
+                                className={`text-[10px] px-2 py-0.5 rounded-full cursor-pointer transition-colors ${isSessionExcluded ? 'bg-red-100 text-red-600 hover:bg-red-200' : 'bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-500'}`}
                               >
-                                {isExcluded ? '제외됨' : '제외'}
+                                {isSessionExcluded ? '세션제외됨' : '세션제외'}
+                              </span>
+                              <span
+                                onClick={toggleExcludeDevice}
+                                className={`text-[10px] px-2 py-0.5 rounded-full cursor-pointer transition-colors ${isDeviceExcluded ? 'bg-red-100 text-red-600 hover:bg-red-200' : 'bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-500'}`}
+                              >
+                                {isDeviceExcluded ? '디바이스제외됨' : '디바이스제외'}
                               </span>
                               <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
                                 {session.events.length}건

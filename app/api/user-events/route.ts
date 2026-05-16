@@ -34,6 +34,7 @@ export async function GET(req: NextRequest) {
     const slug = searchParams.get('slug')
     const deviceId = searchParams.get('deviceId')
     const excludeSessions = searchParams.get('excludeSessions')?.split(',').filter(Boolean) || []
+    const excludeDevices = searchParams.get('excludeDevices')?.split(',').filter(Boolean) || []
     const days = Math.min(Number(searchParams.get('days') || 7), 30)
 
     const db = await getDb()
@@ -46,6 +47,7 @@ export async function GET(req: NextRequest) {
       const filter: any = { timestamp: { $gte: since } }
       if (slug) filter.slug = slug
       if (excludeSessions.length > 0) filter.sessionId = { $nin: excludeSessions }
+      if (excludeDevices.length > 0) filter.deviceId = { $nin: excludeDevices }
 
       const events = await db.collection(COLLECTIONS.userEvents)
         .find(filter)
@@ -117,7 +119,13 @@ export async function GET(req: NextRequest) {
     const limit = Math.min(Number(searchParams.get('limit') || 5000), 10000)
     const filter: any = {}
     if (slug) filter.slug = slug
-    if (deviceId) filter.deviceId = deviceId
+    if (deviceId && excludeDevices.length > 0) {
+      filter.$and = [{ deviceId }, { deviceId: { $nin: excludeDevices } }]
+    } else if (deviceId) {
+      filter.deviceId = deviceId
+    } else if (excludeDevices.length > 0) {
+      filter.deviceId = { $nin: excludeDevices }
+    }
     if (excludeSessions.length > 0) filter.sessionId = { $nin: excludeSessions }
 
     const events = await db.collection(COLLECTIONS.userEvents)
