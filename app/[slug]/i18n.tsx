@@ -44,7 +44,7 @@ const translations = {
   'photo.done': { ko: '사진 완료', en: 'Done', zh: '完成' },
   'photo.ready': { ko: '준비됐어요. 아래 버튼으로 프린트할 수 있어요.', en: 'Ready! Tap the button below to print.', zh: '准备好了！点击下方按钮打印。' },
   'photo.tapToAdd': { ko: '사진 영역을 탭해서 추가해주세요.', en: 'Tap a photo slot to add your image.', zh: '点击照片区域添加图片。' },
-  'photo.tapHere': { ko: '눌러서 사진 추가', en: 'Tap to add a photo', zh: '点击添加照片' },
+  'photo.tapHere': { ko: '눌러서 사진 넣기', en: 'Tap to add a photo', zh: '点击添加照片' },
   'photo.preview': { ko: '미리보기', en: 'Preview', zh: '预览' },
   'photo.readyBadge': { ko: '준비 완료', en: 'Ready', zh: '就绪' },
   'photo.tapHint': { ko: '사진을 탭해 추가하거나 변경할 수 있어요', en: 'Tap to add or change a photo', zh: '点击添加或更换照片' },
