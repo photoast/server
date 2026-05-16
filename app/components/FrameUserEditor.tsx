@@ -257,9 +257,11 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
   const [frameOverlayOriginal, setFrameOverlayOriginal] = useState(false)
 
   useEffect(() => {
-    if (showGrid) return
-    const el = cropContainerRef.current?.querySelector('.reactEasyCrop_CropArea') as HTMLElement | null
-    if (el) el.style.border = 'none'
+    const cropArea = cropContainerRef.current?.querySelector('.reactEasyCrop_CropArea') as HTMLElement | null
+    if (!cropArea) return
+    if (!showGrid) cropArea.style.border = 'none'
+    else cropArea.style.border = ''
+    cropArea.style.boxShadow = 'none'
   })
 
   // Open crop editor for a slot that already has a file
@@ -457,7 +459,7 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
           <span className="text-xs text-gray-400">{editingSlot.aspectRatio}</span>
         </div>
 
-        <div ref={cropContainerRef} className="relative bg-black overflow-hidden" style={{ height: 400 }}>
+        <div ref={cropContainerRef} className="relative overflow-hidden" style={{ height: 400, background: 'rgba(0,0,0,0.5)' }}>
           <Cropper
             image={editingState.previewUrl}
             crop={cropPos}
@@ -493,6 +495,13 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
             const slotW = editingSlot.width
             const slotH = editingSlot.height
 
+            const sortedLayers = layers.sort((a, b) => a.zIndex - b.zIndex)
+
+            const cL = cropLeft
+            const cT = cropTop
+            const cR = cropLeft + cropAreaSize.width
+            const cB = cropTop + cropAreaSize.height
+
             return (
               <div
                 className="absolute pointer-events-none"
@@ -504,35 +513,55 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
                   zIndex: 10,
                 }}
               >
-                {layers.sort((a, b) => a.zIndex - b.zIndex).map(layer => {
+                {sortedLayers.map(layer => {
                   const lx = layer.x ?? 0
                   const ly = layer.y ?? 0
                   const lw = layer.width ?? layout.canvasWidth
                   const lh = layer.height ?? layout.canvasHeight
-
-                  // Frame position relative to this slot (as percentage of slot)
                   const leftPct = ((lx - slotX) / slotW) * 100
                   const topPct = ((ly - slotY) / slotH) * 100
                   const widthPct = (lw / slotW) * 100
                   const heightPct = (lh / slotH) * 100
 
+                  if (frameOverlayOriginal) {
+                    return (
+                      <img
+                        key={layer.id}
+                        src={layer.imageUrl}
+                        alt=""
+                        className="absolute"
+                        style={{
+                          left: `${leftPct}%`,
+                          top: `${topPct}%`,
+                          width: `${widthPct}%`,
+                          height: `${heightPct}%`,
+                          maxWidth: 'none',
+                          maxHeight: 'none',
+                          transform: layer.rotation ? `rotate(${layer.rotation}deg)` : undefined,
+                          opacity: layer.opacity ?? 1,
+                        }}
+                      />
+                    )
+                  }
+
                   return (
-                    <img
+                    <div
                       key={layer.id}
-                      src={layer.imageUrl}
-                      alt=""
                       className="absolute"
                       style={{
                         left: `${leftPct}%`,
                         top: `${topPct}%`,
                         width: `${widthPct}%`,
                         height: `${heightPct}%`,
-                        maxWidth: 'none',
-                        maxHeight: 'none',
                         transform: layer.rotation ? `rotate(${layer.rotation}deg)` : undefined,
-                        filter: frameOverlayOriginal ? 'none' : 'brightness(0)',
-                        opacity: frameOverlayOriginal ? (layer.opacity ?? 1) : 0.5,
-                      }}
+                        background: 'rgba(0,0,0,0.5)',
+                        WebkitMaskImage: `url(${layer.imageUrl})`,
+                        WebkitMaskSize: '100% 100%',
+                        WebkitMaskRepeat: 'no-repeat',
+                        maskImage: `url(${layer.imageUrl})`,
+                        maskSize: '100% 100%',
+                        maskRepeat: 'no-repeat',
+                      } as React.CSSProperties}
                     />
                   )
                 })}
