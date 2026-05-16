@@ -250,8 +250,6 @@ function UserEventsContent() {
       const params = new URLSearchParams()
       if (slugFilter) params.set('slug', slugFilter)
       if (deviceFilter) params.set('deviceId', deviceFilter)
-      if (excludeParam) params.set('excludeSessions', excludeParam)
-      if (excludeDeviceParam) params.set('excludeDevices', excludeDeviceParam)
       params.set('limit', '5000')
       const res = await fetch(`/api/user-events?${params}`)
       if (res.ok) {
@@ -547,14 +545,14 @@ function UserEventsContent() {
                       return (
                         <div
                           key={session.sessionId}
-                          className={`bg-white rounded-xl border ${isExcluded ? 'border-red-200 opacity-60' : isActive ? 'border-green-200' : 'border-gray-100'} overflow-hidden`}
+                          className={`bg-white rounded-xl border ${isExcluded ? 'border-red-200' : isActive ? 'border-green-200' : 'border-gray-100'} overflow-hidden`}
                         >
                           <button
                             onClick={() => setExpandedSession(isExpanded ? null : session.sessionId)}
                             className="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-gray-50 transition-colors"
                           >
-                            <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${isActive ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}`} />
-                            <div className="flex-1 min-w-0">
+                            <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${isExcluded ? 'bg-red-300' : isActive ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}`} />
+                            <div className={`flex-1 min-w-0 ${isExcluded ? 'opacity-40 blur-[1px]' : ''}`}>
                               <div className="flex items-center gap-2">
                                 <span className="text-sm font-semibold text-gray-900 truncate">{slugNames[session.slug] ? `${slugNames[session.slug]}(${session.slug})` : `/${session.slug}`}</span>
                                 <span className="text-xs text-gray-400 font-mono">{session.deviceId.slice(0, 8)}</span>
@@ -573,17 +571,22 @@ function UserEventsContent() {
                               </div>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
+                              {isExcluded && (
+                                <span className="text-[10px] text-red-500 font-medium">
+                                  {isSessionExcluded && isDeviceExcluded ? '세션+디바이스 제외' : isDeviceExcluded ? '디바이스 제외' : '세션 제외'}
+                                </span>
+                              )}
                               <span
                                 onClick={toggleExcludeSession}
                                 className={`text-[10px] px-2 py-0.5 rounded-full cursor-pointer transition-colors ${isSessionExcluded ? 'bg-red-100 text-red-600 hover:bg-red-200' : 'bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-500'}`}
                               >
-                                {isSessionExcluded ? '세션제외됨' : '세션제외'}
+                                {isSessionExcluded ? '세션해제' : '세션제외'}
                               </span>
                               <span
                                 onClick={toggleExcludeDevice}
                                 className={`text-[10px] px-2 py-0.5 rounded-full cursor-pointer transition-colors ${isDeviceExcluded ? 'bg-red-100 text-red-600 hover:bg-red-200' : 'bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-500'}`}
                               >
-                                {isDeviceExcluded ? '디바이스제외됨' : '디바이스제외'}
+                                {isDeviceExcluded ? '디바이스해제' : '디바이스제외'}
                               </span>
                               <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
                                 {session.events.length}건
