@@ -254,7 +254,7 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
   const [cropZoom, setCropZoom] = useState(1)
   const [currentCropArea, setCurrentCropArea] = useState<Area | null>(null)
   const [showGrid, setShowGrid] = useState(false)
-  const [frameOverlayOriginal, setFrameOverlayOriginal] = useState(false)
+  const [frameOverlayOriginal, setFrameOverlayOriginal] = useState(true)
 
   useEffect(() => {
     const cropArea = cropContainerRef.current?.querySelector('.reactEasyCrop_CropArea') as HTMLElement | null
