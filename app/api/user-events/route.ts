@@ -60,34 +60,45 @@ export async function GET(req: NextRequest) {
         return `${d.toISOString().slice(0, 10)} ${hh}:${mm}`
       }
 
-      const sessions = new Map<string, number>()
-      const photoSlots = new Map<string, number>()
-      const purchases = new Map<string, number>()
+      const sessionBuckets = new Map<string, Set<string>>()
+      const photoSlotBuckets = new Map<string, Set<string>>()
+      const purchaseBuckets = new Map<string, Set<string>>()
       const revenue = new Map<string, number>()
+      const uniqueSessions = new Set<string>()
+      const uniquePhotoSlots = new Set<string>()
+      const uniquePurchases = new Set<string>()
 
       for (const ev of events) {
         const key = toBucketKey(new Date(ev.timestamp))
         if (ev.action === 'page_enter') {
-          sessions.set(key, (sessions.get(key) || 0) + 1)
+          if (!sessionBuckets.has(key)) sessionBuckets.set(key, new Set())
+          sessionBuckets.get(key)!.add(ev.sessionId)
+          uniqueSessions.add(ev.sessionId)
         }
         if (ev.action === 'photo_upload') {
-          photoSlots.set(key, (photoSlots.get(key) || 0) + 1)
+          if (!photoSlotBuckets.has(key)) photoSlotBuckets.set(key, new Set())
+          photoSlotBuckets.get(key)!.add(ev.sessionId)
+          uniquePhotoSlots.add(ev.sessionId)
         }
         if (ev.action === 'purchase') {
-          purchases.set(key, (purchases.get(key) || 0) + 1)
+          if (!purchaseBuckets.has(key)) purchaseBuckets.set(key, new Set())
+          purchaseBuckets.get(key)!.add(ev.sessionId)
+          uniquePurchases.add(ev.sessionId)
           revenue.set(key, (revenue.get(key) || 0) + (ev.params?.value || 0))
         }
       }
 
-      const toArr = (m: Map<string, number>) =>
+      const setToArr = (m: Map<string, Set<string>>) =>
+        Array.from(m.entries()).map(([key, s]) => ({ key, value: s.size })).sort((a, b) => a.key.localeCompare(b.key))
+      const numToArr = (m: Map<string, number>) =>
         Array.from(m.entries()).map(([key, value]) => ({ key, value })).sort((a, b) => a.key.localeCompare(b.key))
 
       return NextResponse.json({
-        buckets: { sessions: toArr(sessions), photoSlots: toArr(photoSlots), purchases: toArr(purchases), revenue: toArr(revenue) },
+        buckets: { sessions: setToArr(sessionBuckets), photoSlots: setToArr(photoSlotBuckets), purchases: setToArr(purchaseBuckets), revenue: numToArr(revenue) },
         totals: {
-          sessions: events.filter(e => e.action === 'page_enter').length,
-          photoSlots: events.filter(e => e.action === 'photo_upload').length,
-          purchases: events.filter(e => e.action === 'purchase').length,
+          sessions: uniqueSessions.size,
+          photoSlots: uniquePhotoSlots.size,
+          purchases: uniquePurchases.size,
           revenue: events.filter(e => e.action === 'purchase').reduce((sum, e) => sum + (e.params?.value || 0), 0),
         },
         granularity,
