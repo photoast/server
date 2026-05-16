@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
 
     // totalSize may not be available on all MongoDB deployments (e.g. Atlas M0)
     // Fall back to storageSize + indexSize
-    const totalBytes = dbStats.totalSize ?? (dbStats.storageSize + dbStats.indexSize) ?? 0
+    const totalBytes = dbStats.totalSize ?? ((dbStats.storageSize + dbStats.indexSize) || 0)
     const totalUsedMB = roundMB(totalBytes)
     const usagePercent = maxSizeMB > 0 ? Math.round((totalUsedMB / maxSizeMB) * 1000) / 10 : 0
 

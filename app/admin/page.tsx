@@ -161,6 +161,18 @@ function AdminPageInner() {
   const [showDbDetail, setShowDbDetail] = useState(false)
   const [dbStatsLoading, setDbStatsLoading] = useState(false)
 
+  // Vercel Blob storage stats
+  const [blobStats, setBlobStats] = useState<{
+    totalSizeMB: number
+    blobCount: number
+    maxSizeMB: number
+    usagePercent: number
+    byExtension: Record<string, { count: number; sizeMB: number }>
+    configured: boolean
+    error?: string
+  } | null>(null)
+  const [blobStatsLoading, setBlobStatsLoading] = useState(false)
+
   // Event editing states
   const [editingEventId, setEditingEventId] = useState<string | null>(null)
   const [editingField, setEditingField] = useState<'name' | 'slug' | null>(null)
@@ -258,6 +270,7 @@ function AdminPageInner() {
         fetchEvents()
         fetchPrinters()
         fetchDbStats()
+        fetchStorageStats()
       }
     } catch (err) {
       // Not authenticated
@@ -271,6 +284,15 @@ function AdminPageInner() {
       if (res.ok) setDbStats(await res.json())
     } catch {}
     setDbStatsLoading(false)
+  }
+
+  const fetchStorageStats = async () => {
+    setBlobStatsLoading(true)
+    try {
+      const res = await fetch('/api/system/storage-stats')
+      if (res.ok) setBlobStats(await res.json())
+    } catch {}
+    setBlobStatsLoading(false)
   }
 
   const fetchStickers = async () => {
@@ -2287,6 +2309,93 @@ function AdminPageInner() {
           ) : (
             <p className="text-sm text-gray-400 py-2">
               {dbStatsLoading ? '불러오는 중...' : 'DB 통계를 불러올 수 없습니다'}
+            </p>
+          )}
+        </UICard>
+
+        {/* Vercel Blob Storage Usage */}
+        <UICard className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-bold text-gray-900">📦 Blob 스토리지</h2>
+            {blobStatsLoading && (
+              <div className="w-4 h-4 border-2 border-gray-200 border-t-blue-500 rounded-full animate-spin" />
+            )}
+          </div>
+          {blobStats ? (
+            <div className="space-y-3">
+              {blobStats.configured ? (
+                <>
+                  {/* Progress bar */}
+                  <div>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-gray-600">
+                        {blobStats.totalSizeMB.toFixed(1)}MB
+                        <span className="text-gray-400"> / {blobStats.maxSizeMB}MB</span>
+                      </span>
+                      <span className={`font-semibold ${
+                        blobStats.usagePercent > 90 ? 'text-red-600' :
+                        blobStats.usagePercent > 70 ? 'text-amber-600' :
+                        'text-green-600'
+                      }`}>
+                        {blobStats.usagePercent.toFixed(1)}%
+                      </span>
+                    </div>
+                    <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          blobStats.usagePercent > 90 ? 'bg-red-500' :
+                          blobStats.usagePercent > 70 ? 'bg-amber-500' :
+                          'bg-green-500'
+                        }`}
+                        style={{ width: `${Math.min(blobStats.usagePercent, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Summary stats */}
+                  <div className="grid grid-cols-2 gap-2 text-center">
+                    <div className="bg-gray-50 rounded-lg py-2">
+                      <div className="text-xs text-gray-500">파일</div>
+                      <div className="text-sm font-bold text-gray-800">{blobStats.blobCount.toLocaleString()}개</div>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg py-2">
+                      <div className="text-xs text-gray-500">사용량</div>
+                      <div className="text-sm font-bold text-gray-800">{blobStats.totalSizeMB.toFixed(1)}MB</div>
+                    </div>
+                  </div>
+
+                  {/* Extension detail */}
+                  {Object.keys(blobStats.byExtension).length > 0 && (
+                    <div className="border rounded-lg divide-y">
+                      {Object.entries(blobStats.byExtension)
+                        .sort(([, a], [, b]) => b.sizeMB - a.sizeMB)
+                        .map(([ext, info]) => (
+                          <div key={ext} className="flex justify-between items-center px-3 py-1.5 text-xs">
+                            <span className="font-mono text-gray-700">.{ext}</span>
+                            <span className="text-gray-500">
+                              {info.count.toLocaleString()}개 / {info.sizeMB.toFixed(2)}MB
+                            </span>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-sm text-amber-600 font-medium">⚠️ Blob 스토리지가 설정되지 않았습니다</p>
+                  <p className="text-xs text-gray-500">
+                    Vercel 대시보드에서 Blob 저장소를 생성하고 <code className="bg-gray-100 px-1 rounded">BLOB_READ_WRITE_TOKEN</code> 환경 변수를 설정하세요.
+                    (로컬 개발에서는 파일 시스템을 사용합니다)
+                  </p>
+                </div>
+              )}
+              {blobStats.error && !blobStats.configured && (
+                <p className="text-xs text-red-500">{blobStats.error}</p>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400 py-2">
+              {blobStatsLoading ? '불러오는 중...' : '스토리지 통계를 불러올 수 없습니다'}
             </p>
           )}
         </UICard>
