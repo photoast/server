@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, type RefObject } from 'react'
 import Cropper from 'react-easy-crop'
 import type { Area, Point } from 'react-easy-crop'
 import Image from 'next/image'
@@ -8,7 +8,7 @@ import type { FrameLayout, PhotoSlot, FrameLayer } from '@/lib/types'
 import { UIButton, UIStatusBanner } from './ui'
 import { trackCropOpen, trackCropCancel, trackPhotoCropComplete, trackCameraOpen, trackCameraCapture, trackCameraCancel, trackCameraFlip } from '@/lib/gtag'
 import { useI18n } from '../[slug]/i18n'
-import CameraCapture from './CameraCapture'
+import CameraCapture, { type CameraRef } from './CameraCapture'
 
 // Aspect ratio map for react-easy-crop
 const ASPECT_MAP: Record<string, number | undefined> = {
@@ -87,6 +87,7 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const filePickerSlotRef = useRef<number | null>(null)
+  const cameraRef = useRef<CameraRef>(null)
   const prevLayoutIdRef = useRef(layout._id)
   const sortedSlots = [...layout.slots].sort((a, b) => a.order - b.order)
 
@@ -256,6 +257,13 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
   // --- Crop editor state for the currently editing slot ---
   const editingSlot = editingSlotIndex !== null ? sortedSlots[editingSlotIndex] : null
   const editingState = editingSlotIndex !== null ? slotStates[editingSlotIndex] : null
+  const editingAspectRatio = editingSlot ? (ASPECT_MAP[editingSlot.aspectRatio] ?? (editingSlot.width / editingSlot.height)) : 1
+
+  const cropContainerRef = useRef<HTMLDivElement>(null)
+  const [cropAreaSize, setCropAreaSize] = useState<{ width: number; height: number } | null>(null)
+  const onCropSizeChange = useCallback((size: { width: number; height: number }) => {
+    setCropAreaSize(size)
+  }, [])
 
   const [cropPos, setCropPos] = useState<Point>({ x: 0, y: 0 })
   const [cropZoom, setCropZoom] = useState(1)
@@ -445,8 +453,7 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
 
   // ---- Crop editor view ----
   if (editingSlotIndex !== null && editingState?.previewUrl && editingSlot) {
-    const aspectRatio = ASPECT_MAP[editingSlot.aspectRatio]
-    const displayAspect = aspectRatio ?? (editingSlot.width / editingSlot.height)
+    const displayAspect = editingAspectRatio
 
     return (
       <div className="space-y-4">
@@ -457,7 +464,7 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
           <span className="text-xs text-gray-400">{editingSlot.aspectRatio}</span>
         </div>
 
-        <div className="relative bg-black overflow-hidden" style={{ height: 400 }}>
+        <div ref={cropContainerRef} className="relative bg-black overflow-hidden" style={{ height: 400 }}>
           <Cropper
             image={editingState.previewUrl}
             crop={cropPos}
@@ -466,7 +473,77 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
             onCropChange={onCropChange}
             onZoomChange={onZoomChange}
             onCropComplete={onCropComplete}
+            onCropSizeChange={onCropSizeChange}
           />
+          {/* Frame overlay — clipped to show only the portion visible through this slot */}
+          {(() => {
+            const layers: FrameLayer[] = (layout.frameLayers && layout.frameLayers.length > 0)
+              ? layout.frameLayers.filter(l => l.visible)
+              : layout.frameUrl
+                ? [{ id: 'legacy', name: '프레임', imageUrl: layout.frameUrl, zIndex: 100, opacity: 1, visible: true }]
+                : []
+            if (layers.length === 0 || !cropAreaSize) return null
+
+            const container = cropContainerRef.current
+            if (!container) return null
+            const containerW = container.clientWidth
+            const containerH = container.clientHeight
+
+            // Crop area is always centered in the container
+            const cropLeft = (containerW - cropAreaSize.width) / 2
+            const cropTop = (containerH - cropAreaSize.height) / 2
+
+            const slotX = editingSlot.x
+            const slotY = editingSlot.y
+            const slotW = editingSlot.width
+            const slotH = editingSlot.height
+
+            return (
+              <div
+                className="absolute pointer-events-none overflow-hidden"
+                style={{
+                  left: `${cropLeft}px`,
+                  top: `${cropTop}px`,
+                  width: `${cropAreaSize.width}px`,
+                  height: `${cropAreaSize.height}px`,
+                  zIndex: 10,
+                }}
+              >
+                {layers.sort((a, b) => a.zIndex - b.zIndex).map(layer => {
+                  const lx = layer.x ?? 0
+                  const ly = layer.y ?? 0
+                  const lw = layer.width ?? layout.canvasWidth
+                  const lh = layer.height ?? layout.canvasHeight
+
+                  // Frame position relative to this slot (as percentage of slot)
+                  const leftPct = ((lx - slotX) / slotW) * 100
+                  const topPct = ((ly - slotY) / slotH) * 100
+                  const widthPct = (lw / slotW) * 100
+                  const heightPct = (lh / slotH) * 100
+
+                  return (
+                    <img
+                      key={layer.id}
+                      src={layer.imageUrl}
+                      alt=""
+                      className="absolute"
+                      style={{
+                        left: `${leftPct}%`,
+                        top: `${topPct}%`,
+                        width: `${widthPct}%`,
+                        height: `${heightPct}%`,
+                        maxWidth: 'none',
+                        maxHeight: 'none',
+                        transform: layer.rotation ? `rotate(${layer.rotation}deg)` : undefined,
+                        filter: 'brightness(0)',
+                        opacity: 0.5,
+                      }}
+                    />
+                  )
+                })}
+              </div>
+            )
+          })()}
         </div>
 
         <p className="text-xs text-gray-400 text-center">
@@ -626,12 +703,8 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
                 }}
               >
                 <CameraCapture
+                  ref={cameraRef}
                   onCapture={(file) => handleCameraCapture(file, i)}
-                  onCancel={() => {
-                    trackCameraCancel(i, eventSlug)
-                    setCameraSlot(null)
-                  }}
-                  onFlip={(facing) => trackCameraFlip(facing, eventSlug)}
                 />
               </div>
             )
@@ -694,6 +767,45 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
           )
         })}
       </div>
+
+      {/* Camera controls — rendered outside the slot container */}
+      {cameraSlot !== null && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[9999]">
+          <div className="flex items-center gap-4 px-5 py-2.5 rounded-full bg-black/80 backdrop-blur-xl shadow-2xl border border-white/10">
+            <button
+              onClick={() => {
+                trackCameraCancel(cameraSlot, eventSlug)
+                cameraRef.current?.stop()
+                setCameraSlot(null)
+              }}
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-white/15 active:bg-white/25 transition-colors"
+            >
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            <button
+              onClick={() => cameraRef.current?.capture()}
+              className="w-14 h-14 rounded-full border-[3px] border-white/90 flex items-center justify-center transition-transform active:scale-90"
+            >
+              <div className="w-11 h-11 rounded-full bg-white" />
+            </button>
+
+            <button
+              onClick={() => {
+                trackCameraFlip('toggle', eventSlug)
+                cameraRef.current?.toggleCamera()
+              }}
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-white/15 active:bg-white/25 transition-colors"
+            >
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Slot action menu (modal) */}
       {actionMenuSlot !== null && (
