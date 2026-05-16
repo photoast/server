@@ -11,9 +11,13 @@
   bottom: 0;
 }
 
-.reactEasyCrop_CropArea {
-  color: rgba(255, 255, 255, 0.5);
-  border: 2px solid rgba(255, 255, 255, 0.5);
+div[class*="reactEasyCrop_CropArea"] {
+  border: 0 solid transparent !important;
+  outline: none !important;
+}
+
+div[class*="reactEasyCrop_CropArea"].reactEasyCrop_CropArea--show-grid {
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
 }
 
 :root {

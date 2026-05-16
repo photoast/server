@@ -130,6 +130,8 @@ const translations = {
   'crop.delete': { ko: '삭제', en: 'Delete', zh: '删除' },
   'crop.swapHint': { ko: '이동할 위치를 선택하세요', en: 'Select target position', zh: '请选择目标位置' },
   'crop.edit2': { ko: '편집', en: 'Edit', zh: '编辑' },
+  'crop.grid': { ko: '보조선', en: 'Grid', zh: '辅助线' },
+  'crop.frameColor': { ko: '프레임 원본', en: 'Frame color', zh: '原色边框' },
   'crop.swapFrom': { ko: '선택됨', en: 'Selected', zh: '已选' },
   'crop.swapHere': { ko: '여기로 이동', en: 'Move here', zh: '移到这里' },
 

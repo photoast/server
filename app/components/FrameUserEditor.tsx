@@ -253,6 +253,14 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
   const [cropPos, setCropPos] = useState<Point>({ x: 0, y: 0 })
   const [cropZoom, setCropZoom] = useState(1)
   const [currentCropArea, setCurrentCropArea] = useState<Area | null>(null)
+  const [showGrid, setShowGrid] = useState(false)
+  const [frameOverlayOriginal, setFrameOverlayOriginal] = useState(false)
+
+  useEffect(() => {
+    if (showGrid) return
+    const el = cropContainerRef.current?.querySelector('.reactEasyCrop_CropArea') as HTMLElement | null
+    if (el) el.style.border = 'none'
+  })
 
   // Open crop editor for a slot that already has a file
   const openCropEditor = (slotIndex: number) => {
@@ -455,6 +463,8 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
             crop={cropPos}
             zoom={cropZoom}
             aspect={displayAspect}
+            showGrid={showGrid}
+            classes={{ cropAreaClassName: showGrid ? 'reactEasyCrop_CropArea--show-grid' : '' }}
             onCropChange={onCropChange}
             onZoomChange={onZoomChange}
             onCropComplete={onCropComplete}
@@ -485,7 +495,7 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
 
             return (
               <div
-                className="absolute pointer-events-none overflow-hidden"
+                className="absolute pointer-events-none"
                 style={{
                   left: `${cropLeft}px`,
                   top: `${cropTop}px`,
@@ -520,8 +530,8 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
                         maxWidth: 'none',
                         maxHeight: 'none',
                         transform: layer.rotation ? `rotate(${layer.rotation}deg)` : undefined,
-                        filter: 'brightness(0)',
-                        opacity: 0.5,
+                        filter: frameOverlayOriginal ? 'none' : 'brightness(0)',
+                        opacity: frameOverlayOriginal ? (layer.opacity ?? 1) : 0.5,
                       }}
                     />
                   )
@@ -531,9 +541,23 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
           })()}
         </div>
 
-        <p className="text-xs text-gray-400 text-center">
-          {t('crop.hint')}
-        </p>
+        <div className="flex items-center justify-center gap-2 flex-nowrap">
+          <p className="text-xs text-gray-400 whitespace-nowrap shrink-0">
+            {t('crop.hint')}
+          </p>
+          <button
+            onClick={() => setShowGrid(v => !v)}
+            className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors whitespace-nowrap shrink-0 ${showGrid ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-gray-50 border-gray-200 text-gray-400'}`}
+          >
+            {t('crop.grid')}
+          </button>
+          <button
+            onClick={() => setFrameOverlayOriginal(v => !v)}
+            className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors whitespace-nowrap shrink-0 ${frameOverlayOriginal ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-gray-50 border-gray-200 text-gray-400'}`}
+          >
+            {t('crop.frameColor')}
+          </button>
+        </div>
 
         <div className="flex gap-2">
           <UIButton fullWidth variant="secondary" onClick={cancelCrop}>{t('crop.cancel')}</UIButton>
