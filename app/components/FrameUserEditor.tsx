@@ -620,7 +620,7 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
                   top: `${pctY}%`,
                   width: `${pctW}%`,
                   height: `${pctH}%`,
-                  zIndex: 50,
+                  zIndex: slot.zIndex ?? 10,
                   transform: (slot.rotation ?? 0) !== 0 ? `rotate(${slot.rotation}deg)` : undefined,
                   transformOrigin: 'top left',
                 }}
@@ -631,6 +631,7 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
                     trackCameraCancel(i, eventSlug)
                     setCameraSlot(null)
                   }}
+                  onFlip={(facing) => trackCameraFlip(facing, eventSlug)}
                 />
               </div>
             )
@@ -780,6 +781,21 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
               </div>
             )}
 
+            {/* File picker button (album first) */}
+            <button
+              onClick={() => {
+                const slot = photoPickerSlot
+                setPhotoPickerSlot(null)
+                openFilePicker(slot)
+              }}
+              className="w-full py-3 text-sm font-semibold text-gray-800 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              {t('picker.album')}
+            </button>
+
             {/* Camera button */}
             <button
               onClick={() => {
@@ -795,21 +811,6 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
               {t('picker.camera')}
-            </button>
-
-            {/* File picker button */}
-            <button
-              onClick={() => {
-                const slot = photoPickerSlot
-                setPhotoPickerSlot(null)
-                openFilePicker(slot)
-              }}
-              className="w-full py-3 text-sm font-semibold text-gray-800 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              {t('picker.album')}
             </button>
 
             <button
