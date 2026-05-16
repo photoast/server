@@ -60,14 +60,18 @@ export async function GET(req: NextRequest) {
         return `${d.toISOString().slice(0, 10)} ${hh}:${mm}`
       }
 
-      const visits = new Map<string, number>()
+      const sessions = new Map<string, number>()
+      const photoSlots = new Map<string, number>()
       const purchases = new Map<string, number>()
       const revenue = new Map<string, number>()
 
       for (const ev of events) {
         const key = toBucketKey(new Date(ev.timestamp))
         if (ev.action === 'page_enter') {
-          visits.set(key, (visits.get(key) || 0) + 1)
+          sessions.set(key, (sessions.get(key) || 0) + 1)
+        }
+        if (ev.action === 'photo_upload') {
+          photoSlots.set(key, (photoSlots.get(key) || 0) + 1)
         }
         if (ev.action === 'purchase') {
           purchases.set(key, (purchases.get(key) || 0) + 1)
@@ -79,9 +83,10 @@ export async function GET(req: NextRequest) {
         Array.from(m.entries()).map(([key, value]) => ({ key, value })).sort((a, b) => a.key.localeCompare(b.key))
 
       return NextResponse.json({
-        buckets: { visits: toArr(visits), purchases: toArr(purchases), revenue: toArr(revenue) },
+        buckets: { sessions: toArr(sessions), photoSlots: toArr(photoSlots), purchases: toArr(purchases), revenue: toArr(revenue) },
         totals: {
-          visits: events.filter(e => e.action === 'page_enter').length,
+          sessions: events.filter(e => e.action === 'page_enter').length,
+          photoSlots: events.filter(e => e.action === 'photo_upload').length,
           purchases: events.filter(e => e.action === 'purchase').length,
           revenue: events.filter(e => e.action === 'purchase').reduce((sum, e) => sum + (e.params?.value || 0), 0),
         },

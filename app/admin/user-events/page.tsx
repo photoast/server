@@ -22,8 +22,8 @@ interface Session {
 interface BucketEntry { key: string; value: number }
 
 interface StatsData {
-  buckets: { visits: BucketEntry[]; purchases: BucketEntry[]; revenue: BucketEntry[] }
-  totals: { visits: number; purchases: number; revenue: number }
+  buckets: { sessions: BucketEntry[]; photoSlots: BucketEntry[]; purchases: BucketEntry[]; revenue: BucketEntry[] }
+  totals: { sessions: number; photoSlots: number; purchases: number; revenue: number }
   granularity: number
 }
 
@@ -278,8 +278,8 @@ function UserEventsContent() {
     return diff < 10 * 60 * 1000
   })
 
-  const conversionRate = stats && stats.totals.visits > 0
-    ? ((stats.totals.purchases / stats.totals.visits) * 100).toFixed(1)
+  const conversionRate = stats && stats.totals.sessions > 0
+    ? ((stats.totals.purchases / stats.totals.sessions) * 100).toFixed(1)
     : '0'
 
   return (
@@ -400,10 +400,14 @@ function UserEventsContent() {
         {tab === 'stats' && stats && (
           <div className="space-y-4">
             {/* Summary cards */}
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-5 gap-3">
               <div className="bg-white rounded-xl border border-gray-100 p-4">
-                <div className="text-xs text-gray-500">접속</div>
-                <div className="text-2xl font-bold text-blue-600 mt-1">{stats.totals.visits.toLocaleString()}</div>
+                <div className="text-xs text-gray-500">세션</div>
+                <div className="text-2xl font-bold text-blue-600 mt-1">{stats.totals.sessions.toLocaleString()}</div>
+              </div>
+              <div className="bg-white rounded-xl border border-gray-100 p-4">
+                <div className="text-xs text-gray-500">포토슬롯</div>
+                <div className="text-2xl font-bold text-purple-600 mt-1">{stats.totals.photoSlots.toLocaleString()}</div>
               </div>
               <div className="bg-white rounded-xl border border-gray-100 p-4">
                 <div className="text-xs text-gray-500">결제</div>
@@ -421,9 +425,10 @@ function UserEventsContent() {
 
             <div className="bg-white rounded-xl border border-gray-100 p-4">
               <LineChart
-                label="접속 vs 결제"
+                label="세션 → 포토슬롯 → 결제"
                 lines={[
-                  { data: stats.buckets.visits, color: '#60a5fa', name: '접속' },
+                  { data: stats.buckets.sessions, color: '#60a5fa', name: '세션' },
+                  { data: stats.buckets.photoSlots, color: '#a855f7', name: '포토슬롯' },
                   { data: stats.buckets.purchases, color: '#22c55e', name: '결제' },
                 ]}
               />
