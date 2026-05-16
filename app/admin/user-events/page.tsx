@@ -324,7 +324,8 @@ function UserEventsContent() {
               />
               자동 새로고침
             </label>
-            <button onClick={captureAsPng} className="text-sm text-gray-500 hover:text-gray-700">PNG 캡처</button>
+            <button onClick={captureAsPng} className="text-sm text-gray-500 hover:text-gray-700">PNG</button>
+            <button onClick={() => window.print()} className="text-sm text-gray-500 hover:text-gray-700">PDF</button>
             <a href="/admin" className="text-sm text-blue-500 hover:text-blue-600">← 어드민</a>
           </div>
         </div>
