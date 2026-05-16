@@ -1,6 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getDb, COLLECTIONS } from '@/lib/mongodb'
 
+export async function DELETE(req: NextRequest) {
+  try {
+    const { sessionId, deviceId } = await req.json()
+    if (!sessionId && !deviceId) {
+      return NextResponse.json({ error: 'sessionId or deviceId required' }, { status: 400 })
+    }
+
+    const db = await getDb()
+    const filter: any = {}
+    if (sessionId) filter.sessionId = sessionId
+    if (deviceId) filter.deviceId = deviceId
+
+    const result = await db.collection(COLLECTIONS.userEvents).deleteMany(filter)
+    return NextResponse.json({ ok: true, deleted: result.deletedCount })
+  } catch {
+    return NextResponse.json({ error: 'Failed' }, { status: 500 })
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { deviceId, sessionId, slug, action, params } = await req.json()

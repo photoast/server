@@ -596,9 +596,35 @@ function UserEventsContent() {
 
                           {isExpanded && (
                             <div className="border-t border-gray-100 px-4 py-3 space-y-1.5 max-h-80 overflow-y-auto">
-                              <div className="flex items-center gap-2 mb-2">
-                                <span className="text-[10px] text-gray-400 font-mono">세션: {session.sessionId.slice(0, 12)}...</span>
-                                <span className="text-[10px] text-gray-400 font-mono">디바이스: {session.deviceId.slice(0, 12)}...</span>
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] text-gray-400 font-mono">세션: {session.sessionId.slice(0, 12)}...</span>
+                                  <span className="text-[10px] text-gray-400 font-mono">디바이스: {session.deviceId.slice(0, 12)}...</span>
+                                </div>
+                                <button
+                                  onClick={async (e) => {
+                                    e.stopPropagation()
+                                    if (!confirm(`이 세션의 이벤트 로그 ${session.events.length}건을 DB에서 완전히 삭제하시겠습니까?`)) return
+                                    try {
+                                      const res = await fetch('/api/user-events', {
+                                        method: 'DELETE',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ sessionId: session.sessionId }),
+                                      })
+                                      if (res.ok) {
+                                        const data = await res.json()
+                                        alert(`${data.deleted}건 삭제 완료`)
+                                        setSessions(prev => prev.filter(s => s.sessionId !== session.sessionId))
+                                        setExpandedSession(null)
+                                      }
+                                    } catch {
+                                      alert('삭제 실패')
+                                    }
+                                  }}
+                                  className="text-[10px] px-2.5 py-1 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-colors font-medium"
+                                >
+                                  이벤트 로그 삭제
+                                </button>
                               </div>
                               {session.events.map((ev, i) => {
                                 const info = ACTION_LABELS[ev.action] || { label: ev.action, color: 'bg-gray-100 text-gray-600' }
