@@ -63,10 +63,12 @@ export async function GET(req: NextRequest) {
       const sessionBuckets = new Map<string, Set<string>>()
       const photoSlotBuckets = new Map<string, Set<string>>()
       const purchaseBuckets = new Map<string, Set<string>>()
+      const downloadBuckets = new Map<string, Set<string>>()
       const revenue = new Map<string, number>()
       const uniqueSessions = new Set<string>()
       const uniquePhotoSlots = new Set<string>()
       const uniquePurchases = new Set<string>()
+      const uniqueDownloads = new Set<string>()
 
       for (const ev of events) {
         const key = toBucketKey(new Date(ev.timestamp))
@@ -86,6 +88,11 @@ export async function GET(req: NextRequest) {
           uniquePurchases.add(ev.sessionId)
           revenue.set(key, (revenue.get(key) || 0) + (ev.params?.value || 0))
         }
+        if (ev.action === 'download') {
+          if (!downloadBuckets.has(key)) downloadBuckets.set(key, new Set())
+          downloadBuckets.get(key)!.add(ev.sessionId)
+          uniqueDownloads.add(ev.sessionId)
+        }
       }
 
       const setToArr = (m: Map<string, Set<string>>) =>
@@ -94,11 +101,12 @@ export async function GET(req: NextRequest) {
         Array.from(m.entries()).map(([key, value]) => ({ key, value })).sort((a, b) => a.key.localeCompare(b.key))
 
       return NextResponse.json({
-        buckets: { sessions: setToArr(sessionBuckets), photoSlots: setToArr(photoSlotBuckets), purchases: setToArr(purchaseBuckets), revenue: numToArr(revenue) },
+        buckets: { sessions: setToArr(sessionBuckets), photoSlots: setToArr(photoSlotBuckets), purchases: setToArr(purchaseBuckets), downloads: setToArr(downloadBuckets), revenue: numToArr(revenue) },
         totals: {
           sessions: uniqueSessions.size,
           photoSlots: uniquePhotoSlots.size,
           purchases: uniquePurchases.size,
+          downloads: uniqueDownloads.size,
           revenue: events.filter(e => e.action === 'purchase').reduce((sum, e) => sum + (e.params?.value || 0), 0),
         },
         granularity,
