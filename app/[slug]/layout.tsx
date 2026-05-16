@@ -3,7 +3,7 @@ import Script from 'next/script'
 import { findEventBySlug } from '@/lib/models'
 import { I18nProvider } from './i18n'
 
-const GA_ID = 'G-PNJYXPXN2P'
+import { GA_ID } from '@/lib/gtag'
 
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   const event = await findEventBySlug(params.slug)

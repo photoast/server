@@ -18,6 +18,7 @@ import {
 import { LAYOUT_OPTIONS, getPhotoCount, getCropAspectRatioForSlot } from './layoutConfig'
 import type { FrameType } from '@/lib/types'
 import { logClientError, logClientInfo } from '@/lib/errorLogger'
+import { trackStepView, trackLayoutSelect, trackColorSelect, trackPhotoUpload, trackPhotoCropComplete, trackAllPhotosReady, trackPaymentStart, trackPaymentSuccess, trackPaymentFail, trackPrintRequest, trackPrintSuccess, trackDownload, trackReset } from '@/lib/gtag'
 import { useI18n, LanguageToggle } from './i18n'
 
 interface Event {
@@ -214,7 +215,8 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   const updateStep = useCallback((newStep: Step) => {
     setStep(newStep)
     updateURL(newStep, frameType)
-  }, [updateURL, frameType])
+    trackStepView(newStep, params.slug)
+  }, [updateURL, frameType, params.slug])
 
   const updateFrameType = useCallback((newFrameType: FrameType) => {
     setFrameType(newFrameType)
@@ -283,6 +285,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     const availableLayouts = event.availableLayouts || []
     // If exactly one FrameLayout, auto-redirect
     if (filteredFrameLayouts.length === 1) {
+      trackLayoutSelect(filteredFrameLayouts[0].name, filteredFrameLayouts[0]._id, params.slug)
       router.push(`/${params.slug}/layout/${filteredFrameLayouts[0]._id}`)
     }
   }, [event, step, filteredFrameLayouts, router, params.slug])
@@ -610,6 +613,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     const allSlotsFilled = photoSlots.every(slot => slot.file !== null && slot.cropArea !== null)
     if (allSlotsFilled && photoSlots.length > 0 && !processing && !previewUrl && step === 'fill-photos') {
       console.log('Auto-processing with all slots filled and cropped')
+      trackAllPhotosReady(photoSlots.length, params.slug)
       handleProcess()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -829,6 +833,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   }) => {
     if (currentEditingSlot === null) return
 
+    trackPhotoCropComplete(currentEditingSlot, params.slug)
     setPhotoSlots(prevSlots => {
       const newSlots = [...prevSlots]
       newSlots[currentEditingSlot] = {
@@ -877,6 +882,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
   const handleDownload = async () => {
     if (!previewUrl) return
+    trackDownload(params.slug)
 
     try {
       let blob: Blob
@@ -937,6 +943,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       const data = await res.json()
       if (data.jobIds) setPrintJobIds(data.jobIds)
 
+      trackPrintSuccess(params.slug)
       updateStep('success')
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to print'
@@ -992,10 +999,12 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
     // 무료 (0원)인 경우 결제 단계 건너뛰고 바로 프린트
     if (paymentAmount === 0) {
+      trackPrintRequest(printQuantity, params.slug)
       await handlePrint()
       return
     }
 
+    trackPaymentStart(paymentAmount, printQuantity, params.slug)
     updateStep('payment')
     setError('')
   }
@@ -1108,11 +1117,14 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
           localStorage.removeItem('pendingAuthCode')
           localStorage.removeItem('pendingCustomerEmail')
           window.history.replaceState({}, '', window.location.pathname)
+          trackPaymentSuccess(Number(amount), params.slug)
+          trackPrintSuccess(params.slug)
           updateStep('success')
 
         } catch (err: any) {
           console.error('Payment confirmation error:', err)
           setError(err.message || t('error.paymentConfirm'))
+          trackPaymentFail(err.message || 'confirmation_failed', params.slug)
           logClientError('Payment confirmation failed', err, params.slug)
           updateStep('payment-failed')
           window.history.replaceState({}, '', window.location.pathname)
@@ -1125,6 +1137,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     } else if (paymentStatus === 'fail') {
       const errorMsg = urlParams.get('errorMsg')
       setError(errorMsg || t('error.payment'))
+      trackPaymentFail(errorMsg || 'unknown', params.slug)
       updateStep('payment-failed')
       window.history.replaceState({}, '', window.location.pathname)
     }
@@ -1143,6 +1156,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   }, [step, previewUrl, customerEmail, authCode])
 
   const handleReset = () => {
+    trackReset(params.slug)
     updateStep('select-layout')
     updateFrameType('single')
     setBackgroundColor('#FFFFFF')
@@ -1325,7 +1339,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                     <UISelectItem
                       key={`frame-${sl._id}`}
                       selected={false}
-                      onClick={() => router.push(`/${params.slug}/layout/${sl._id}`)}
+                      onClick={() => { trackLayoutSelect(sl.name, sl._id, params.slug); router.push(`/${params.slug}/layout/${sl._id}`) }}
                     >
                       <div className="flex flex-col items-center gap-2">
                         {/* Layout preview with frame layers + slot placeholders */}

@@ -9,6 +9,7 @@ import type { CompletedSlotData } from '@/app/components/FrameUserEditor'
 import { UIPageSpinner, UIStatusBanner, UIButton, UIStepBar, UICounterControl, UISectionHeading, UIBottomSheet, UISelectItem } from '@/app/components/ui'
 import Script from 'next/script'
 import { logClientError, logClientInfo } from '@/lib/errorLogger'
+import { trackStepView, trackLayoutSelect, trackColorSelect, trackAllPhotosReady, trackPaymentStart, trackPaymentSuccess, trackPaymentFail, trackPrintRequest, trackPrintSuccess, trackDownload, trackReset } from '@/lib/gtag'
 import { useI18n, LanguageToggle } from '../../i18n'
 
 const FrameUserEditor = dynamic(() => import('@/app/components/FrameUserEditor'), { ssr: false })
@@ -294,9 +295,12 @@ export default function FrameLayoutPage({
           localStorage.removeItem('pendingLayoutId')
           localStorage.removeItem('pendingPaymentReturn')
           window.history.replaceState({}, '', window.location.pathname)
+          trackPaymentSuccess(Number(amount), params.slug)
+          trackPrintSuccess(params.slug)
           setStep('success')
         } catch (err: any) {
           setError(err.message || t('error.paymentConfirm'))
+          trackPaymentFail(err.message || 'confirmation_failed', params.slug)
           logClientError('Payment confirmation failed', err, params.slug)
           setStep('payment-failed')
           window.history.replaceState({}, '', window.location.pathname)
@@ -308,6 +312,7 @@ export default function FrameLayoutPage({
     } else if (paymentStatus === 'fail') {
       const errorMsg = urlParams.get('errorMsg')
       setError(errorMsg || t('error.payment'))
+      trackPaymentFail(errorMsg || 'unknown', params.slug)
       setStep('payment-failed')
       window.history.replaceState({}, '', window.location.pathname)
     }
@@ -353,6 +358,7 @@ export default function FrameLayoutPage({
   }, [puzzleMode, mergedUrl, gridSize])
 
   const handleLayoutSwitch = (newLayout: FrameLayout) => {
+    trackLayoutSelect(newLayout.name, newLayout._id, params.slug)
     setLayout(newLayout)
     setShowLayoutPicker(false)
     window.history.replaceState({}, '', `/${params.slug}/layout/${newLayout._id}`)
@@ -368,6 +374,7 @@ export default function FrameLayoutPage({
   }
 
   const handlePhotosReady = (slotData: CompletedSlotData[]) => {
+    trackAllPhotosReady(slotData.length, params.slug)
     setCompletedSlotData(slotData)
     const layoutBgColor = layout?.backgroundColor || '#FFFFFF'
     const canCustomize = layout?.backgroundColorCustomizable ?? true
@@ -375,6 +382,7 @@ export default function FrameLayoutPage({
     const colors = event?.backgroundColors?.length ? event.backgroundColors : defColors
     if (canCustomize && colors.length > 1) {
       setSelectedColor(layoutBgColor)
+      trackStepView('select-bg-color', params.slug)
       setStep('select-bg-color')
     } else {
       setSelectedColor(layoutBgColor)
@@ -516,6 +524,8 @@ export default function FrameLayoutPage({
         if (data.jobIds) collectedJobIds.push(...data.jobIds)
       }
       setPrintJobIds(collectedJobIds)
+      trackPrintSuccess(params.slug)
+      trackStepView('success', params.slug)
       setStep('success')
     } catch (err: any) {
       setError(err.message)
@@ -565,10 +575,13 @@ export default function FrameLayoutPage({
     const paymentAmount = unitPrice * printQuantity * multiplier
 
     if (paymentAmount === 0) {
+      trackPrintRequest(printQuantity, params.slug)
       await handlePrint()
       return
     }
 
+    trackPaymentStart(paymentAmount, printQuantity, params.slug)
+    trackStepView('payment', params.slug)
     setStep('payment')
     setError('')
   }
@@ -619,6 +632,7 @@ export default function FrameLayoutPage({
 
   const handleDownload = async () => {
     if (!mergedUrl) return
+    trackDownload(params.slug)
     try {
       const dataUrlToBlob = async (dataUrl: string): Promise<Blob> => {
         const res = await fetch(dataUrl)
@@ -660,6 +674,7 @@ export default function FrameLayoutPage({
   }
 
   const handleReset = () => {
+    trackReset(params.slug)
     setMergedUrl(null)
     setError('')
     setPrintQuantity(1)
@@ -992,7 +1007,7 @@ export default function FrameLayoutPage({
               <div className="space-y-2">
                 <UIButton
                   fullWidth
-                  onClick={() => performMerge(completedSlotData, selectedColor)}
+                  onClick={() => { trackColorSelect(selectedColor, params.slug); performMerge(completedSlotData, selectedColor) }}
                   disabled={merging}
                   loading={merging}
                 >
