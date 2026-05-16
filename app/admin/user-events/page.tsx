@@ -218,8 +218,9 @@ function UserEventsContent() {
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [days, setDays] = useState(7)
   const [granularity, setGranularity] = useState(60)
-  const [excludeSessions, _setExcludeSessions] = useState('')
-  const [excludeDevices, _setExcludeDevices] = useState('')
+  const [excludeSessions, _setExcludeSessions] = useState<string | null>(null)
+  const [excludeDevices, _setExcludeDevices] = useState<string | null>(null)
+  const excludeReady = excludeSessions !== null && excludeDevices !== null
   const setExcludeSessions = useCallback((v: string) => { _setExcludeSessions(v); localStorage.setItem('pt_exclude_sessions', v) }, [])
   const setExcludeDevices = useCallback((v: string) => { _setExcludeDevices(v); localStorage.setItem('pt_exclude_devices', v) }, [])
   const [showExclude, setShowExclude] = useState(false)
@@ -238,8 +239,8 @@ function UserEventsContent() {
     link.click()
   }, [])
 
-  const excludeParam = excludeSessions.split(',').map(s => s.trim()).filter(Boolean).join(',')
-  const excludeDeviceParam = excludeDevices.split(',').map(s => s.trim()).filter(Boolean).join(',')
+  const excludeParam = (excludeSessions || '').split(',').map(s => s.trim()).filter(Boolean).join(',')
+  const excludeDeviceParam = (excludeDevices || '').split(',').map(s => s.trim()).filter(Boolean).join(',')
 
   const fetchEvents = async () => {
     try {
@@ -282,18 +283,20 @@ function UserEventsContent() {
   }, [])
 
   useEffect(() => {
+    if (!excludeReady) return
     fetchEvents()
     fetchStats()
-  }, [slugFilter, deviceFilter, days, granularity, excludeParam, excludeDeviceParam])
+  }, [excludeReady, slugFilter, deviceFilter, days, granularity, excludeParam, excludeDeviceParam])
 
   useEffect(() => {
+    if (!excludeReady) return
     if (autoRefresh) {
       intervalRef.current = setInterval(() => { fetchEvents(); fetchStats() }, 5000)
       return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
     } else {
       if (intervalRef.current) clearInterval(intervalRef.current)
     }
-  }, [autoRefresh, slugFilter, deviceFilter, days, granularity, excludeParam, excludeDeviceParam])
+  }, [excludeReady, autoRefresh, slugFilter, deviceFilter, days, granularity, excludeParam, excludeDeviceParam])
 
 
   const activeSessions = sessions.filter(s => {
@@ -401,14 +404,14 @@ function UserEventsContent() {
             <div className="space-y-2">
               <input
                 type="text"
-                value={excludeSessions}
+                value={excludeSessions || ''}
                 onChange={e => setExcludeSessions(e.target.value)}
                 placeholder="제외할 세션 ID (쉼표 구분)..."
                 className="w-full px-4 py-2 border border-gray-300 rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               <input
                 type="text"
-                value={excludeDevices}
+                value={excludeDevices || ''}
                 onChange={e => setExcludeDevices(e.target.value)}
                 placeholder="제외할 디바이스 ID (쉼표 구분)..."
                 className="w-full px-4 py-2 border border-gray-300 rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -513,8 +516,8 @@ function UserEventsContent() {
                       const isExpanded = expandedSession === session.sessionId
                       const purchaseEvent = session.events.find(e => e.action === 'purchase')
                       const purchaseAmount = purchaseEvent?.params?.value || 0
-                      const sessionExcludeList = excludeSessions.split(',').map(s => s.trim()).filter(Boolean)
-                      const deviceExcludeList = excludeDevices.split(',').map(s => s.trim()).filter(Boolean)
+                      const sessionExcludeList = (excludeSessions || '').split(',').map(s => s.trim()).filter(Boolean)
+                      const deviceExcludeList = (excludeDevices || '').split(',').map(s => s.trim()).filter(Boolean)
                       const isSessionExcluded = sessionExcludeList.includes(session.sessionId)
                       const isDeviceExcluded = deviceExcludeList.includes(session.deviceId)
                       const isExcluded = isSessionExcluded || isDeviceExcluded
