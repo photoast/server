@@ -423,6 +423,7 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
   }
 
   const filledCount = slotStates.filter(s => s.croppedUrl !== null).length
+  const firstEmptySlotIndex = slotStates.findIndex(s => s.croppedUrl === null)
 
   // ---- Crop editor view ----
   if (editingSlotIndex !== null && editingState?.previewUrl && editingSlot) {
@@ -629,10 +630,19 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
                     background: 'linear-gradient(90deg, transparent 0%, rgba(147,197,253,0.3) 50%, transparent 100%)',
                     backgroundSize: '200% 100%',
                   }} />
-                  <svg className="w-5 h-5 text-blue-400 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  <span className="text-xs font-semibold text-blue-400 relative z-10">{i + 1}</span>
+                  {i === firstEmptySlotIndex ? (
+                    <div className="relative z-10 flex flex-col items-center gap-1 animate-tap-hint">
+                      <span className="text-lg">👆</span>
+                      <span className="text-[10px] font-bold text-blue-500">{t('photo.tapHere')}</span>
+                    </div>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5 text-blue-400 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      <span className="text-xs font-semibold text-blue-400 relative z-10">{i + 1}</span>
+                    </>
+                  )}
                 </div>
               )}
             </button>
@@ -792,6 +802,13 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
         }
         .animate-shimmer {
           animation: shimmer 2s ease-in-out infinite;
+        }
+        @keyframes tap-hint {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-4px); }
+        }
+        .animate-tap-hint {
+          animation: tap-hint 1.2s ease-in-out infinite;
         }
       `}</style>
     </div>
