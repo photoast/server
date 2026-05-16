@@ -444,6 +444,8 @@ function UserEventsContent() {
                     {paged.map(session => {
                       const isActive = Date.now() - new Date(session.lastActivity).getTime() < 10 * 60 * 1000
                       const isExpanded = expandedSession === session.sessionId
+                      const purchaseEvent = session.events.find(e => e.action === 'purchase')
+                      const purchaseAmount = purchaseEvent?.params?.value || 0
                       const excludeList = excludeSessions.split(',').map(s => s.trim()).filter(Boolean)
                       const isExcluded = excludeList.includes(session.sessionId)
 
@@ -470,6 +472,9 @@ function UserEventsContent() {
                               <div className="flex items-center gap-2">
                                 <span className="text-sm font-semibold text-gray-900 truncate">/{session.slug}</span>
                                 <span className="text-xs text-gray-400 font-mono">{session.deviceId.slice(0, 8)}</span>
+                                {purchaseEvent && (
+                                  <span className="text-[10px] bg-green-100 text-green-800 font-bold px-1.5 py-0.5 rounded">결제 ₩{purchaseAmount.toLocaleString()}</span>
+                                )}
                                 {session.userAgent && (
                                   <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{parseUA(session.userAgent)}</span>
                                 )}
