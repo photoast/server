@@ -60,6 +60,7 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
     layout.slots.map(() => initSlot())
   )
   const [editingSlotIndex, setEditingSlotIndex] = useState<number | null>(null)
+  const [slotBackup, setSlotBackup] = useState<SlotState | null>(null)
   const [processing, setProcessing] = useState(false)
   const [error, setError] = useState('')
   const [actionMenuSlot, setActionMenuSlot] = useState<number | null>(null)
@@ -118,9 +119,9 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
   const assignGalleryImage = (galleryImg: GalleryImage, slotIndex: number) => {
     // Create a new object URL for this slot's use
     const url = URL.createObjectURL(galleryImg.file)
+    setSlotBackup(slotStates[slotIndex])
     setSlotStates(prev => {
       const next = [...prev]
-      if (next[slotIndex].previewUrl) URL.revokeObjectURL(next[slotIndex].previewUrl!)
       next[slotIndex] = { ...initSlot(), file: galleryImg.file, previewUrl: url }
       return next
     })
@@ -150,9 +151,10 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
     const url = URL.createObjectURL(file)
     // Add to gallery
     addToGallery(file, URL.createObjectURL(file))
+    // Backup existing slot state before overwriting
+    setSlotBackup(slotStates[targetSlot])
     setSlotStates(prev => {
       const next = [...prev]
-      if (next[targetSlot].previewUrl) URL.revokeObjectURL(next[targetSlot].previewUrl!)
       next[targetSlot] = { ...initSlot(), file, previewUrl: url }
       return next
     })
@@ -276,6 +278,7 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
         }
         return next
       })
+      setSlotBackup(null)
       setEditingSlotIndex(null)
     } catch (err) {
       setError(t('error.imageProcess'))
@@ -285,16 +288,31 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
   const cancelCrop = () => {
     if (editingSlotIndex !== null) {
       trackCropCancel(editingSlotIndex, eventSlug)
-      const state = slotStates[editingSlotIndex]
-      if (state.file && !state.croppedUrl) {
+      if (slotBackup) {
+        // Restore previous state (new file's previewUrl is cleaned up)
+        const currentPreview = slotStates[editingSlotIndex]?.previewUrl
+        if (currentPreview && currentPreview !== slotBackup.previewUrl) {
+          URL.revokeObjectURL(currentPreview)
+        }
         setSlotStates(prev => {
           const next = [...prev]
-          if (next[editingSlotIndex].previewUrl) URL.revokeObjectURL(next[editingSlotIndex].previewUrl!)
-          next[editingSlotIndex] = initSlot()
+          next[editingSlotIndex] = slotBackup
           return next
         })
+      } else {
+        // No backup = first-time upload, clear the slot
+        const state = slotStates[editingSlotIndex]
+        if (state.file && !state.croppedUrl) {
+          setSlotStates(prev => {
+            const next = [...prev]
+            if (next[editingSlotIndex].previewUrl) URL.revokeObjectURL(next[editingSlotIndex].previewUrl!)
+            next[editingSlotIndex] = initSlot()
+            return next
+          })
+        }
       }
     }
+    setSlotBackup(null)
     setEditingSlotIndex(null)
   }
 
