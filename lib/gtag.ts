@@ -145,3 +145,42 @@ export function trackDownload(slug: string) {
 export function trackReset(slug: string) {
   trackEvent('reset', { event_slug: slug })
 }
+
+// Camera
+export function trackCameraOpen(slotIndex: number, slug: string) {
+  trackEvent('camera_open', { slot_index: slotIndex, event_slug: slug })
+}
+
+export function trackCameraCapture(slotIndex: number, slug: string) {
+  trackEvent('camera_capture', { slot_index: slotIndex, event_slug: slug })
+}
+
+export function trackCameraCancel(slotIndex: number, slug: string) {
+  trackEvent('camera_cancel', { slot_index: slotIndex, event_slug: slug })
+}
+
+export function trackCameraFlip(facingMode: string, slug: string) {
+  trackEvent('camera_flip', { facing_mode: facingMode, event_slug: slug })
+}
+
+// Language change
+export function trackLocaleChange(locale: string, slug: string) {
+  trackEvent('locale_change', { locale, event_slug: slug })
+}
+
+// Page exit (browser close, tab close, navigate away)
+export function trackPageExit(slug: string, step?: string) {
+  const params: Record<string, any> = { event_slug: slug }
+  if (step) params.last_step = step
+  const deviceId = getDeviceId()
+  const sessionId = getSessionId()
+  if (!deviceId || !sessionId) return
+
+  // Use sendBeacon for reliable delivery on page unload
+  const payload = JSON.stringify({ deviceId, sessionId, slug, action: 'page_exit', params })
+  navigator.sendBeacon('/api/user-events', new Blob([payload], { type: 'application/json' }))
+
+  if (window.gtag) {
+    window.gtag('event', 'page_exit', { ...params, device_id: deviceId, session_id: sessionId })
+  }
+}

@@ -18,7 +18,7 @@ import {
 import { LAYOUT_OPTIONS, getPhotoCount, getCropAspectRatioForSlot } from './layoutConfig'
 import type { FrameType } from '@/lib/types'
 import { logClientError, logClientInfo } from '@/lib/errorLogger'
-import { trackPageEnter, trackStepView, trackLayoutSelect, trackColorSelect, trackPhotoUpload, trackPhotoCropComplete, trackAllPhotosReady, trackPreviewReady, trackPaymentStart, trackPaymentSuccess, trackPaymentFail, trackPrintRequest, trackPrintSuccess, trackDownload, trackReset } from '@/lib/gtag'
+import { trackPageEnter, trackStepView, trackLayoutSelect, trackColorSelect, trackPhotoUpload, trackPhotoCropComplete, trackAllPhotosReady, trackPreviewReady, trackPaymentStart, trackPaymentSuccess, trackPaymentFail, trackPrintRequest, trackPrintSuccess, trackDownload, trackReset, trackPageExit } from '@/lib/gtag'
 import { useI18n, LanguageToggle } from './i18n'
 
 interface Event {
@@ -272,6 +272,20 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
       }
     }
     fetchEvent()
+  }, [params.slug])
+
+  // Track page exit (browser close, tab close, visibility hidden)
+  const stepRef = useRef(step)
+  stepRef.current = step
+  useEffect(() => {
+    const handleExit = () => trackPageExit(params.slug, stepRef.current)
+    window.addEventListener('beforeunload', handleExit)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') handleExit()
+    })
+    return () => {
+      window.removeEventListener('beforeunload', handleExit)
+    }
   }, [params.slug])
 
   // Filter layouts by printer's supported sizes

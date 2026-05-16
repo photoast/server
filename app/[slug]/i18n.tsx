@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
+import { trackLocaleChange } from '@/lib/gtag'
 
 export type Locale = 'ko' | 'en' | 'zh'
 
@@ -134,6 +135,12 @@ const translations = {
   // Photo picker
   'picker.title': { ko: '사진 선택', en: 'Select Photo', zh: '选择照片' },
   'picker.new': { ko: '새 사진 추가', en: 'Add new photo', zh: '添加新照片' },
+  'picker.camera': { ko: '카메라로 촬영', en: 'Take a photo', zh: '拍照' },
+  'picker.album': { ko: '앨범에서 선택', en: 'Choose from album', zh: '从相册选择' },
+
+  // Camera
+  'camera.noAccess': { ko: '카메라에 접근할 수 없습니다', en: 'Cannot access camera', zh: '无法访问相机' },
+  'camera.close': { ko: '닫기', en: 'Close', zh: '关闭' },
 
   // Puzzle
   'puzzle.label': { ko: '퍼즐 모드', en: 'Puzzle Mode', zh: '拼图模式' },
@@ -223,7 +230,11 @@ export function LanguageToggle() {
   const nextLocale = LOCALES[(LOCALES.indexOf(locale) + 1) % LOCALES.length]
   return (
     <button
-      onClick={() => setLocale(nextLocale)}
+      onClick={() => {
+        const slug = window.location.pathname.split('/')[1] || ''
+        trackLocaleChange(nextLocale, slug)
+        setLocale(nextLocale)
+      }}
       className="px-2 py-1 text-xs font-semibold text-gray-500 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
     >
       {LOCALE_LABELS[nextLocale]}

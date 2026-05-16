@@ -6,8 +6,9 @@ import type { Area, Point } from 'react-easy-crop'
 import Image from 'next/image'
 import type { FrameLayout, PhotoSlot, FrameLayer } from '@/lib/types'
 import { UIButton, UIStatusBanner } from './ui'
-import { trackCropOpen, trackCropCancel, trackPhotoCropComplete } from '@/lib/gtag'
+import { trackCropOpen, trackCropCancel, trackPhotoCropComplete, trackCameraOpen, trackCameraCapture, trackCameraCancel, trackCameraFlip } from '@/lib/gtag'
 import { useI18n } from '../[slug]/i18n'
+import CameraCapture from './CameraCapture'
 
 // Aspect ratio map for react-easy-crop
 const ASPECT_MAP: Record<string, number | undefined> = {
@@ -67,6 +68,7 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
   const [gallery, setGallery] = useState<GalleryImage[]>([])
   const [swapSourceIndex, setSwapSourceIndex] = useState<number | null>(null)
   const [photoPickerSlot, setPhotoPickerSlot] = useState<number | null>(null)
+  const [cameraSlot, setCameraSlot] = useState<number | null>(null)
 
   const [imageDims, setImageDims] = useState<Map<string, { w: number; h: number }>>(new Map())
 
@@ -104,6 +106,7 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
     setActionMenuSlot(null)
     setSwapSourceIndex(null)
     setPhotoPickerSlot(null)
+    setCameraSlot(null)
     setError('')
   }
 
@@ -133,6 +136,25 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
       setCurrentCropArea(null)
       setEditingSlotIndex(slotIndex)
     }, 50)
+  }
+
+  // --- Camera capture ---
+  const handleCameraCapture = (file: File, slotIndex: number) => {
+    trackCameraCapture(slotIndex, eventSlug)
+    const url = URL.createObjectURL(file)
+    addToGallery(file, URL.createObjectURL(file))
+    setSlotBackup(slotStates[slotIndex])
+    setSlotStates(prev => {
+      const next = [...prev]
+      next[slotIndex] = { ...initSlot(), file, previewUrl: url }
+      return next
+    })
+    setCameraSlot(null)
+    trackCropOpen(slotIndex, eventSlug)
+    setCropPos({ x: 0, y: 0 })
+    setCropZoom(1)
+    setCurrentCropArea(null)
+    setEditingSlotIndex(slotIndex)
   }
 
   // --- File selection ---
@@ -202,12 +224,8 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
       // File exists but needs cropping (e.g. after layout change)
       openCropEditor(slotIndex)
     } else {
-      // Empty slot - show photo picker if gallery has images, otherwise file picker
-      if (gallery.length > 0) {
-        setPhotoPickerSlot(slotIndex)
-      } else {
-        openFilePicker(slotIndex)
-      }
+      // Empty slot - always show photo picker (with camera option)
+      setPhotoPickerSlot(slotIndex)
     }
   }
 
@@ -592,6 +610,32 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
           const pctW = (slot.width / layout.canvasWidth) * 100
           const pctH = (slot.height / layout.canvasHeight) * 100
 
+          if (cameraSlot === i) {
+            return (
+              <div
+                key={slot.id}
+                className="absolute overflow-hidden"
+                style={{
+                  left: `${pctX}%`,
+                  top: `${pctY}%`,
+                  width: `${pctW}%`,
+                  height: `${pctH}%`,
+                  zIndex: 50,
+                  transform: (slot.rotation ?? 0) !== 0 ? `rotate(${slot.rotation}deg)` : undefined,
+                  transformOrigin: 'top left',
+                }}
+              >
+                <CameraCapture
+                  onCapture={(file) => handleCameraCapture(file, i)}
+                  onCancel={() => {
+                    trackCameraCancel(i, eventSlug)
+                    setCameraSlot(null)
+                  }}
+                />
+              </div>
+            )
+          }
+
           return (
             <button
               key={slot.id}
@@ -718,23 +762,42 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
             </p>
 
             {/* Gallery grid */}
-            <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto">
-              {gallery.map(img => (
-                <button
-                  key={img.id}
-                  onClick={() => {
-                    const slot = photoPickerSlot
-                    setPhotoPickerSlot(null)
-                    assignGalleryImage(img, slot)
-                  }}
-                  className="aspect-square rounded-xl overflow-hidden border-2 border-gray-100 hover:border-blue-400 transition-colors"
-                >
-                  <img src={img.previewUrl} alt="" className="w-full h-full object-cover" />
-                </button>
-              ))}
-            </div>
+            {gallery.length > 0 && (
+              <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto">
+                {gallery.map(img => (
+                  <button
+                    key={img.id}
+                    onClick={() => {
+                      const slot = photoPickerSlot
+                      setPhotoPickerSlot(null)
+                      assignGalleryImage(img, slot)
+                    }}
+                    className="aspect-square rounded-xl overflow-hidden border-2 border-gray-100 hover:border-blue-400 transition-colors"
+                  >
+                    <img src={img.previewUrl} alt="" className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
 
-            {/* New photo button */}
+            {/* Camera button */}
+            <button
+              onClick={() => {
+                const slot = photoPickerSlot
+                setPhotoPickerSlot(null)
+                trackCameraOpen(slot, eventSlug)
+                setCameraSlot(slot)
+              }}
+              className="w-full py-3 text-sm font-semibold text-gray-800 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl hover:from-blue-100 hover:to-purple-100 transition-colors flex items-center justify-center gap-2 border border-blue-100"
+            >
+              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              {t('picker.camera')}
+            </button>
+
+            {/* File picker button */}
             <button
               onClick={() => {
                 const slot = photoPickerSlot
@@ -744,9 +807,9 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
               className="w-full py-3 text-sm font-semibold text-gray-800 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-              {t('picker.new')}
+              {t('picker.album')}
             </button>
 
             <button
@@ -758,6 +821,7 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
           </div>
         </div>
       )}
+
 
       {processing && <UIStatusBanner type="processing" message={t('photo.merging')} />}
 
