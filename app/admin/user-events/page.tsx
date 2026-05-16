@@ -13,8 +13,31 @@ interface Session {
   sessionId: string
   deviceId: string
   slug: string
+  userAgent: string
   events: UserEvent[]
   lastActivity: string
+}
+
+function parseUA(ua: string): string {
+  if (!ua) return ''
+  let device = ''
+  if (/iPhone/i.test(ua)) device = 'iPhone'
+  else if (/iPad/i.test(ua)) device = 'iPad'
+  else if (/Android/i.test(ua)) device = 'Android'
+  else if (/Mac/i.test(ua)) device = 'Mac'
+  else if (/Windows/i.test(ua)) device = 'Windows'
+  else device = 'Other'
+
+  let browser = ''
+  if (/KAKAOTALK/i.test(ua)) browser = 'KakaoTalk'
+  else if (/NAVER/i.test(ua)) browser = 'Naver'
+  else if (/Instagram/i.test(ua)) browser = 'Instagram'
+  else if (/CriOS/i.test(ua)) browser = 'Chrome'
+  else if (/Safari/i.test(ua) && !/Chrome/i.test(ua)) browser = 'Safari'
+  else if (/Chrome/i.test(ua)) browser = 'Chrome'
+  else if (/Firefox/i.test(ua)) browser = 'Firefox'
+
+  return [device, browser].filter(Boolean).join(' · ')
 }
 
 const ACTION_LABELS: Record<string, { label: string; color: string }> = {
@@ -180,6 +203,9 @@ function UserEventsContent() {
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold text-gray-900 truncate">/{session.slug}</span>
                         <span className="text-xs text-gray-400 font-mono">{session.deviceId.slice(0, 8)}</span>
+                        {session.userAgent && (
+                          <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{parseUA(session.userAgent)}</span>
+                        )}
                       </div>
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="text-xs text-gray-500">{lastAction}</span>

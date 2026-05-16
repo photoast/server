@@ -8,6 +8,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
     }
 
+    const userAgent = req.headers.get('user-agent') || ''
+
     const db = await getDb()
     await db.collection(COLLECTIONS.userEvents).insertOne({
       deviceId,
@@ -15,6 +17,7 @@ export async function POST(req: NextRequest) {
       slug,
       action,
       params: params || {},
+      userAgent,
       timestamp: new Date(),
     })
 
@@ -51,6 +54,7 @@ export async function GET(req: NextRequest) {
           sessionId: sid,
           deviceId: ev.deviceId,
           slug: ev.slug,
+          userAgent: ev.userAgent || '',
           events: [],
           lastActivity: ev.timestamp,
         })
