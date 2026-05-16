@@ -6,6 +6,7 @@ import type { Area, Point } from 'react-easy-crop'
 import Image from 'next/image'
 import type { FrameLayout, PhotoSlot, FrameLayer } from '@/lib/types'
 import { UIButton, UIStatusBanner } from './ui'
+import { trackCropOpen, trackCropCancel, trackPhotoCropComplete } from '@/lib/gtag'
 import { useI18n } from '../[slug]/i18n'
 
 // Aspect ratio map for react-easy-crop
@@ -125,6 +126,7 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
     })
     // Open crop editor
     setTimeout(() => {
+      trackCropOpen(slotIndex, eventSlug)
       setCropPos({ x: 0, y: 0 })
       setCropZoom(1)
       setCurrentCropArea(null)
@@ -155,6 +157,7 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
       return next
     })
     // Open crop editor for the new image
+    trackCropOpen(targetSlot, eventSlug)
     setCropPos({ x: 0, y: 0 })
     setCropZoom(1)
     setCurrentCropArea(null)
@@ -242,6 +245,7 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
   const openCropEditor = (slotIndex: number) => {
     const state = slotStates[slotIndex]
     if (!state.previewUrl) return
+    trackCropOpen(slotIndex, eventSlug)
     setCropPos(state.cropOffset)
     setCropZoom(state.cropScale)
     setCurrentCropArea(state.cropArea)
@@ -260,6 +264,7 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
 
     try {
       const croppedDataUrl = await getCroppedImage(editingState.previewUrl, currentCropArea)
+      trackPhotoCropComplete(editingSlotIndex, eventSlug)
       setSlotStates(prev => {
         const next = [...prev]
         next[editingSlotIndex] = {
@@ -278,6 +283,18 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
   }
 
   const cancelCrop = () => {
+    if (editingSlotIndex !== null) {
+      trackCropCancel(editingSlotIndex, eventSlug)
+      const state = slotStates[editingSlotIndex]
+      if (state.file && !state.croppedUrl) {
+        setSlotStates(prev => {
+          const next = [...prev]
+          if (next[editingSlotIndex].previewUrl) URL.revokeObjectURL(next[editingSlotIndex].previewUrl!)
+          next[editingSlotIndex] = initSlot()
+          return next
+        })
+      }
+    }
     setEditingSlotIndex(null)
   }
 
