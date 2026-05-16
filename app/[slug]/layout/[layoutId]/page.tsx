@@ -895,8 +895,8 @@ export default function FrameLayoutPage({
         />
 
         <div className="bg-white shadow-sm border border-gray-100 p-5">
-          {/* Step: Fill Photos */}
-          {step === 'fill-photos' && !mergedUrl && (
+          {/* Editor — 항상 마운트, 다른 단계에서는 숨김 (사진/크롭 상태 유지) */}
+          <div style={{ display: step === 'fill-photos' && !mergedUrl ? undefined : 'none' }}>
             <FrameUserEditor
               key={layout._id}
               layout={layout}
@@ -907,7 +907,7 @@ export default function FrameLayoutPage({
               onBack={() => router.push(`/${params.slug}`)}
               onLayoutChange={filteredLayouts.length > 1 ? () => setShowLayoutPicker(true) : undefined}
             />
-          )}
+          </div>
 
           {/* Step: Select Background Color */}
           {step === 'select-bg-color' && completedSlotData && (
