@@ -261,8 +261,13 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
   useEffect(() => {
     const cropArea = cropContainerRef.current?.querySelector('.reactEasyCrop_CropArea') as HTMLElement | null
     if (!cropArea) return
-    if (!showGrid) cropArea.style.border = 'none'
-    else cropArea.style.border = ''
+    if (!showGrid) {
+      cropArea.style.setProperty('border', 'none', 'important')
+      cropArea.style.outline = 'none'
+    } else {
+      cropArea.style.border = ''
+      cropArea.style.outline = ''
+    }
   })
 
   // Open crop editor for a slot that already has a file
