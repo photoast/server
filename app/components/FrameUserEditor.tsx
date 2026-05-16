@@ -70,21 +70,6 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
   const [photoPickerSlot, setPhotoPickerSlot] = useState<number | null>(null)
   const [cameraSlot, setCameraSlot] = useState<number | null>(null)
 
-  const [imageDims, setImageDims] = useState<Map<string, { w: number; h: number }>>(new Map())
-
-  useEffect(() => {
-    slotStates.forEach(state => {
-      if (state.previewUrl && !imageDims.has(state.previewUrl)) {
-        const img = new window.Image()
-        const url = state.previewUrl
-        img.onload = () => {
-          setImageDims(prev => new Map(prev).set(url, { w: img.naturalWidth, h: img.naturalHeight }))
-        }
-        img.src = url
-      }
-    })
-  }, [slotStates, imageDims])
-
   const fileInputRef = useRef<HTMLInputElement>(null)
   const filePickerSlotRef = useRef<number | null>(null)
   const cameraRef = useRef<CameraRef>(null)
@@ -633,51 +618,6 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
             })
         })()}
 
-        {/* Full image overflow preview (dimmed, behind slots) */}
-        {sortedSlots.map((slot, i) => {
-          const state = slotStates[i]
-          if (!state.previewUrl || !state.cropArea || !state.croppedUrl) return null
-          const dims = imageDims.get(state.previewUrl)
-          if (!dims) return null
-
-          const { cropArea } = state
-          const pctX = (slot.x / layout.canvasWidth) * 100
-          const pctY = (slot.y / layout.canvasHeight) * 100
-          const pctW = (slot.width / layout.canvasWidth) * 100
-          const pctH = (slot.height / layout.canvasHeight) * 100
-
-          const imgWidthPct = (dims.w / cropArea.width) * 100
-          const imgHeightPct = (dims.h / cropArea.height) * 100
-          const imgLeftPct = -(cropArea.x / cropArea.width) * 100
-          const imgTopPct = -(cropArea.y / cropArea.height) * 100
-
-          return (
-            <div key={`overflow-${slot.id}`}
-              className="absolute pointer-events-none"
-              style={{
-                left: `${pctX}%`, top: `${pctY}%`,
-                width: `${pctW}%`, height: `${pctH}%`,
-                zIndex: (slot.zIndex ?? 10) - 1,
-                overflow: 'visible',
-                transform: (slot.rotation ?? 0) !== 0 ? `rotate(${slot.rotation}deg)` : undefined,
-                transformOrigin: 'top left',
-              }}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={state.previewUrl}
-                alt=""
-                style={{
-                  position: 'absolute',
-                  left: `${imgLeftPct}%`, top: `${imgTopPct}%`,
-                  width: `${imgWidthPct}%`, height: `${imgHeightPct}%`,
-                  opacity: 0.15,
-                  pointerEvents: 'none',
-                }}
-              />
-            </div>
-          )
-        })}
 
         {/* Slot buttons */}
         {sortedSlots.map((slot, i) => {
@@ -730,15 +670,31 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
               {state.croppedUrl ? (
                 <>
                   <img src={state.croppedUrl} alt={`${t('crop.slot')} ${i + 1}`} className="w-full h-full object-cover" />
-                  {/* Hover overlay with edit hint */}
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
-                    <span className="text-white text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 px-2 py-1 rounded-lg">
-                      {swapSourceIndex !== null ? t('crop.swapHere') : t('crop.edit2')}
-                    </span>
-                  </div>
+                  {swapSourceIndex !== null && swapSourceIndex === i ? (
+                    /* Source slot — "selected" indicator */
+                    <div className="absolute inset-0 flex items-center justify-center bg-blue-500/30 ring-2 ring-inset ring-blue-500">
+                      <span className="text-white text-xs font-bold bg-blue-500 px-2 py-1 rounded-lg shadow">
+                        {t('crop.swapFrom')}
+                      </span>
+                    </div>
+                  ) : swapSourceIndex !== null ? (
+                    /* Target slot — pulsing hint */
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/20 animate-pulse-gentle">
+                      <span className="text-white text-xs font-bold bg-black/60 px-2 py-1 rounded-lg">
+                        {t('crop.swapHere')}
+                      </span>
+                    </div>
+                  ) : (
+                    /* Normal hover */
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                      <span className="text-white text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 px-2 py-1 rounded-lg">
+                        {t('crop.edit2')}
+                      </span>
+                    </div>
+                  )}
                 </>
               ) : swapSourceIndex !== null && swapSourceIndex !== i ? (
-                <div className="relative flex flex-col items-center justify-center w-full h-full gap-1 bg-blue-50/60">
+                <div className="relative flex flex-col items-center justify-center w-full h-full gap-1 bg-blue-50/60 animate-pulse-gentle">
                   <span className="text-xs font-semibold text-blue-400">{t('crop.swapHere')}</span>
                 </div>
               ) : (
@@ -986,6 +942,13 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
         }
         .animate-tap-hint {
           animation: tap-hint 1.2s ease-in-out infinite;
+        }
+        @keyframes pulse-gentle {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.6; }
+        }
+        .animate-pulse-gentle {
+          animation: pulse-gentle 1.5s ease-in-out infinite;
         }
       `}</style>
     </div>
