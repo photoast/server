@@ -75,7 +75,7 @@ export async function GET(req: NextRequest) {
           sessionBuckets.get(key)!.add(ev.sessionId)
           uniqueSessions.add(ev.sessionId)
         }
-        if (ev.action === 'photo_upload') {
+        if (ev.action === 'crop_open') {
           if (!photoSlotBuckets.has(key)) photoSlotBuckets.set(key, new Set())
           photoSlotBuckets.get(key)!.add(ev.sessionId)
           uniquePhotoSlots.add(ev.sessionId)
