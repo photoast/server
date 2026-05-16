@@ -18,10 +18,12 @@ interface Session {
   lastActivity: string
 }
 
+interface BucketEntry { key: string; value: number }
+
 interface StatsData {
-  hourly: { visits: { key: string; value: number }[]; purchases: { key: string; value: number }[]; revenue: { key: string; value: number }[] }
-  daily: { visits: { key: string; value: number }[]; purchases: { key: string; value: number }[]; revenue: { key: string; value: number }[] }
+  buckets: { visits: BucketEntry[]; purchases: BucketEntry[]; revenue: BucketEntry[] }
   totals: { visits: number; purchases: number; revenue: number }
+  granularity: number
 }
 
 function parseUA(ua: string): string {
@@ -81,72 +83,118 @@ function formatTime(dateStr: string): string {
   return new Date(dateStr).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
-function BarChart({ data, maxValue, color, label }: { data: { key: string; value: number }[]; maxValue: number; color: string; label: string }) {
-  if (data.length === 0) return <div className="text-xs text-gray-400 py-4 text-center">데이터 없음</div>
+const CHART_W = 600
+const CHART_H = 160
+const PAD = { top: 20, right: 12, bottom: 28, left: 44 }
+
+function LineChart({ lines, label }: {
+  lines: { data: BucketEntry[]; color: string; name: string }[]
+  label: string
+}) {
+  const allKeys = Array.from(new Set(lines.flatMap(l => l.data.map(d => d.key)))).sort()
+  if (allKeys.length === 0) return <div className="text-xs text-gray-400 py-4 text-center">데이터 없음</div>
+
+  const maps = lines.map(l => new Map(l.data.map(d => [d.key, d.value])))
+  const maxVal = Math.max(...maps.flatMap(m => Array.from(m.values())), 1)
+
+  const w = CHART_W - PAD.left - PAD.right
+  const h = CHART_H - PAD.top - PAD.bottom
+  const xStep = allKeys.length > 1 ? w / (allKeys.length - 1) : 0
+
+  const toPath = (m: Map<string, number>) => {
+    const pts = allKeys.map((k, i) => {
+      const x = PAD.left + i * xStep
+      const y = PAD.top + h - ((m.get(k) || 0) / maxVal) * h
+      return `${i === 0 ? 'M' : 'L'}${x},${y}`
+    })
+    return pts.join(' ')
+  }
+
+  const toArea = (m: Map<string, number>) => {
+    const pts = allKeys.map((k, i) => {
+      const x = PAD.left + i * xStep
+      const y = PAD.top + h - ((m.get(k) || 0) / maxVal) * h
+      return { x, y }
+    })
+    const baseline = PAD.top + h
+    return `M${pts[0].x},${baseline} ${pts.map(p => `L${p.x},${p.y}`).join(' ')} L${pts[pts.length - 1].x},${baseline} Z`
+  }
+
+  const yTicks = [0, Math.round(maxVal / 2), maxVal]
+  const labelInterval = Math.max(1, Math.floor(allKeys.length / 6))
+
   return (
-    <div className="space-y-1">
-      <div className="text-xs font-medium text-gray-600 mb-2">{label}</div>
-      <div className="flex items-end gap-[2px]" style={{ height: 120 }}>
-        {data.map((d) => {
-          const h = maxValue > 0 ? (d.value / maxValue) * 100 : 0
-          return (
-            <div key={d.key} className="flex-1 flex flex-col items-center justify-end h-full group relative">
-              <div className="absolute -top-5 left-1/2 -translate-x-1/2 hidden group-hover:block bg-gray-800 text-white text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap z-10">
-                {d.key.slice(5)}: {d.value.toLocaleString()}
-              </div>
-              <div className={`w-full rounded-t ${color} min-h-[2px]`} style={{ height: `${Math.max(h, 2)}%` }} />
-            </div>
-          )
-        })}
-      </div>
-      <div className="flex justify-between text-[10px] text-gray-400">
-        <span>{data[0]?.key.slice(5)}</span>
-        <span>{data[data.length - 1]?.key.slice(5)}</span>
-      </div>
-    </div>
-  )
-}
-
-function DualBarChart({ visits, purchases, label }: { visits: { key: string; value: number }[]; purchases: { key: string; value: number }[]; label: string }) {
-  const allKeys = Array.from(new Set([...visits.map(v => v.key), ...purchases.map(p => p.key)])).sort()
-  const visitMap = new Map(visits.map(v => [v.key, v.value]))
-  const purchaseMap = new Map(purchases.map(p => [p.key, p.value]))
-  const merged = allKeys.map(k => ({ key: k, visits: visitMap.get(k) || 0, purchases: purchaseMap.get(k) || 0 }))
-  const maxVal = Math.max(...merged.map(m => Math.max(m.visits, m.purchases)), 1)
-
-  if (merged.length === 0) return <div className="text-xs text-gray-400 py-4 text-center">데이터 없음</div>
-
-  return (
-    <div className="space-y-1">
+    <div>
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs font-medium text-gray-600">{label}</span>
         <div className="flex items-center gap-3">
-          <span className="flex items-center gap-1 text-[10px] text-gray-500"><span className="w-2 h-2 rounded-sm bg-blue-400 inline-block" /> 접속</span>
-          <span className="flex items-center gap-1 text-[10px] text-gray-500"><span className="w-2 h-2 rounded-sm bg-green-500 inline-block" /> 결제</span>
+          {lines.map(l => (
+            <span key={l.name} className="flex items-center gap-1 text-[10px] text-gray-500">
+              <span className="w-3 h-[2px] inline-block rounded" style={{ background: l.color }} />
+              {l.name}
+            </span>
+          ))}
         </div>
       </div>
-      <div className="flex items-end gap-[2px]" style={{ height: 120 }}>
-        {merged.map((d) => {
-          const hV = (d.visits / maxVal) * 100
-          const hP = (d.purchases / maxVal) * 100
+      <svg viewBox={`0 0 ${CHART_W} ${CHART_H}`} className="w-full" preserveAspectRatio="xMidYMid meet">
+        {yTicks.map(t => {
+          const y = PAD.top + h - (t / maxVal) * h
           return (
-            <div key={d.key} className="flex-1 flex items-end justify-center gap-[1px] h-full group relative">
-              <div className="absolute -top-5 left-1/2 -translate-x-1/2 hidden group-hover:block bg-gray-800 text-white text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap z-10">
-                {d.key.slice(5)} | 접속 {d.visits} · 결제 {d.purchases}
-              </div>
-              <div className="w-1/2 bg-blue-400 rounded-t min-h-[2px]" style={{ height: `${Math.max(hV, 2)}%` }} />
-              <div className="w-1/2 bg-green-500 rounded-t min-h-[2px]" style={{ height: `${Math.max(hP, 2)}%` }} />
-            </div>
+            <g key={t}>
+              <line x1={PAD.left} x2={CHART_W - PAD.right} y1={y} y2={y} stroke="#e5e7eb" strokeWidth={0.5} />
+              <text x={PAD.left - 6} y={y + 3} textAnchor="end" className="fill-gray-400" style={{ fontSize: 9 }}>
+                {t.toLocaleString()}
+              </text>
+            </g>
           )
         })}
-      </div>
-      <div className="flex justify-between text-[10px] text-gray-400">
-        <span>{merged[0]?.key.slice(5)}</span>
-        <span>{merged[merged.length - 1]?.key.slice(5)}</span>
-      </div>
+        {allKeys.map((k, i) => {
+          if (i % labelInterval !== 0 && i !== allKeys.length - 1) return null
+          const x = PAD.left + i * xStep
+          const displayKey = k.length > 10 ? k.slice(5) : k
+          return (
+            <text key={k} x={x} y={CHART_H - 4} textAnchor="middle" className="fill-gray-400" style={{ fontSize: 8 }}>
+              {displayKey}
+            </text>
+          )
+        })}
+        {maps.map((m, idx) => (
+          <g key={idx}>
+            <path d={toArea(m)} fill={lines[idx].color} opacity={0.08} />
+            <path d={toPath(m)} fill="none" stroke={lines[idx].color} strokeWidth={1.5} strokeLinejoin="round" />
+          </g>
+        ))}
+        {allKeys.map((k, i) => {
+          const x = PAD.left + i * xStep
+          return (
+            <g key={k}>
+              {maps.map((m, idx) => {
+                const val = m.get(k) || 0
+                if (val === 0) return null
+                const y = PAD.top + h - (val / maxVal) * h
+                return <circle key={idx} cx={x} cy={y} r={2} fill={lines[idx].color} />
+              })}
+              <rect x={x - (xStep || 10) / 2} y={PAD.top} width={xStep || 10} height={h} fill="transparent" className="cursor-crosshair">
+                <title>{k.slice(5)}{'\n'}{lines.map(l => `${l.name}: ${maps[lines.indexOf(l)].get(k)?.toLocaleString() || 0}`).join('\n')}</title>
+              </rect>
+            </g>
+          )
+        })}
+      </svg>
     </div>
   )
 }
+
+const GRANULARITY_OPTIONS = [
+  { value: 1, label: '1분' },
+  { value: 5, label: '5분' },
+  { value: 10, label: '10분' },
+  { value: 15, label: '15분' },
+  { value: 30, label: '30분' },
+  { value: 60, label: '1시간' },
+  { value: 180, label: '3시간' },
+  { value: 1440, label: '1일' },
+]
 
 export default function UserEventsPage() {
   return (
@@ -166,6 +214,7 @@ function UserEventsContent() {
   const [expandedSession, setExpandedSession] = useState<string | null>(null)
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [days, setDays] = useState(7)
+  const [granularity, setGranularity] = useState(60)
   const [excludeSessions, setExcludeSessions] = useState(() => {
     if (typeof window !== 'undefined') return localStorage.getItem('pt_exclude_sessions') || ''
     return ''
@@ -194,7 +243,7 @@ function UserEventsContent() {
 
   const fetchStats = async () => {
     try {
-      const params = new URLSearchParams({ mode: 'stats', days: String(days) })
+      const params = new URLSearchParams({ mode: 'stats', days: String(days), granularity: String(granularity) })
       if (slugFilter) params.set('slug', slugFilter)
       if (excludeParam) params.set('excludeSessions', excludeParam)
       const res = await fetch(`/api/user-events?${params}`)
@@ -205,7 +254,7 @@ function UserEventsContent() {
   useEffect(() => {
     fetchEvents()
     fetchStats()
-  }, [slugFilter, deviceFilter, days, excludeParam])
+  }, [slugFilter, deviceFilter, days, granularity, excludeParam])
 
   useEffect(() => {
     if (autoRefresh) {
@@ -214,7 +263,7 @@ function UserEventsContent() {
     } else {
       if (intervalRef.current) clearInterval(intervalRef.current)
     }
-  }, [autoRefresh, slugFilter, deviceFilter, days, excludeParam])
+  }, [autoRefresh, slugFilter, deviceFilter, days, granularity, excludeParam])
 
   useEffect(() => {
     localStorage.setItem('pt_exclude_sessions', excludeSessions)
@@ -287,6 +336,15 @@ function UserEventsContent() {
               className="flex-1 px-4 py-2 border border-gray-300 rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
             <select
+              value={granularity}
+              onChange={e => setGranularity(Number(e.target.value))}
+              className="px-3 py-2 border border-gray-300 rounded-xl text-sm bg-white"
+            >
+              {GRANULARITY_OPTIONS.map(o => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+            <select
               value={days}
               onChange={e => setDays(Number(e.target.value))}
               className="px-3 py-2 border border-gray-300 rounded-xl text-sm bg-white"
@@ -295,6 +353,7 @@ function UserEventsContent() {
               <option value={3}>3일</option>
               <option value={7}>7일</option>
               <option value={14}>14일</option>
+              <option value={15}>15일</option>
               <option value={30}>30일</option>
             </select>
           </div>
@@ -338,24 +397,23 @@ function UserEventsContent() {
               </div>
             </div>
 
-            {/* Daily chart */}
             <div className="bg-white rounded-xl border border-gray-100 p-4">
-              <DualBarChart visits={stats.daily.visits} purchases={stats.daily.purchases} label="일별 접속 vs 결제" />
+              <LineChart
+                label="접속 vs 결제"
+                lines={[
+                  { data: stats.buckets.visits, color: '#60a5fa', name: '접속' },
+                  { data: stats.buckets.purchases, color: '#22c55e', name: '결제' },
+                ]}
+              />
             </div>
 
-            {/* Daily revenue */}
             <div className="bg-white rounded-xl border border-gray-100 p-4">
-              <BarChart data={stats.daily.revenue} maxValue={Math.max(...stats.daily.revenue.map(d => d.value), 1)} color="bg-orange-400" label="일별 매출 (₩)" />
-            </div>
-
-            {/* Hourly chart */}
-            <div className="bg-white rounded-xl border border-gray-100 p-4">
-              <DualBarChart visits={stats.hourly.visits} purchases={stats.hourly.purchases} label="시간별 접속 vs 결제" />
-            </div>
-
-            {/* Hourly revenue */}
-            <div className="bg-white rounded-xl border border-gray-100 p-4">
-              <BarChart data={stats.hourly.revenue} maxValue={Math.max(...stats.hourly.revenue.map(d => d.value), 1)} color="bg-orange-400" label="시간별 매출 (₩)" />
+              <LineChart
+                label="매출 (₩)"
+                lines={[
+                  { data: stats.buckets.revenue, color: '#fb923c', name: '매출' },
+                ]}
+              />
             </div>
           </div>
         )}

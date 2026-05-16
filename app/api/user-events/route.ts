@@ -39,6 +39,7 @@ export async function GET(req: NextRequest) {
     const db = await getDb()
 
     if (mode === 'stats') {
+      const granularity = Math.max(1, Math.min(1440, Number(searchParams.get('granularity') || 60)))
       const since = new Date()
       since.setDate(since.getDate() - days)
 
@@ -51,29 +52,26 @@ export async function GET(req: NextRequest) {
         .sort({ timestamp: 1 })
         .toArray()
 
-      // Hourly buckets for visits (page_enter) and purchases
-      const hourlyVisits = new Map<string, number>()
-      const hourlyPurchases = new Map<string, number>()
-      const hourlyRevenue = new Map<string, number>()
-      const dailyVisits = new Map<string, number>()
-      const dailyPurchases = new Map<string, number>()
-      const dailyRevenue = new Map<string, number>()
+      const toBucketKey = (d: Date) => {
+        const mins = d.getHours() * 60 + d.getMinutes()
+        const bucketMins = Math.floor(mins / granularity) * granularity
+        const hh = String(Math.floor(bucketMins / 60)).padStart(2, '0')
+        const mm = String(bucketMins % 60).padStart(2, '0')
+        return `${d.toISOString().slice(0, 10)} ${hh}:${mm}`
+      }
+
+      const visits = new Map<string, number>()
+      const purchases = new Map<string, number>()
+      const revenue = new Map<string, number>()
 
       for (const ev of events) {
-        const d = new Date(ev.timestamp)
-        const dayKey = d.toISOString().slice(0, 10)
-        const hourKey = `${dayKey} ${String(d.getHours()).padStart(2, '0')}:00`
-
+        const key = toBucketKey(new Date(ev.timestamp))
         if (ev.action === 'page_enter') {
-          hourlyVisits.set(hourKey, (hourlyVisits.get(hourKey) || 0) + 1)
-          dailyVisits.set(dayKey, (dailyVisits.get(dayKey) || 0) + 1)
+          visits.set(key, (visits.get(key) || 0) + 1)
         }
         if (ev.action === 'purchase') {
-          const amount = ev.params?.value || 0
-          hourlyPurchases.set(hourKey, (hourlyPurchases.get(hourKey) || 0) + 1)
-          hourlyRevenue.set(hourKey, (hourlyRevenue.get(hourKey) || 0) + amount)
-          dailyPurchases.set(dayKey, (dailyPurchases.get(dayKey) || 0) + 1)
-          dailyRevenue.set(dayKey, (dailyRevenue.get(dayKey) || 0) + amount)
+          purchases.set(key, (purchases.get(key) || 0) + 1)
+          revenue.set(key, (revenue.get(key) || 0) + (ev.params?.value || 0))
         }
       }
 
@@ -81,13 +79,13 @@ export async function GET(req: NextRequest) {
         Array.from(m.entries()).map(([key, value]) => ({ key, value })).sort((a, b) => a.key.localeCompare(b.key))
 
       return NextResponse.json({
-        hourly: { visits: toArr(hourlyVisits), purchases: toArr(hourlyPurchases), revenue: toArr(hourlyRevenue) },
-        daily: { visits: toArr(dailyVisits), purchases: toArr(dailyPurchases), revenue: toArr(dailyRevenue) },
+        buckets: { visits: toArr(visits), purchases: toArr(purchases), revenue: toArr(revenue) },
         totals: {
           visits: events.filter(e => e.action === 'page_enter').length,
           purchases: events.filter(e => e.action === 'purchase').length,
           revenue: events.filter(e => e.action === 'purchase').reduce((sum, e) => sum + (e.params?.value || 0), 0),
         },
+        granularity,
       })
     }
 
