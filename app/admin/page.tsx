@@ -944,6 +944,7 @@ function AdminPageInner() {
               window.open(`${window.location.origin}/${event.slug}`, '_blank')
             }}>링크 열기</UIButton>
             <UIButton size="sm" variant="secondary" onClick={() => viewPrintHistory(event)}>인쇄 기록</UIButton>
+            <UIButton size="sm" variant="secondary" onClick={() => window.open(`/admin/user-events?slug=${event.slug}`, '_blank')}>사용자 로그</UIButton>
             <UIButton size="sm" variant="secondary" onClick={async () => {
               if (!confirm(`"${event.name}" 이벤트를 삭제하시겠어요?\n연관된 인쇄 기록과 레이아웃도 모두 삭제됩니다.`)) return
               try {
@@ -1027,7 +1028,11 @@ function AdminPageInner() {
                                 <span className="text-gray-400">{new Date(log.viewedAt).toLocaleString('ko-KR')}</span>
                               </div>
                               {log.deviceId && (
-                                <div className="text-gray-400 truncate">ID: {log.deviceId.slice(0, 8)}...</div>
+                                <a
+                                  href={`/admin/user-events?deviceId=${log.deviceId}`}
+                                  target="_blank"
+                                  className="text-blue-500 hover:text-blue-600 truncate block"
+                                >ID: {log.deviceId.slice(0, 8)}... →</a>
                               )}
                               {log.referrer && (
                                 <div className="text-gray-400 truncate">출처: {log.referrer}</div>

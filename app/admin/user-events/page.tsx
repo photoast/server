@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 
 interface UserEvent {
   action: string
@@ -17,6 +18,7 @@ interface Session {
 }
 
 const ACTION_LABELS: Record<string, { label: string; color: string }> = {
+  page_enter: { label: '페이지 접속', color: 'bg-blue-100 text-blue-800 font-bold' },
   step_view: { label: '페이지 이동', color: 'bg-blue-100 text-blue-700' },
   layout_select: { label: '레이아웃 선택', color: 'bg-purple-100 text-purple-700' },
   color_select: { label: '배경색 선택', color: 'bg-pink-100 text-pink-700' },
@@ -51,9 +53,11 @@ function formatTime(dateStr: string): string {
 }
 
 export default function UserEventsPage() {
+  const searchParams = useSearchParams()
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
-  const [slugFilter, setSlugFilter] = useState('')
+  const [slugFilter, setSlugFilter] = useState(searchParams.get('slug') || '')
+  const [deviceFilter, setDeviceFilter] = useState(searchParams.get('deviceId') || '')
   const [expandedSession, setExpandedSession] = useState<string | null>(null)
   const [autoRefresh, setAutoRefresh] = useState(true)
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
@@ -62,6 +66,7 @@ export default function UserEventsPage() {
     try {
       const params = new URLSearchParams()
       if (slugFilter) params.set('slug', slugFilter)
+      if (deviceFilter) params.set('deviceId', deviceFilter)
       params.set('limit', '300')
       const res = await fetch(`/api/user-events?${params}`)
       if (res.ok) {
@@ -75,7 +80,7 @@ export default function UserEventsPage() {
 
   useEffect(() => {
     fetchEvents()
-  }, [slugFilter])
+  }, [slugFilter, deviceFilter])
 
   useEffect(() => {
     if (autoRefresh) {
@@ -84,7 +89,7 @@ export default function UserEventsPage() {
     } else {
       if (intervalRef.current) clearInterval(intervalRef.current)
     }
-  }, [autoRefresh, slugFilter])
+  }, [autoRefresh, slugFilter, deviceFilter])
 
   const activeSessions = sessions.filter(s => {
     const diff = Date.now() - new Date(s.lastActivity).getTime()
@@ -126,8 +131,15 @@ export default function UserEventsPage() {
             placeholder="이벤트 slug로 필터..."
             className="flex-1 px-4 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
-          {slugFilter && (
-            <button onClick={() => setSlugFilter('')} className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700">
+          <input
+            type="text"
+            value={deviceFilter}
+            onChange={e => setDeviceFilter(e.target.value)}
+            placeholder="디바이스 ID..."
+            className="w-48 px-4 py-2 border border-gray-300 rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+          {(slugFilter || deviceFilter) && (
+            <button onClick={() => { setSlugFilter(''); setDeviceFilter('') }} className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700">
               초기화
             </button>
           )}

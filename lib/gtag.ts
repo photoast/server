@@ -65,6 +65,11 @@ export function trackVirtualPageview(path: string, title?: string) {
   }
 }
 
+// Page enter (initial page load)
+export function trackPageEnter(slug: string, path: string) {
+  trackEvent('page_enter', { event_slug: slug, page_path: path })
+}
+
 // Step navigation (funnel)
 export function trackStepView(step: string, slug: string) {
   trackEvent('step_view', { step, event_slug: slug })

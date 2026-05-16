@@ -28,11 +28,13 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
     const slug = searchParams.get('slug')
+    const deviceId = searchParams.get('deviceId')
     const limit = Math.min(Number(searchParams.get('limit') || 200), 500)
 
     const db = await getDb()
     const filter: any = {}
     if (slug) filter.slug = slug
+    if (deviceId) filter.deviceId = deviceId
 
     const events = await db.collection(COLLECTIONS.userEvents)
       .find(filter)

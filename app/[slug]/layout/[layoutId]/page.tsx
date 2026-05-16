@@ -9,7 +9,7 @@ import type { CompletedSlotData } from '@/app/components/FrameUserEditor'
 import { UIPageSpinner, UIStatusBanner, UIButton, UIStepBar, UICounterControl, UISectionHeading, UIBottomSheet, UISelectItem } from '@/app/components/ui'
 import Script from 'next/script'
 import { logClientError, logClientInfo } from '@/lib/errorLogger'
-import { trackStepView, trackLayoutSelect, trackColorSelect, trackAllPhotosReady, trackPreviewReady, trackPaymentStart, trackPaymentSuccess, trackPaymentFail, trackPrintRequest, trackPrintSuccess, trackDownload, trackReset } from '@/lib/gtag'
+import { trackPageEnter, trackStepView, trackLayoutSelect, trackColorSelect, trackAllPhotosReady, trackPreviewReady, trackPaymentStart, trackPaymentSuccess, trackPaymentFail, trackPrintRequest, trackPrintSuccess, trackDownload, trackReset } from '@/lib/gtag'
 import { useI18n, LanguageToggle } from '../../i18n'
 
 const FrameUserEditor = dynamic(() => import('@/app/components/FrameUserEditor'), { ssr: false })
@@ -206,6 +206,7 @@ export default function FrameLayoutPage({
         setEvent(ev)
         setLayout(lay)
         if (lay.backgroundColor) setSelectedColor(lay.backgroundColor)
+        trackPageEnter(params.slug, `/${params.slug}/layout/${params.layoutId}`)
 
         let deviceId = localStorage.getItem('pt_device_id')
         if (!deviceId) {
