@@ -147,6 +147,20 @@ function AdminPageInner() {
   const [pageViewLogsTotalPages, setPageViewLogsTotalPages] = useState(1)
   const [showPageViewLogs, setShowPageViewLogs] = useState(false)
 
+  // DB stats
+  const [dbStats, setDbStats] = useState<{
+    totalSizeMB: number
+    dataSizeMB: number
+    indexSizeMB: number
+    maxSizeMB: number
+    usagePercent: number
+    collectionCount: number
+    objectCount: number
+    collections: { name: string; sizeMB: number; count: number; storageSizeMB: number; indexSizeMB: number }[]
+  } | null>(null)
+  const [showDbDetail, setShowDbDetail] = useState(false)
+  const [dbStatsLoading, setDbStatsLoading] = useState(false)
+
   // Event editing states
   const [editingEventId, setEditingEventId] = useState<string | null>(null)
   const [editingField, setEditingField] = useState<'name' | 'slug' | null>(null)
@@ -243,10 +257,20 @@ function AdminPageInner() {
         setAuthenticated(true)
         fetchEvents()
         fetchPrinters()
+        fetchDbStats()
       }
     } catch (err) {
       // Not authenticated
     }
+  }
+
+  const fetchDbStats = async () => {
+    setDbStatsLoading(true)
+    try {
+      const res = await fetch('/api/system/db-stats')
+      if (res.ok) setDbStats(await res.json())
+    } catch {}
+    setDbStatsLoading(false)
   }
 
   const fetchStickers = async () => {
@@ -2170,6 +2194,102 @@ function AdminPageInner() {
         </div>
 
         {error && <div className="mb-6"><UIStatusBanner type="error" message={error} /></div>}
+
+        {/* DB Storage Usage */}
+        <UICard className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-bold text-gray-900">🗄️ DB 사용량</h2>
+            {dbStatsLoading && (
+              <div className="w-4 h-4 border-2 border-gray-200 border-t-blue-500 rounded-full animate-spin" />
+            )}
+          </div>
+          {dbStats ? (
+            <div className="space-y-3">
+              {/* Progress bar */}
+              <div>
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-gray-600">
+                    {(dbStats.totalSizeMB ?? 0).toFixed(1)}MB
+                    <span className="text-gray-400"> / {dbStats.maxSizeMB}MB</span>
+                  </span>
+                  <span className={`font-semibold ${
+                    (dbStats.usagePercent ?? 0) > 90 ? 'text-red-600' :
+                    (dbStats.usagePercent ?? 0) > 70 ? 'text-amber-600' :
+                    'text-green-600'
+                  }`}>
+                    {(dbStats.usagePercent ?? 0).toFixed(1)}%
+                  </span>
+                </div>
+                <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      (dbStats.usagePercent ?? 0) > 90 ? 'bg-red-500' :
+                      (dbStats.usagePercent ?? 0) > 70 ? 'bg-amber-500' :
+                      'bg-green-500'
+                    }`}
+                    style={{ width: `${Math.min(dbStats.usagePercent ?? 0, 100)}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Summary stats */}
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="bg-gray-50 rounded-lg py-2">
+                  <div className="text-xs text-gray-500">컬렉션</div>
+                  <div className="text-sm font-bold text-gray-800">{dbStats.collectionCount}개</div>
+                </div>
+                <div className="bg-gray-50 rounded-lg py-2">
+                  <div className="text-xs text-gray-500">문서</div>
+                  <div className="text-sm font-bold text-gray-800">{(dbStats.objectCount ?? 0).toLocaleString()}개</div>
+                </div>
+                <div className="bg-gray-50 rounded-lg py-2">
+                  <div className="text-xs text-gray-500">인덱스</div>
+                  <div className="text-sm font-bold text-gray-800">{(dbStats.indexSizeMB ?? 0).toFixed(1)}MB</div>
+                </div>
+              </div>
+
+              {/* Collection detail toggle */}
+              <button
+                onClick={() => setShowDbDetail(!showDbDetail)}
+                className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 transition-colors"
+              >
+                <svg className={`w-3 h-3 transition-transform ${showDbDetail ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+                컬렉션별 상세 {showDbDetail ? '접기' : '펼치기'}
+              </button>
+
+              {showDbDetail && (
+                <div className="max-h-48 overflow-y-auto border rounded-lg">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 sticky top-0">
+                      <tr>
+                        <th className="text-left px-3 py-2 text-xs font-medium text-gray-500">컬렉션</th>
+                        <th className="text-right px-3 py-2 text-xs font-medium text-gray-500">크기</th>
+                        <th className="text-right px-3 py-2 text-xs font-medium text-gray-500">문서수</th>
+                        <th className="text-right px-3 py-2 text-xs font-medium text-gray-500">인덱스</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {dbStats.collections.map(col => (
+                        <tr key={col.name} className="hover:bg-gray-50">
+                          <td className="px-3 py-1.5 font-mono text-xs text-gray-700">{col.name}</td>
+                          <td className="px-3 py-1.5 text-xs text-right text-gray-600">{(col.storageSizeMB + col.indexSizeMB).toFixed(2)}MB</td>
+                          <td className="px-3 py-1.5 text-xs text-right text-gray-500">{col.count.toLocaleString()}</td>
+                          <td className="px-3 py-1.5 text-xs text-right text-gray-400">{col.indexSizeMB.toFixed(2)}MB</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400 py-2">
+              {dbStatsLoading ? '불러오는 중...' : 'DB 통계를 불러올 수 없습니다'}
+            </p>
+          )}
+        </UICard>
 
         {/* Printer Management */}
         <UICard className="mb-6">

@@ -38,3 +38,4 @@ next-env.d.ts
 
 # output (debug/preview files)
 /output
+.aider*
