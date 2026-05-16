@@ -22,7 +22,7 @@ interface BlobStoreStat {
 }
 
 async function fetchBlobStats(): Promise<BlobStoreStat> {
-  const token = process.env.BLOB_READ_WRITE_TOKEN
+  const token = process.env.phototoast_READ_WRITE_TOKEN
   const maxSizeMB = parseInt(process.env.VERCEL_BLOB_MAX_STORAGE_MB || '500', 10)
 
   if (!token) {
