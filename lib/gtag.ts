@@ -51,6 +51,11 @@ export function trackAllPhotosReady(photoCount: number, slug: string) {
   trackEvent('all_photos_ready', { photo_count: photoCount, event_slug: slug })
 }
 
+export function trackPreviewReady(slug: string) {
+  trackEvent('preview_ready', { event_slug: slug })
+  trackVirtualPageview(`/${slug}/step/preview`, `preview | Photo Toast`)
+}
+
 // Payment
 export function trackPaymentStart(amount: number, quantity: number, slug: string) {
   trackEvent('payment_start', { amount, quantity, event_slug: slug, currency: 'KRW' })
