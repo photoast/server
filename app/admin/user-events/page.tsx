@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 
 interface UserEvent {
@@ -53,6 +53,14 @@ function formatTime(dateStr: string): string {
 }
 
 export default function UserEventsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-dvh bg-gray-50 flex items-center justify-center text-gray-400">로딩 중...</div>}>
+      <UserEventsContent />
+    </Suspense>
+  )
+}
+
+function UserEventsContent() {
   const searchParams = useSearchParams()
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
