@@ -140,6 +140,7 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
     setCropPos({ x: 0, y: 0 })
     setCropZoom(1)
     setCurrentCropArea(null)
+    setCropAreaSize(null)
     setEditingSlotIndex(slotIndex)
   }
 
@@ -171,6 +172,7 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
     setCropPos({ x: 0, y: 0 })
     setCropZoom(1)
     setCurrentCropArea(null)
+    setCropAreaSize(null)
     setEditingSlotIndex(targetSlot)
     e.target.value = ''
   }
@@ -254,14 +256,13 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
   const [cropZoom, setCropZoom] = useState(1)
   const [currentCropArea, setCurrentCropArea] = useState<Area | null>(null)
   const [showGrid, setShowGrid] = useState(false)
-  const [frameOverlayOriginal, setFrameOverlayOriginal] = useState(true)
+  const [frameOverlayOriginal, setFrameOverlayOriginal] = useState(false)
 
   useEffect(() => {
     const cropArea = cropContainerRef.current?.querySelector('.reactEasyCrop_CropArea') as HTMLElement | null
     if (!cropArea) return
     if (!showGrid) cropArea.style.border = 'none'
     else cropArea.style.border = ''
-    cropArea.style.boxShadow = 'none'
   })
 
   // Open crop editor for a slot that already has a file
@@ -272,6 +273,7 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
     setCropPos(state.cropOffset)
     setCropZoom(state.cropScale)
     setCurrentCropArea(state.cropArea)
+    setCropAreaSize(null)
     setEditingSlotIndex(slotIndex)
   }
 
@@ -459,7 +461,7 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
           <span className="text-xs text-gray-400">{editingSlot.aspectRatio}</span>
         </div>
 
-        <div ref={cropContainerRef} className="relative overflow-hidden" style={{ height: 400, background: 'rgba(0,0,0,0.5)' }}>
+        <div ref={cropContainerRef} className="relative overflow-hidden bg-black" style={{ height: 400 }}>
           <Cropper
             image={editingState.previewUrl}
             crop={cropPos}
@@ -504,7 +506,7 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
 
             return (
               <div
-                className="absolute pointer-events-none"
+                className="absolute pointer-events-none overflow-hidden"
                 style={{
                   left: `${cropLeft}px`,
                   top: `${cropTop}px`,
@@ -570,19 +572,19 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
           })()}
         </div>
 
-        <div className="flex items-center justify-center gap-2 flex-nowrap">
-          <p className="text-xs text-gray-400 whitespace-nowrap shrink-0">
-            {t('crop.hint')}
-          </p>
+        <p className="text-xs text-gray-400 text-center">
+          {t('crop.hint')}
+        </p>
+        <div className="flex items-center justify-center gap-2">
           <button
             onClick={() => setShowGrid(v => !v)}
-            className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors whitespace-nowrap shrink-0 ${showGrid ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-gray-50 border-gray-200 text-gray-400'}`}
+            className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors whitespace-nowrap ${showGrid ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-gray-50 border-gray-200 text-gray-400'}`}
           >
             {t('crop.grid')}
           </button>
           <button
             onClick={() => setFrameOverlayOriginal(v => !v)}
-            className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors whitespace-nowrap shrink-0 ${frameOverlayOriginal ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-gray-50 border-gray-200 text-gray-400'}`}
+            className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors whitespace-nowrap ${frameOverlayOriginal ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-gray-50 border-gray-200 text-gray-400'}`}
           >
             {t('crop.frameColor')}
           </button>
