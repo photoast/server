@@ -309,6 +309,11 @@ function UserEventsContent() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">사용자 통계</h1>
+            {slugFilter && (
+              <p className="text-sm text-gray-700 mt-0.5 font-medium">
+                {slugNames[slugFilter] ? `${slugNames[slugFilter]}(${slugFilter})` : slugFilter}
+              </p>
+            )}
             <p className="text-sm text-gray-500 mt-1">
               실시간 접속 <span className="font-bold text-green-600">{activeSessions.length}</span>명
               {' · '}전체 세션 {sessions.length}개
