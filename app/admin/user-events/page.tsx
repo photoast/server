@@ -409,9 +409,13 @@ function UserEventsContent() {
 
             <div className="bg-white rounded-xl border border-gray-100 p-4">
               <LineChart
-                label="매출 (₩)"
+                label="누적 매출 (₩)"
                 lines={[
-                  { data: stats.buckets.revenue, color: '#fb923c', name: '매출' },
+                  { data: stats.buckets.revenue.reduce<BucketEntry[]>((acc, d) => {
+                    const prev = acc.length > 0 ? acc[acc.length - 1].value : 0
+                    acc.push({ key: d.key, value: prev + d.value })
+                    return acc
+                  }, []), color: '#fb923c', name: '매출' },
                 ]}
               />
             </div>
