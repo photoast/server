@@ -220,6 +220,7 @@ function UserEventsContent() {
   const [granularity, setGranularity] = useState(60)
   const [excludeSessions, setExcludeSessions] = useState('')
   const [excludeDevices, setExcludeDevices] = useState('')
+  const excludeLoaded = useRef(false)
   const [showExclude, setShowExclude] = useState(false)
   const [tab, setTab] = useState<'stats' | 'sessions'>('stats')
   const [page, setPage] = useState(0)
@@ -277,6 +278,7 @@ function UserEventsContent() {
   useEffect(() => {
     setExcludeSessions(localStorage.getItem('pt_exclude_sessions') || '')
     setExcludeDevices(localStorage.getItem('pt_exclude_devices') || '')
+    excludeLoaded.current = true
   }, [])
 
   useEffect(() => {
@@ -294,11 +296,11 @@ function UserEventsContent() {
   }, [autoRefresh, slugFilter, deviceFilter, days, granularity, excludeParam, excludeDeviceParam])
 
   useEffect(() => {
-    localStorage.setItem('pt_exclude_sessions', excludeSessions)
+    if (excludeLoaded.current) localStorage.setItem('pt_exclude_sessions', excludeSessions)
   }, [excludeSessions])
 
   useEffect(() => {
-    localStorage.setItem('pt_exclude_devices', excludeDevices)
+    if (excludeLoaded.current) localStorage.setItem('pt_exclude_devices', excludeDevices)
   }, [excludeDevices])
 
   const activeSessions = sessions.filter(s => {
