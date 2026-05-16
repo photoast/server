@@ -1,6 +1,9 @@
 import type { Metadata } from 'next'
+import Script from 'next/script'
 import { findEventBySlug } from '@/lib/models'
 import { I18nProvider } from './i18n'
+
+const GA_ID = 'G-PNJYXPXN2P'
 
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   const event = await findEventBySlug(params.slug)
@@ -32,5 +35,21 @@ export async function generateMetadata({ params }: { params: { slug: string } })
 }
 
 export default function SlugLayout({ children }: { children: React.ReactNode }) {
-  return <I18nProvider>{children}</I18nProvider>
+  return (
+    <>
+      <Script
+        src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
+        strategy="afterInteractive"
+      />
+      <Script id="google-analytics" strategy="afterInteractive">
+        {`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', '${GA_ID}');
+        `}
+      </Script>
+      <I18nProvider>{children}</I18nProvider>
+    </>
+  )
 }
