@@ -714,13 +714,13 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
             <button
               key={slot.id}
               onClick={() => handleSlotClick(i)}
-              className={`absolute transition-colors overflow-hidden group ${state.croppedUrl ? '' : 'border-2 border-dashed'} ${swapSourceIndex === i ? 'ring-3 ring-blue-500 z-30' : ''}`}
+              className={`absolute transition-colors overflow-hidden group ${state.croppedUrl ? '' : 'border-2 border-dashed'} ${swapSourceIndex === i ? 'ring-3 ring-blue-500' : ''}`}
               style={{
                 left: `${pctX}%`,
                 top: `${pctY}%`,
                 width: `${pctW}%`,
                 height: `${pctH}%`,
-                zIndex: swapSourceIndex === i ? 30 : (slot.zIndex ?? 10),
+                zIndex: slot.zIndex ?? 10,
                 borderColor: state.croppedUrl ? undefined : '#93c5fd',
                 backgroundColor: state.croppedUrl ? undefined : 'rgba(219,234,254,0.6)',
                 transform: (slot.rotation ?? 0) !== 0 ? `rotate(${slot.rotation}deg)` : undefined,
