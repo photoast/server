@@ -220,6 +220,7 @@ function UserEventsContent() {
     if (typeof window !== 'undefined') return localStorage.getItem('pt_exclude_sessions') || ''
     return ''
   })
+  const [showExclude, setShowExclude] = useState(false)
   const [tab, setTab] = useState<'stats' | 'sessions'>('stats')
   const [page, setPage] = useState(0)
   const perPage = 30
@@ -303,6 +304,7 @@ function UserEventsContent() {
               />
               자동 새로고침
             </label>
+            <button onClick={() => window.print()} className="text-sm text-gray-500 hover:text-gray-700">캡처</button>
             <a href="/admin" className="text-sm text-blue-500 hover:text-blue-600">← 어드민</a>
           </div>
         </div>
@@ -331,13 +333,21 @@ function UserEventsContent() {
             )}
           </div>
           <div className="flex gap-2 items-center">
-            <input
-              type="text"
-              value={excludeSessions}
-              onChange={e => setExcludeSessions(e.target.value)}
-              placeholder="제외할 세션 ID (쉼표 구분)..."
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+            {excludeParam ? (
+              <button
+                onClick={() => setShowExclude(v => !v)}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-xl text-sm text-left text-gray-500 hover:bg-gray-50 truncate"
+              >
+                {showExclude ? '제외 목록 숨기기 ▲' : `제외 ${excludeParam.split(',').length}건 ▼`}
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowExclude(v => !v)}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-xl text-sm text-left text-gray-400 hover:bg-gray-50"
+              >
+                {showExclude ? '제외 목록 숨기기 ▲' : '제외할 세션 설정 ▼'}
+              </button>
+            )}
             <select
               value={granularity}
               onChange={e => setGranularity(Number(e.target.value))}
@@ -360,6 +370,15 @@ function UserEventsContent() {
               <option value={30}>30일</option>
             </select>
           </div>
+          {showExclude && (
+            <input
+              type="text"
+              value={excludeSessions}
+              onChange={e => setExcludeSessions(e.target.value)}
+              placeholder="제외할 세션 ID (쉼표 구분)..."
+              className="w-full px-4 py-2 border border-gray-300 rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          )}
         </div>
 
         {/* Tab */}
