@@ -218,14 +218,8 @@ function UserEventsContent() {
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [days, setDays] = useState(7)
   const [granularity, setGranularity] = useState(60)
-  const [excludeSessions, setExcludeSessions] = useState(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('pt_exclude_sessions') || ''
-    return ''
-  })
-  const [excludeDevices, setExcludeDevices] = useState(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('pt_exclude_devices') || ''
-    return ''
-  })
+  const [excludeSessions, setExcludeSessions] = useState('')
+  const [excludeDevices, setExcludeDevices] = useState('')
   const [showExclude, setShowExclude] = useState(false)
   const [tab, setTab] = useState<'stats' | 'sessions'>('stats')
   const [page, setPage] = useState(0)
@@ -278,6 +272,11 @@ function UserEventsContent() {
       for (const e of events) map[e.slug] = e.name
       setSlugNames(map)
     }).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    setExcludeSessions(localStorage.getItem('pt_exclude_sessions') || '')
+    setExcludeDevices(localStorage.getItem('pt_exclude_devices') || '')
   }, [])
 
   useEffect(() => {
