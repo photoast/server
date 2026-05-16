@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect, useRef, Suspense } from 'react'
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
+import html2canvas from 'html2canvas'
 
 interface UserEvent {
   action: string
@@ -209,6 +210,7 @@ function UserEventsContent() {
   const searchParams = useSearchParams()
   const [sessions, setSessions] = useState<Session[]>([])
   const [stats, setStats] = useState<StatsData | null>(null)
+  const [slugNames, setSlugNames] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [slugFilter, setSlugFilter] = useState(searchParams.get('slug') || '')
   const [deviceFilter, setDeviceFilter] = useState(searchParams.get('deviceId') || '')
@@ -225,6 +227,16 @@ function UserEventsContent() {
   const [page, setPage] = useState(0)
   const perPage = 30
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
+
+  const captureAsPng = useCallback(async () => {
+    if (!contentRef.current) return
+    const canvas = await html2canvas(contentRef.current, { backgroundColor: '#f9fafb', scale: 2 })
+    const link = document.createElement('a')
+    link.download = `user-stats-${new Date().toISOString().slice(0, 10)}.png`
+    link.href = canvas.toDataURL('image/png')
+    link.click()
+  }, [])
 
   const excludeParam = excludeSessions.split(',').map(s => s.trim()).filter(Boolean).join(',')
 
@@ -256,6 +268,14 @@ function UserEventsContent() {
   }
 
   useEffect(() => {
+    fetch('/api/events').then(r => r.ok ? r.json() : []).then((events: { slug: string; name: string }[]) => {
+      const map: Record<string, string> = {}
+      for (const e of events) map[e.slug] = e.name
+      setSlugNames(map)
+    }).catch(() => {})
+  }, [])
+
+  useEffect(() => {
     fetchEvents()
     fetchStats()
   }, [slugFilter, deviceFilter, days, granularity, excludeParam])
@@ -284,7 +304,7 @@ function UserEventsContent() {
 
   return (
     <div className="min-h-dvh bg-gray-50 p-6">
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div ref={contentRef} className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -304,7 +324,7 @@ function UserEventsContent() {
               />
               자동 새로고침
             </label>
-            <button onClick={() => window.print()} className="text-sm text-gray-500 hover:text-gray-700">캡처</button>
+            <button onClick={captureAsPng} className="text-sm text-gray-500 hover:text-gray-700">PNG 캡처</button>
             <a href="/admin" className="text-sm text-blue-500 hover:text-blue-600">← 어드민</a>
           </div>
         </div>
@@ -424,7 +444,7 @@ function UserEventsContent() {
                 <div className="text-2xl font-bold text-gray-900 mt-1">₩{stats.totals.revenue.toLocaleString()}</div>
               </div>
               <div className="bg-white rounded-xl border border-gray-100 p-4">
-                <div className="text-xs text-gray-500">전환율</div>
+                <div className="text-xs text-gray-500">결제 전환율</div>
                 <div className="text-2xl font-bold text-orange-600 mt-1">{conversionRate}%</div>
               </div>
             </div>
@@ -501,7 +521,7 @@ function UserEventsContent() {
                             <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${isActive ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}`} />
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
-                                <span className="text-sm font-semibold text-gray-900 truncate">/{session.slug}</span>
+                                <span className="text-sm font-semibold text-gray-900 truncate">{slugNames[session.slug] ? `${slugNames[session.slug]}(${session.slug})` : `/${session.slug}`}</span>
                                 <span className="text-xs text-gray-400 font-mono">{session.deviceId.slice(0, 8)}</span>
                                 {purchaseEvent && (
                                   <span className="text-[10px] bg-green-100 text-green-800 font-bold px-1.5 py-0.5 rounded">결제 ₩{purchaseAmount.toLocaleString()}</span>

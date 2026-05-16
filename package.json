@@ -18,6 +18,7 @@
     "dotenv": "^17.3.1",
     "heic-convert": "^2.1.0",
     "heic2any": "^0.0.4",
+    "html2canvas": "^1.4.1",
     "ipp": "^2.0.1",
     "konva": "^10.2.0",
     "mongodb": "^6.0.0",
