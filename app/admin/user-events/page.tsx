@@ -473,7 +473,7 @@ function UserEventsContent() {
                 label="세션 → 포토슬롯 → 결제 → 다운로드"
                 lines={[
                   { data: stats.buckets.sessions, color: '#60a5fa', name: '세션' },
-                  { data: stats.buckets.photoSlots, color: '#a855f7', name: '포토슬롯' },
+                  { data: stats.buckets.photoSlots, color: '#a855f7', name: '포토슬롯 진입' },
                   { data: stats.buckets.purchases, color: '#22c55e', name: '결제' },
                   { data: stats.buckets.downloads, color: '#06b6d4', name: '다운로드' },
                 ]}
