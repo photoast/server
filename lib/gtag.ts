@@ -6,13 +6,56 @@ declare global {
   }
 }
 
-function trackEvent(action: string, params?: Record<string, any>) {
-  if (typeof window !== 'undefined' && window.gtag) {
-    window.gtag('event', action, params)
+function getDeviceId(): string {
+  if (typeof window === 'undefined') return ''
+  let id = localStorage.getItem('pt_device_id')
+  if (!id) {
+    id = crypto.randomUUID()
+    localStorage.setItem('pt_device_id', id)
   }
+  return id
 }
 
-// Virtual pageview — GA4 reports에서 별도 페이지로 잡힘
+function getSessionId(): string {
+  if (typeof window === 'undefined') return ''
+  let id = sessionStorage.getItem('pt_session_id')
+  if (!id) {
+    id = crypto.randomUUID()
+    sessionStorage.setItem('pt_session_id', id)
+  }
+  return id
+}
+
+function sendToServer(slug: string, action: string, params?: Record<string, any>) {
+  const deviceId = getDeviceId()
+  const sessionId = getSessionId()
+  if (!deviceId || !sessionId) return
+
+  fetch('/api/user-events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ deviceId, sessionId, slug, action, params }),
+  }).catch(() => {})
+}
+
+function trackEvent(action: string, params?: Record<string, any>) {
+  if (typeof window === 'undefined') return
+
+  // GA4
+  if (window.gtag) {
+    window.gtag('event', action, {
+      ...params,
+      device_id: getDeviceId(),
+      session_id: getSessionId(),
+    })
+  }
+
+  // Server
+  const slug = params?.event_slug
+  if (slug) sendToServer(slug, action, params)
+}
+
+// Virtual pageview
 export function trackVirtualPageview(path: string, title?: string) {
   if (typeof window !== 'undefined' && window.gtag) {
     window.gtag('event', 'page_view', {

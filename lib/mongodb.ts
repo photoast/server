@@ -37,6 +37,7 @@ export const COLLECTIONS = {
   counters: 'counters',
   authCodes: 'authCodes',
   pageViews: 'pageViews',
+  userEvents: 'userEvents',
 } as const
 
 export async function getDb(): Promise<Db> {
@@ -69,6 +70,9 @@ export async function ensureIndexes(): Promise<void> {
       db.collection(COLLECTIONS.authCodes).createIndex({ eventId: 1 }),
       db.collection(COLLECTIONS.authCodes).createIndex({ code: 1, eventId: 1 }, { unique: true }),
       db.collection(COLLECTIONS.pageViews).createIndex({ slug: 1, viewedAt: -1 }),
+      db.collection(COLLECTIONS.userEvents).createIndex({ sessionId: 1, timestamp: 1 }),
+      db.collection(COLLECTIONS.userEvents).createIndex({ slug: 1, timestamp: -1 }),
+      db.collection(COLLECTIONS.userEvents).createIndex({ timestamp: 1 }, { expireAfterSeconds: 60 * 60 * 24 * 30 }),
     ])
     indexesCreated = true
     console.log('[MongoDB] Indexes ensured')
