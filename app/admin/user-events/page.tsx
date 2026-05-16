@@ -475,8 +475,7 @@ function UserEventsContent() {
                                 )}
                               </div>
                               <div className="flex items-center gap-2 mt-0.5">
-                                <span className="text-xs text-gray-700 font-medium">{formatTime(session.firstActivity)}</span>
-                                <span className="text-[10px] text-gray-400">({timeAgo(session.firstActivity)})</span>
+                                <span className="text-xs text-gray-700 font-medium">{new Date(session.firstActivity).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
                                 {session.firstActivity !== session.lastActivity && (
                                   <span className="text-[10px] text-gray-400">→ 마지막 {timeAgo(session.lastActivity)}</span>
                                 )}
