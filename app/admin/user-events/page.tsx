@@ -15,6 +15,7 @@ interface Session {
   slug: string
   userAgent: string
   events: UserEvent[]
+  firstActivity: string
   lastActivity: string
 }
 
@@ -220,6 +221,8 @@ function UserEventsContent() {
     return ''
   })
   const [tab, setTab] = useState<'stats' | 'sessions'>('stats')
+  const [page, setPage] = useState(0)
+  const perPage = 30
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
 
   const excludeParam = excludeSessions.split(',').map(s => s.trim()).filter(Boolean).join(',')
@@ -230,7 +233,7 @@ function UserEventsContent() {
       if (slugFilter) params.set('slug', slugFilter)
       if (deviceFilter) params.set('deviceId', deviceFilter)
       if (excludeParam) params.set('excludeSessions', excludeParam)
-      params.set('limit', '300')
+      params.set('limit', '5000')
       const res = await fetch(`/api/user-events?${params}`)
       if (res.ok) {
         const data = await res.json()
@@ -422,106 +425,134 @@ function UserEventsContent() {
           </div>
         )}
 
-        {tab === 'sessions' && (
-          <>
-            {loading ? (
-              <div className="text-center py-12 text-gray-400">로딩 중...</div>
-            ) : sessions.length === 0 ? (
-              <div className="text-center py-12 text-gray-400">이벤트 데이터가 없습니다</div>
-            ) : (
-              <div className="space-y-3">
-                {sessions.map(session => {
-                  const isActive = Date.now() - new Date(session.lastActivity).getTime() < 10 * 60 * 1000
-                  const isExpanded = expandedSession === session.sessionId
-                  const lastEvent = session.events[0]
-                  const lastAction = lastEvent ? (ACTION_LABELS[lastEvent.action]?.label || lastEvent.action) : ''
-                  const excludeList = excludeSessions.split(',').map(s => s.trim()).filter(Boolean)
-                  const isExcluded = excludeList.includes(session.sessionId)
+        {tab === 'sessions' && (() => {
+          const totalPages = Math.ceil(sessions.length / perPage)
+          const paged = sessions.slice(page * perPage, (page + 1) * perPage)
+          return (
+            <>
+              {loading ? (
+                <div className="text-center py-12 text-gray-400">로딩 중...</div>
+              ) : sessions.length === 0 ? (
+                <div className="text-center py-12 text-gray-400">이벤트 데이터가 없습니다</div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between text-xs text-gray-500">
+                    <span>전체 {sessions.length}개 세션</span>
+                    <span>{page + 1} / {totalPages} 페이지</span>
+                  </div>
+                  <div className="space-y-3">
+                    {paged.map(session => {
+                      const isActive = Date.now() - new Date(session.lastActivity).getTime() < 10 * 60 * 1000
+                      const isExpanded = expandedSession === session.sessionId
+                      const excludeList = excludeSessions.split(',').map(s => s.trim()).filter(Boolean)
+                      const isExcluded = excludeList.includes(session.sessionId)
 
-                  const toggleExclude = (e: React.MouseEvent) => {
-                    e.stopPropagation()
-                    if (isExcluded) {
-                      setExcludeSessions(excludeList.filter(s => s !== session.sessionId).join(','))
-                    } else {
-                      setExcludeSessions([...excludeList, session.sessionId].join(','))
-                    }
-                  }
+                      const toggleExclude = (e: React.MouseEvent) => {
+                        e.stopPropagation()
+                        if (isExcluded) {
+                          setExcludeSessions(excludeList.filter(s => s !== session.sessionId).join(','))
+                        } else {
+                          setExcludeSessions([...excludeList, session.sessionId].join(','))
+                        }
+                      }
 
-                  return (
-                    <div
-                      key={session.sessionId}
-                      className={`bg-white rounded-xl border ${isExcluded ? 'border-red-200 opacity-60' : isActive ? 'border-green-200' : 'border-gray-100'} overflow-hidden`}
-                    >
-                      {/* Session header */}
-                      <button
-                        onClick={() => setExpandedSession(isExpanded ? null : session.sessionId)}
-                        className="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-gray-50 transition-colors"
-                      >
-                        <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${isActive ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}`} />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-semibold text-gray-900 truncate">/{session.slug}</span>
-                            <span className="text-xs text-gray-400 font-mono">{session.deviceId.slice(0, 8)}</span>
-                            {session.userAgent && (
-                              <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{parseUA(session.userAgent)}</span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-xs text-gray-500">{lastAction}</span>
-                            <span className="text-xs text-gray-400">· {timeAgo(session.lastActivity)}</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span
-                            onClick={toggleExclude}
-                            className={`text-[10px] px-2 py-0.5 rounded-full cursor-pointer transition-colors ${isExcluded ? 'bg-red-100 text-red-600 hover:bg-red-200' : 'bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-500'}`}
+                      return (
+                        <div
+                          key={session.sessionId}
+                          className={`bg-white rounded-xl border ${isExcluded ? 'border-red-200 opacity-60' : isActive ? 'border-green-200' : 'border-gray-100'} overflow-hidden`}
+                        >
+                          <button
+                            onClick={() => setExpandedSession(isExpanded ? null : session.sessionId)}
+                            className="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-gray-50 transition-colors"
                           >
-                            {isExcluded ? '제외됨' : '제외'}
-                          </span>
-                          <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                            {session.events.length}건
-                          </span>
-                          <svg className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </div>
-                      </button>
-
-                      {/* Event timeline */}
-                      {isExpanded && (
-                        <div className="border-t border-gray-100 px-4 py-3 space-y-1.5 max-h-80 overflow-y-auto">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="text-[10px] text-gray-400 font-mono">세션: {session.sessionId.slice(0, 12)}...</span>
-                            <span className="text-[10px] text-gray-400 font-mono">디바이스: {session.deviceId.slice(0, 12)}...</span>
-                          </div>
-                          {session.events.map((ev, i) => {
-                            const info = ACTION_LABELS[ev.action] || { label: ev.action, color: 'bg-gray-100 text-gray-600' }
-                            const paramStr = Object.entries(ev.params || {})
-                              .filter(([k]) => k !== 'event_slug' && k !== 'device_id' && k !== 'session_id')
-                              .map(([k, v]) => `${k}=${v}`)
-                              .join(', ')
-
-                            return (
-                              <div key={i} className="flex items-center gap-2">
-                                <span className="text-[11px] text-gray-400 font-mono w-16 shrink-0">{formatTime(ev.timestamp)}</span>
-                                <span className={`text-[11px] px-2 py-0.5 rounded-full shrink-0 ${info.color}`}>
-                                  {info.label}
-                                </span>
-                                {paramStr && (
-                                  <span className="text-[11px] text-gray-400 truncate">{paramStr}</span>
+                            <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${isActive ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}`} />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-semibold text-gray-900 truncate">/{session.slug}</span>
+                                <span className="text-xs text-gray-400 font-mono">{session.deviceId.slice(0, 8)}</span>
+                                {session.userAgent && (
+                                  <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{parseUA(session.userAgent)}</span>
                                 )}
                               </div>
-                            )
-                          })}
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-xs text-gray-700 font-medium">{formatTime(session.firstActivity)}</span>
+                                <span className="text-[10px] text-gray-400">({timeAgo(session.firstActivity)})</span>
+                                {session.firstActivity !== session.lastActivity && (
+                                  <span className="text-[10px] text-gray-400">→ 마지막 {timeAgo(session.lastActivity)}</span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span
+                                onClick={toggleExclude}
+                                className={`text-[10px] px-2 py-0.5 rounded-full cursor-pointer transition-colors ${isExcluded ? 'bg-red-100 text-red-600 hover:bg-red-200' : 'bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-500'}`}
+                              >
+                                {isExcluded ? '제외됨' : '제외'}
+                              </span>
+                              <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                                {session.events.length}건
+                              </span>
+                              <svg className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </div>
+                          </button>
+
+                          {isExpanded && (
+                            <div className="border-t border-gray-100 px-4 py-3 space-y-1.5 max-h-80 overflow-y-auto">
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="text-[10px] text-gray-400 font-mono">세션: {session.sessionId.slice(0, 12)}...</span>
+                                <span className="text-[10px] text-gray-400 font-mono">디바이스: {session.deviceId.slice(0, 12)}...</span>
+                              </div>
+                              {session.events.map((ev, i) => {
+                                const info = ACTION_LABELS[ev.action] || { label: ev.action, color: 'bg-gray-100 text-gray-600' }
+                                const paramStr = Object.entries(ev.params || {})
+                                  .filter(([k]) => k !== 'event_slug' && k !== 'device_id' && k !== 'session_id')
+                                  .map(([k, v]) => `${k}=${v}`)
+                                  .join(', ')
+
+                                return (
+                                  <div key={i} className="flex items-center gap-2">
+                                    <span className="text-[11px] text-gray-400 font-mono w-16 shrink-0">{formatTime(ev.timestamp)}</span>
+                                    <span className={`text-[11px] px-2 py-0.5 rounded-full shrink-0 ${info.color}`}>
+                                      {info.label}
+                                    </span>
+                                    {paramStr && (
+                                      <span className="text-[11px] text-gray-400 truncate">{paramStr}</span>
+                                    )}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )}
                         </div>
-                      )}
+                      )
+                    })}
+                  </div>
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-center gap-2 pt-2">
+                      <button
+                        onClick={() => setPage(p => Math.max(0, p - 1))}
+                        disabled={page === 0}
+                        className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 disabled:opacity-30 hover:bg-gray-100"
+                      >
+                        ← 이전
+                      </button>
+                      <span className="text-sm text-gray-500">{page + 1} / {totalPages}</span>
+                      <button
+                        onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+                        disabled={page >= totalPages - 1}
+                        className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 disabled:opacity-30 hover:bg-gray-100"
+                      >
+                        다음 →
+                      </button>
                     </div>
-                  )
-                })}
-              </div>
-            )}
-          </>
-        )}
+                  )}
+                </>
+              )}
+            </>
+          )
+        })()}
       </div>
     </div>
   )

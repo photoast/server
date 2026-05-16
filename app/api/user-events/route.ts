@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Default: session list
-    const limit = Math.min(Number(searchParams.get('limit') || 200), 500)
+    const limit = Math.min(Number(searchParams.get('limit') || 5000), 10000)
     const filter: any = {}
     if (slug) filter.slug = slug
     if (deviceId) filter.deviceId = deviceId
@@ -112,10 +112,14 @@ export async function GET(req: NextRequest) {
           slug: ev.slug,
           userAgent: ev.userAgent || '',
           events: [],
+          firstActivity: ev.timestamp,
           lastActivity: ev.timestamp,
         })
       }
-      sessions.get(sid).events.push({
+      const s = sessions.get(sid)
+      if (new Date(ev.timestamp) < new Date(s.firstActivity)) s.firstActivity = ev.timestamp
+      if (new Date(ev.timestamp) > new Date(s.lastActivity)) s.lastActivity = ev.timestamp
+      s.events.push({
         action: ev.action,
         params: ev.params,
         timestamp: ev.timestamp,
@@ -123,7 +127,7 @@ export async function GET(req: NextRequest) {
     }
 
     const result = Array.from(sessions.values())
-      .sort((a, b) => new Date(b.lastActivity).getTime() - new Date(a.lastActivity).getTime())
+      .sort((a, b) => new Date(b.firstActivity).getTime() - new Date(a.firstActivity).getTime())
 
     return NextResponse.json(result)
   } catch {
