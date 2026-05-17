@@ -88,10 +88,12 @@ export async function POST(req: NextRequest) {
         const threadId = await getOrCreateTopic(deviceId, slug, device)
         const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
         const logUrl = `${baseUrl}/admin/user-events?deviceId=${deviceId}`
+        const event = await db.collection(COLLECTIONS.events).findOne({ slug })
+        const eventLabel = event?.name || slug
         const lines = [
           `${notify.emoji} *${notify.label}*`,
           ``,
-          `📌 /${slug}`,
+          `📌 ${eventLabel}`,
           `🕐 ${now}`,
           `📱 ${device}`,
           `🆔 \`${deviceId.slice(0, 12)}\``,
