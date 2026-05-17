@@ -33,6 +33,7 @@ interface Event {
   paymentMethods?: ('card' | 'kakaopay' | 'naverpay')[]
   logoUrl?: string
   contactPhone?: string
+  endedAt?: string | null
   donation?: {
     enabled: boolean
     bank: string
@@ -304,7 +305,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
   // Auto-select layout if only one FrameLayout is available (and no special layouts)
   useEffect(() => {
-    if (!event || step !== 'select-layout') return
+    if (!event || step !== 'select-layout' || event.endedAt) return
 
     const availableLayouts = event.availableLayouts || []
     // If exactly one FrameLayout, auto-redirect
