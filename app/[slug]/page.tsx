@@ -278,13 +278,22 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
   const stepRef = useRef(step)
   stepRef.current = step
   useEffect(() => {
-    const handleExit = () => trackPageExit(params.slug, stepRef.current)
+    let exited = false
+    const handleExit = () => {
+      if (exited) return
+      exited = true
+      trackPageExit(params.slug, stepRef.current)
+    }
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') exited = false
+    }
+    window.addEventListener('pagehide', handleExit)
     window.addEventListener('beforeunload', handleExit)
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') handleExit()
-    })
+    document.addEventListener('visibilitychange', handleVisibility)
     return () => {
+      window.removeEventListener('pagehide', handleExit)
       window.removeEventListener('beforeunload', handleExit)
+      document.removeEventListener('visibilitychange', handleVisibility)
     }
   }, [params.slug])
 
