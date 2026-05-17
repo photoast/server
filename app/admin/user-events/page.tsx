@@ -232,6 +232,8 @@ function UserEventsContent() {
   const [page, setPage] = useState(0)
   const perPage = 30
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const countdownRef = useRef<NodeJS.Timeout | null>(null)
+  const [refreshCountdown, setRefreshCountdown] = useState(5)
   const contentRef = useRef<HTMLDivElement>(null)
 
   const captureAsPng = useCallback(async () => {
@@ -300,11 +302,18 @@ function UserEventsContent() {
 
   useEffect(() => {
     if (!excludeReady) return
+    if (intervalRef.current) clearInterval(intervalRef.current)
+    if (countdownRef.current) clearInterval(countdownRef.current)
     if (autoRefresh) {
+      setRefreshCountdown(5)
+      countdownRef.current = setInterval(() => {
+        setRefreshCountdown(prev => prev <= 1 ? 5 : prev - 1)
+      }, 1000)
       intervalRef.current = setInterval(() => { fetchEvents(); fetchStats() }, 5000)
-      return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
-    } else {
-      if (intervalRef.current) clearInterval(intervalRef.current)
+      return () => {
+        if (intervalRef.current) clearInterval(intervalRef.current)
+        if (countdownRef.current) clearInterval(countdownRef.current)
+      }
     }
   }, [excludeReady, autoRefresh, slugFilter, deviceFilter, days, granularity, excludeParam, excludeDeviceParam, dateMode, startDate, endDate])
 
@@ -343,7 +352,7 @@ function UserEventsContent() {
                 onChange={e => setAutoRefresh(e.target.checked)}
                 className="rounded"
               />
-              자동 새로고침
+              자동 새로고침{autoRefresh && <span className="text-gray-400 font-mono text-xs">{refreshCountdown}s</span>}
             </label>
             <button onClick={captureAsPng} className="text-sm text-gray-500 hover:text-gray-700">PNG</button>
             <button onClick={() => window.print()} className="text-sm text-gray-500 hover:text-gray-700">PDF</button>
