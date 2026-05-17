@@ -227,6 +227,7 @@ function UserEventsContent() {
   const setExcludeSessions = useCallback((v: string) => { _setExcludeSessions(v); localStorage.setItem('pt_exclude_sessions', v) }, [])
   const setExcludeDevices = useCallback((v: string) => { _setExcludeDevices(v); localStorage.setItem('pt_exclude_devices', v) }, [])
   const [showExclude, setShowExclude] = useState(false)
+  const [hideExcluded, setHideExcluded] = useState(true)
   const [tab, setTab] = useState<'stats' | 'sessions'>('stats')
   const [page, setPage] = useState(0)
   const perPage = 30
@@ -540,8 +541,13 @@ function UserEventsContent() {
         )}
 
         {tab === 'sessions' && (() => {
-          const totalPages = Math.ceil(sessions.length / perPage)
-          const paged = sessions.slice(page * perPage, (page + 1) * perPage)
+          const sessionExcludeListGlobal = (excludeSessions || '').split(',').map(s => s.trim()).filter(Boolean)
+          const deviceExcludeListGlobal = (excludeDevices || '').split(',').map(s => s.trim()).filter(Boolean)
+          const filteredSessions = hideExcluded
+            ? sessions.filter(s => !sessionExcludeListGlobal.includes(s.sessionId) && !deviceExcludeListGlobal.includes(s.deviceId))
+            : sessions
+          const totalPages = Math.ceil(filteredSessions.length / perPage)
+          const paged = filteredSessions.slice(page * perPage, (page + 1) * perPage)
           return (
             <>
               {loading ? (
@@ -551,8 +557,24 @@ function UserEventsContent() {
               ) : (
                 <>
                   <div className="flex items-center justify-between text-xs text-gray-500">
-                    <span>전체 {sessions.length}개 세션</span>
-                    <span>{page + 1} / {totalPages} 페이지</span>
+                    <span>
+                      전체 {filteredSessions.length}개 세션
+                      {hideExcluded && filteredSessions.length < sessions.length && (
+                        <span className="text-gray-400 ml-1">({sessions.length - filteredSessions.length}건 제외됨)</span>
+                      )}
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={hideExcluded}
+                          onChange={e => setHideExcluded(e.target.checked)}
+                          className="rounded"
+                        />
+                        제외 항목 숨기기
+                      </label>
+                      <span>{page + 1} / {totalPages} 페이지</span>
+                    </div>
                   </div>
                   <div className="space-y-3">
                     {paged.map(session => {
