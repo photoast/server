@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer'
+import { getDb, COLLECTIONS } from '@/lib/mongodb'
 
 type EmailType = 'payment_complete' | 'print_complete' | 'refund_complete'
 
@@ -135,7 +136,6 @@ export async function getOrCreateTopic(deviceId: string, slug: string, deviceInf
   if (!botToken || !chatId) return undefined
 
   try {
-    const { getDb, COLLECTIONS } = await import('@/lib/mongodb')
     const db = await getDb()
 
     const existing = await db.collection(COLLECTIONS.telegramTopics).findOne({ deviceId })

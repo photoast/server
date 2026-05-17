@@ -81,6 +81,8 @@ export async function POST(req: NextRequest) {
         `📌 /${slug}`,
         `🕐 ${now}`,
         `📱 ${device}`,
+        `🆔 \`${deviceId.slice(0, 12)}\``,
+        `🔑 \`${sessionId.slice(0, 12)}\``,
       ]
       if (params?.value) lines.push(`💵 ${Number(params.value).toLocaleString()}원`)
       if (params?.slotIndex !== undefined) lines.push(`🖼 슬롯 ${params.slotIndex + 1}`)
