@@ -218,6 +218,9 @@ function UserEventsContent() {
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [days, setDays] = useState(7)
   const [granularity, setGranularity] = useState(60)
+  const [dateMode, setDateMode] = useState<'relative' | 'range'>('relative')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
   const [excludeSessions, _setExcludeSessions] = useState<string | null>(null)
   const [excludeDevices, _setExcludeDevices] = useState<string | null>(null)
   const excludeReady = excludeSessions !== null && excludeDevices !== null
@@ -260,7 +263,13 @@ function UserEventsContent() {
 
   const fetchStats = async () => {
     try {
-      const params = new URLSearchParams({ mode: 'stats', days: String(days), granularity: String(granularity) })
+      const params = new URLSearchParams({ mode: 'stats', granularity: String(granularity) })
+      if (dateMode === 'range' && startDate) {
+        params.set('startDate', startDate)
+        if (endDate) params.set('endDate', endDate)
+      } else {
+        params.set('days', String(days))
+      }
       if (slugFilter) params.set('slug', slugFilter)
       if (excludeParam) params.set('excludeSessions', excludeParam)
       if (excludeDeviceParam) params.set('excludeDevices', excludeDeviceParam)
@@ -286,7 +295,7 @@ function UserEventsContent() {
     if (!excludeReady) return
     fetchEvents()
     fetchStats()
-  }, [excludeReady, slugFilter, deviceFilter, days, granularity, excludeParam, excludeDeviceParam])
+  }, [excludeReady, slugFilter, deviceFilter, days, granularity, excludeParam, excludeDeviceParam, dateMode, startDate, endDate])
 
   useEffect(() => {
     if (!excludeReady) return
@@ -296,7 +305,7 @@ function UserEventsContent() {
     } else {
       if (intervalRef.current) clearInterval(intervalRef.current)
     }
-  }, [excludeReady, autoRefresh, slugFilter, deviceFilter, days, granularity, excludeParam, excludeDeviceParam])
+  }, [excludeReady, autoRefresh, slugFilter, deviceFilter, days, granularity, excludeParam, excludeDeviceParam, dateMode, startDate, endDate])
 
 
   const activeSessions = sessions.filter(s => {
@@ -387,18 +396,53 @@ function UserEventsContent() {
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>
-            <select
-              value={days}
-              onChange={e => setDays(Number(e.target.value))}
-              className="px-3 py-2 border border-gray-300 rounded-xl text-sm bg-white"
+            {dateMode === 'relative' ? (
+              <select
+                value={days}
+                onChange={e => setDays(Number(e.target.value))}
+                className="px-3 py-2 border border-gray-300 rounded-xl text-sm bg-white"
+              >
+                <option value={1}>1일</option>
+                <option value={3}>3일</option>
+                <option value={7}>7일</option>
+                <option value={14}>14일</option>
+                <option value={15}>15일</option>
+                <option value={30}>30일</option>
+              </select>
+            ) : (
+              <div className="flex items-center gap-1">
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={e => setStartDate(e.target.value)}
+                  className="px-2 py-2 border border-gray-300 rounded-xl text-sm bg-white"
+                />
+                <span className="text-gray-400 text-sm">~</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={e => setEndDate(e.target.value)}
+                  className="px-2 py-2 border border-gray-300 rounded-xl text-sm bg-white"
+                />
+              </div>
+            )}
+            <button
+              onClick={() => {
+                if (dateMode === 'relative') {
+                  const today = new Date().toISOString().slice(0, 10)
+                  const from = new Date()
+                  from.setDate(from.getDate() - days)
+                  setStartDate(from.toISOString().slice(0, 10))
+                  setEndDate(today)
+                  setDateMode('range')
+                } else {
+                  setDateMode('relative')
+                }
+              }}
+              className="px-3 py-2 border border-gray-300 rounded-xl text-sm bg-white hover:bg-gray-50 whitespace-nowrap"
             >
-              <option value={1}>1일</option>
-              <option value={3}>3일</option>
-              <option value={7}>7일</option>
-              <option value={14}>14일</option>
-              <option value={15}>15일</option>
-              <option value={30}>30일</option>
-            </select>
+              {dateMode === 'relative' ? '📅 기간' : '⏱ 상대'}
+            </button>
           </div>
           {showExclude && (
             <div className="space-y-2">

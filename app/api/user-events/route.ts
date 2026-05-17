@@ -55,15 +55,29 @@ export async function GET(req: NextRequest) {
     const excludeSessions = searchParams.get('excludeSessions')?.split(',').filter(Boolean) || []
     const excludeDevices = searchParams.get('excludeDevices')?.split(',').filter(Boolean) || []
     const days = Math.min(Number(searchParams.get('days') || 7), 30)
+    const startDate = searchParams.get('startDate')
+    const endDate = searchParams.get('endDate')
 
     const db = await getDb()
 
     if (mode === 'stats') {
       const granularity = Math.max(1, Math.min(1440, Number(searchParams.get('granularity') || 60)))
-      const since = new Date()
-      since.setDate(since.getDate() - days)
 
-      const filter: any = { timestamp: { $gte: since } }
+      let since: Date
+      let until: Date | null = null
+      if (startDate) {
+        since = new Date(startDate + 'T00:00:00')
+        if (endDate) {
+          until = new Date(endDate + 'T23:59:59.999')
+        }
+      } else {
+        since = new Date()
+        since.setDate(since.getDate() - days)
+      }
+
+      const filter: any = until
+        ? { timestamp: { $gte: since, $lte: until } }
+        : { timestamp: { $gte: since } }
       if (slug) filter.slug = slug
       if (excludeSessions.length > 0) filter.sessionId = { $nin: excludeSessions }
       if (excludeDevices.length > 0) filter.deviceId = { $nin: excludeDevices }
