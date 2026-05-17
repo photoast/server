@@ -630,7 +630,7 @@ function UserEventsContent() {
                             <div className={`flex-1 min-w-0 ${isExcluded ? 'opacity-40 blur-[1px]' : ''}`}>
                               <div className="flex items-center gap-2">
                                 <span className="text-sm font-semibold text-gray-900 truncate">{slugNames[session.slug] ? `${slugNames[session.slug]}(${session.slug})` : `/${session.slug}`}</span>
-                                <span className="text-xs text-gray-400 font-mono">{session.deviceId.slice(0, 8)}</span>
+                                <a href={`/admin/user-events/device?id=${session.deviceId}`} onClick={e => e.stopPropagation()} className="text-xs text-blue-400 hover:text-blue-600 font-mono">{session.deviceId.slice(0, 8)}</a>
                                 {purchaseEvent && (
                                   <span className="text-[10px] bg-green-100 text-green-800 font-bold px-1.5 py-0.5 rounded">결제 ₩{purchaseAmount.toLocaleString()}</span>
                                 )}

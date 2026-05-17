@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
         const device = parseUA(userAgent)
         const threadId = await getOrCreateTopic(deviceId, slug, device)
         const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
-        const logUrl = `${baseUrl}/admin/user-events?deviceId=${deviceId}`
+        const logUrl = `${baseUrl}/admin/user-events/device?id=${deviceId}`
         const event = await db.collection(COLLECTIONS.events).findOne({ slug })
         const eventLabel = event?.name || slug
         const lines = [
