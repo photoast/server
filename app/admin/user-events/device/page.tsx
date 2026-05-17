@@ -113,7 +113,28 @@ function DeviceLogContent() {
             <h1 className="text-lg font-bold text-gray-900">디바이스 로그</h1>
             <p className="text-xs text-gray-400 font-mono mt-0.5">{deviceId}</p>
           </div>
-          <a href="/admin/user-events" className="text-sm text-blue-500 hover:text-blue-600">← 전체 통계</a>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                const data = sessions.map(s => ({
+                  sessionId: s.sessionId,
+                  deviceId: s.deviceId,
+                  slug: s.slug,
+                  userAgent: s.userAgent,
+                  firstActivity: s.firstActivity,
+                  lastActivity: s.lastActivity,
+                  events: s.events,
+                }))
+                navigator.clipboard.writeText(JSON.stringify(data, null, 2))
+                  .then(() => alert('클립보드에 복사되었습니다'))
+                  .catch(() => alert('복사 실패'))
+              }}
+              className="text-sm text-gray-500 hover:text-gray-700"
+            >
+              JSON 복사
+            </button>
+            <a href="/admin/user-events" className="text-sm text-blue-500 hover:text-blue-600">← 전체 통계</a>
+          </div>
         </div>
 
         {/* Device info */}
