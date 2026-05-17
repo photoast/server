@@ -1317,6 +1317,19 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
     )
   }
 
+  if (event.endedAt) {
+    return (
+      <div className="min-h-dvh flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="text-center px-6">
+          <img src={event.logoUrl || '/logo-without-bg.png'} alt={event.name} className="w-16 h-16 rounded-full object-cover mx-auto mb-4" />
+          <h1 className="text-xl font-bold text-gray-900 mb-2">{event.name}</h1>
+          <p className="text-gray-500 text-lg mb-2">이벤트가 종료되었습니다</p>
+          <p className="text-gray-400 text-sm">참여해 주셔서 감사합니다!</p>
+        </div>
+      </div>
+    )
+  }
+
   const allSlotsFilled = photoSlots.every(slot => slot.file !== null)
 
   // ============ Main Render ============

@@ -60,6 +60,7 @@ interface Event {
     message?: string
     link?: string
   }
+  endedAt?: string | null
   createdAt: string
 }
 
@@ -991,6 +992,21 @@ function AdminPageInner() {
             }}>링크 열기</UIButton>
             <UIButton size="sm" variant="secondary" onClick={() => viewPrintHistory(event)}>인쇄 기록</UIButton>
             <UIButton size="sm" variant="secondary" onClick={() => window.open(`/admin/user-events?slug=${event.slug}`, '_blank')}>사용자 통계</UIButton>
+            <UIButton size="sm" variant="secondary" onClick={async () => {
+              const isEnded = !!event.endedAt
+              if (!isEnded && !confirm(`"${event.name}" 이벤트를 종료하시겠어요?\n유저가 접속하면 종료 안내가 표시됩니다.`)) return
+              try {
+                const res = await fetch(`/api/events/${event._id}`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ endedAt: isEnded ? null : new Date().toISOString() }),
+                })
+                if (!res.ok) throw new Error('변경 실패')
+                fetchEvents()
+              } catch (err: any) {
+                setError(err.message)
+              }
+            }} className={event.endedAt ? '!text-green-600' : '!text-orange-500'}>{event.endedAt ? '재개' : '종료'}</UIButton>
             <UIButton size="sm" variant="secondary" onClick={async () => {
               if (!confirm(`"${event.name}" 이벤트를 삭제하시겠어요?\n연관된 인쇄 기록과 레이아웃도 모두 삭제됩니다.`)) return
               try {
@@ -2868,6 +2884,9 @@ function AdminPageInner() {
                       )}
                       {event.authCodeRequired && (
                         <UIBadge variant="info">인증코드</UIBadge>
+                      )}
+                      {event.endedAt && (
+                        <UIBadge variant="error">종료됨</UIBadge>
                       )}
                       {(event.paymentMethods ?? []).includes('card') && (
                         <UIBadge variant="info">카드결제</UIBadge>

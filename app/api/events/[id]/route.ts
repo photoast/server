@@ -62,6 +62,7 @@ export async function PATCH(
     if (donation !== undefined) updates.donation = donation
     if (logoUrl !== undefined) updates.logoUrl = logoUrl
     if (contactPhone !== undefined) updates.contactPhone = contactPhone
+    if (body.endedAt !== undefined) updates.endedAt = body.endedAt
 
     const success = await updateEvent(params.id, updates)
 
