@@ -909,20 +909,39 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
               </div>
             )}
 
-            {/* File picker button (album first) */}
-            <button
-              onClick={() => {
-                const slot = photoPickerSlot
-                openFilePicker(slot)
-                setTimeout(() => setPhotoPickerSlot(null), 100)
-              }}
-              className="w-full py-3 text-sm font-semibold text-gray-800 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"
-            >
+            {/* File picker button (album) - use label+input for iOS compatibility */}
+            <label className="w-full py-3 text-sm font-semibold text-gray-800 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors flex items-center justify-center gap-2 cursor-pointer">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
               {t('picker.album')}
-            </button>
+              <input
+                type="file"
+                accept="image/*"
+                className="absolute w-0 h-0 opacity-0"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (!file || photoPickerSlot === null) return
+                  const slot = photoPickerSlot
+                  setPhotoPickerSlot(null)
+                  const url = URL.createObjectURL(file)
+                  addToGallery(file, URL.createObjectURL(file))
+                  setSlotBackup(slotStates[slot])
+                  setSlotStates(prev => {
+                    const next = [...prev]
+                    next[slot] = { ...initSlot(), file, previewUrl: url }
+                    return next
+                  })
+                  trackCropOpen(slot, eventSlug)
+                  setCropPos({ x: 0, y: 0 })
+                  setCropZoom(1)
+                  setCurrentCropArea(null)
+                  setCropAreaSize(null)
+                  setEditingSlotIndex(slot)
+                  e.target.value = ''
+                }}
+              />
+            </label>
 
             {/* Camera button */}
             <button
@@ -971,13 +990,14 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
         </UIButton>
       </div>
 
-      {/* Hidden file input */}
+      {/* Hidden file input - use opacity/position instead of display:none for iOS compatibility */}
       <input
         ref={fileInputRef}
         type="file"
         accept="image/*"
         onChange={handleFileChange}
-        className="hidden"
+        className="absolute w-0 h-0 opacity-0 overflow-hidden"
+        style={{ position: 'fixed', top: '-9999px', left: '-9999px' }}
       />
 
       {/* Animations */}
