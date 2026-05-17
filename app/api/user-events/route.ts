@@ -29,6 +29,7 @@ const NOTIFY_ACTIONS: Record<string, { emoji: string; label: string }> = {
   purchase: { emoji: '💰', label: '결제 완료' },
   print_request: { emoji: '🖨️', label: '인쇄 요청' },
   payment_fail: { emoji: '❌', label: '결제 실패' },
+  page_exit: { emoji: '🚪', label: '페이지 이탈' },
 }
 
 export async function DELETE(req: NextRequest) {
@@ -72,21 +73,35 @@ export async function POST(req: NextRequest) {
 
     const notify = NOTIFY_ACTIONS[action]
     if (notify) {
-      const now = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })
-      const device = parseUA(userAgent)
-      const threadId = await getOrCreateTopic(deviceId, slug, device)
-      const lines = [
-        `${notify.emoji} *${notify.label}*`,
-        ``,
-        `📌 /${slug}`,
-        `🕐 ${now}`,
-        `📱 ${device}`,
-        `🆔 \`${deviceId.slice(0, 12)}\``,
-        `🔑 \`${sessionId.slice(0, 12)}\``,
-      ]
-      if (params?.value) lines.push(`💵 ${Number(params.value).toLocaleString()}원`)
-      if (params?.slotIndex !== undefined) lines.push(`🖼 슬롯 ${params.slotIndex + 1}`)
-      sendTelegram(lines.join('\n'), threadId).catch(() => {})
+      let shouldSend = true
+
+      if (action === 'crop_open') {
+        const prev = await db.collection(COLLECTIONS.userEvents).findOne({
+          sessionId, action: 'crop_open', timestamp: { $lt: new Date() },
+        })
+        if (prev) shouldSend = false
+      }
+
+      if (shouldSend) {
+        const now = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })
+        const device = parseUA(userAgent)
+        const threadId = await getOrCreateTopic(deviceId, slug, device)
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+        const logUrl = `${baseUrl}/admin/user-events?deviceId=${deviceId}`
+        const lines = [
+          `${notify.emoji} *${notify.label}*`,
+          ``,
+          `📌 /${slug}`,
+          `🕐 ${now}`,
+          `📱 ${device}`,
+          `🆔 \`${deviceId.slice(0, 12)}\``,
+          `🔑 \`${sessionId.slice(0, 12)}\``,
+        ]
+        if (params?.value) lines.push(`💵 ${Number(params.value).toLocaleString()}원`)
+        if (params?.slotIndex !== undefined) lines.push(`🖼 슬롯 ${params.slotIndex + 1}`)
+        lines.push(``, `[이벤트 로그 보기](${logUrl})`)
+        sendTelegram(lines.join('\n'), threadId).catch(() => {})
+      }
     }
 
     return NextResponse.json({ ok: true })
