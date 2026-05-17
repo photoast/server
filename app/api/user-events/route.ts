@@ -76,10 +76,10 @@ export async function POST(req: NextRequest) {
       let shouldSend = true
 
       if (action === 'crop_open') {
-        const prev = await db.collection(COLLECTIONS.userEvents).findOne({
-          sessionId, action: 'crop_open', timestamp: { $lt: new Date() },
+        const count = await db.collection(COLLECTIONS.userEvents).countDocuments({
+          sessionId, action: 'crop_open',
         })
-        if (prev) shouldSend = false
+        if (count > 1) shouldSend = false
       }
 
       if (shouldSend) {
@@ -99,6 +99,7 @@ export async function POST(req: NextRequest) {
           `🆔 \`${deviceId.slice(0, 12)}\``,
           `🔑 \`${sessionId.slice(0, 12)}\``,
         ]
+        if (params?.page_path) lines.push(`🔗 ${params.page_path}`)
         if (params?.value) lines.push(`💵 ${Number(params.value).toLocaleString()}원`)
         if (params?.slotIndex !== undefined) lines.push(`🖼 슬롯 ${params.slotIndex + 1}`)
         lines.push(``, `[이벤트 로그 보기](${logUrl})`)
