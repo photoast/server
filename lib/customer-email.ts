@@ -100,21 +100,24 @@ function buildHtml(params: EmailParams): { subject: string; html: string } {
   return { subject: config.subject, html }
 }
 
-export async function sendTelegram(text: string): Promise<void> {
+export async function sendTelegram(text: string, threadId?: number): Promise<void> {
   const botToken = process.env.TELEGRAM_BOT_TOKEN
   const chatId = process.env.TELEGRAM_CHAT_ID
   if (!botToken || !chatId) return
 
   try {
+    const body: any = {
+      chat_id: chatId,
+      text,
+      parse_mode: 'Markdown',
+      disable_web_page_preview: true,
+    }
+    if (threadId) body.message_thread_id = threadId
+
     const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text,
-        parse_mode: 'Markdown',
-        disable_web_page_preview: true,
-      }),
+      body: JSON.stringify(body),
     })
 
     if (!res.ok) {
@@ -123,6 +126,51 @@ export async function sendTelegram(text: string): Promise<void> {
     }
   } catch (error: any) {
     console.error(`[Telegram] Failed:`, error.message)
+  }
+}
+
+export async function getOrCreateTopic(deviceId: string, slug: string, deviceInfo: string): Promise<number | undefined> {
+  const botToken = process.env.TELEGRAM_BOT_TOKEN
+  const chatId = process.env.TELEGRAM_CHAT_ID
+  if (!botToken || !chatId) return undefined
+
+  try {
+    const { getDb, COLLECTIONS } = await import('@/lib/mongodb')
+    const db = await getDb()
+
+    const existing = await db.collection(COLLECTIONS.telegramTopics).findOne({ deviceId })
+    if (existing) return existing.threadId as number
+
+    const topicName = `${deviceInfo} · ${deviceId.slice(0, 8)}`
+    const res = await fetch(`https://api.telegram.org/bot${botToken}/createForumTopic`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        name: topicName,
+      }),
+    })
+
+    if (!res.ok) {
+      console.error(`[Telegram] createForumTopic failed:`, await res.text())
+      return undefined
+    }
+
+    const data = await res.json()
+    const threadId = data.result.message_thread_id as number
+
+    await db.collection(COLLECTIONS.telegramTopics).insertOne({
+      deviceId,
+      threadId,
+      slug,
+      deviceInfo,
+      createdAt: new Date(),
+    })
+
+    return threadId
+  } catch (error: any) {
+    console.error(`[Telegram] Topic creation failed:`, error.message)
+    return undefined
   }
 }
 

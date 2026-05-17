@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getDb, COLLECTIONS } from '@/lib/mongodb'
-import { sendTelegram } from '@/lib/customer-email'
+import { sendTelegram, getOrCreateTopic } from '@/lib/customer-email'
 
 function parseUA(ua: string): string {
   if (!ua) return '알 수 없음'
@@ -74,17 +74,17 @@ export async function POST(req: NextRequest) {
     if (notify) {
       const now = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })
       const device = parseUA(userAgent)
+      const threadId = await getOrCreateTopic(deviceId, slug, device)
       const lines = [
         `${notify.emoji} *${notify.label}*`,
         ``,
         `📌 /${slug}`,
         `🕐 ${now}`,
         `📱 ${device}`,
-        `🆔 ${deviceId.slice(0, 8)}`,
       ]
       if (params?.value) lines.push(`💵 ${Number(params.value).toLocaleString()}원`)
       if (params?.slotIndex !== undefined) lines.push(`🖼 슬롯 ${params.slotIndex + 1}`)
-      sendTelegram(lines.join('\n')).catch(() => {})
+      sendTelegram(lines.join('\n'), threadId).catch(() => {})
     }
 
     return NextResponse.json({ ok: true })
