@@ -913,8 +913,8 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
             <button
               onClick={() => {
                 const slot = photoPickerSlot
-                setPhotoPickerSlot(null)
                 openFilePicker(slot)
+                setTimeout(() => setPhotoPickerSlot(null), 100)
               }}
               className="w-full py-3 text-sm font-semibold text-gray-800 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"
             >
