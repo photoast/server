@@ -158,16 +158,13 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
     filePickerSlotRef.current = null
 
     const url = URL.createObjectURL(file)
-    // Add to gallery
     addToGallery(file, URL.createObjectURL(file))
-    // Backup existing slot state before overwriting
     setSlotBackup(slotStates[targetSlot])
     setSlotStates(prev => {
       const next = [...prev]
       next[targetSlot] = { ...initSlot(), file, previewUrl: url }
       return next
     })
-    // Open crop editor for the new image
     trackCropOpen(targetSlot, eventSlug)
     setCropPos({ x: 0, y: 0 })
     setCropZoom(1)
@@ -909,39 +906,20 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
               </div>
             )}
 
-            {/* File picker button (album) - use label+input for iOS compatibility */}
-            <label className="w-full py-3 text-sm font-semibold text-gray-800 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors flex items-center justify-center gap-2 cursor-pointer">
+            {/* File picker button (album) */}
+            <button
+              onClick={() => {
+                const slot = photoPickerSlot
+                setPhotoPickerSlot(null)
+                openFilePicker(slot)
+              }}
+              className="w-full py-3 text-sm font-semibold text-gray-800 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"
+            >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
               {t('picker.album')}
-              <input
-                type="file"
-                accept="image/*"
-                className="absolute w-0 h-0 opacity-0"
-                onChange={(e) => {
-                  const file = e.target.files?.[0]
-                  if (!file || photoPickerSlot === null) return
-                  const slot = photoPickerSlot
-                  setPhotoPickerSlot(null)
-                  const url = URL.createObjectURL(file)
-                  addToGallery(file, URL.createObjectURL(file))
-                  setSlotBackup(slotStates[slot])
-                  setSlotStates(prev => {
-                    const next = [...prev]
-                    next[slot] = { ...initSlot(), file, previewUrl: url }
-                    return next
-                  })
-                  trackCropOpen(slot, eventSlug)
-                  setCropPos({ x: 0, y: 0 })
-                  setCropZoom(1)
-                  setCurrentCropArea(null)
-                  setCropAreaSize(null)
-                  setEditingSlotIndex(slot)
-                  e.target.value = ''
-                }}
-              />
-            </label>
+            </button>
 
             {/* Camera button */}
             <button
@@ -990,14 +968,13 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
         </UIButton>
       </div>
 
-      {/* Hidden file input - use opacity/position instead of display:none for iOS compatibility */}
+      {/* Hidden file input */}
       <input
         ref={fileInputRef}
         type="file"
         accept="image/*"
         onChange={handleFileChange}
-        className="absolute w-0 h-0 opacity-0 overflow-hidden"
-        style={{ position: 'fixed', top: '-9999px', left: '-9999px' }}
+        className="hidden"
       />
 
       {/* Animations */}
