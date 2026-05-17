@@ -228,7 +228,7 @@ function UserEventsContent() {
   const setExcludeDevices = useCallback((v: string) => { _setExcludeDevices(v); localStorage.setItem('pt_exclude_devices', v) }, [])
   const [showExclude, setShowExclude] = useState(false)
   const [hideExcluded, setHideExcluded] = useState(true)
-  const [tab, setTab] = useState<'stats' | 'sessions'>('stats')
+  const [tab, setTab] = useState<'stats' | 'sessions'>(searchParams.get('deviceId') ? 'sessions' : 'stats')
   const [page, setPage] = useState(0)
   const perPage = 30
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
