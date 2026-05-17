@@ -319,8 +319,10 @@ function UserEventsContent() {
 
 
   const activeSessions = sessions.filter(s => {
+    const lastEvent = s.events[0]
+    if (lastEvent?.action === 'page_exit') return false
     const diff = Date.now() - new Date(s.lastActivity).getTime()
-    return diff < 10 * 60 * 1000
+    return diff < 3 * 60 * 1000
   })
 
   const conversionRate = stats && stats.totals.sessions > 0
@@ -587,7 +589,8 @@ function UserEventsContent() {
                   </div>
                   <div className="space-y-3">
                     {paged.map(session => {
-                      const isActive = Date.now() - new Date(session.lastActivity).getTime() < 10 * 60 * 1000
+                      const lastSessionEvent = session.events[0]
+                      const isActive = lastSessionEvent?.action !== 'page_exit' && (Date.now() - new Date(session.lastActivity).getTime() < 3 * 60 * 1000)
                       const isExpanded = expandedSession === session.sessionId
                       const purchaseEvent = session.events.find(e => e.action === 'purchase')
                       const purchaseAmount = purchaseEvent?.params?.value || 0
