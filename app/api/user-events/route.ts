@@ -1,5 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getDb, COLLECTIONS } from '@/lib/mongodb'
+import { sendTelegram } from '@/lib/customer-email'
+
+function parseUA(ua: string): string {
+  if (!ua) return '알 수 없음'
+  let device = ''
+  if (/iPhone/i.test(ua)) device = 'iPhone'
+  else if (/iPad/i.test(ua)) device = 'iPad'
+  else if (/Android/i.test(ua)) device = 'Android'
+  else if (/Mac/i.test(ua)) device = 'Mac'
+  else if (/Windows/i.test(ua)) device = 'Windows'
+  else device = 'Other'
+  let browser = ''
+  if (/KAKAOTALK/i.test(ua)) browser = 'KakaoTalk'
+  else if (/NAVER/i.test(ua)) browser = 'Naver'
+  else if (/Instagram/i.test(ua)) browser = 'Instagram'
+  else if (/CriOS/i.test(ua)) browser = 'Chrome'
+  else if (/Safari/i.test(ua) && !/Chrome/i.test(ua)) browser = 'Safari'
+  else if (/Chrome/i.test(ua)) browser = 'Chrome'
+  else if (/Firefox/i.test(ua)) browser = 'Firefox'
+  return [device, browser].filter(Boolean).join(' · ') || '알 수 없음'
+}
+
+const NOTIFY_ACTIONS: Record<string, { emoji: string; label: string }> = {
+  page_enter: { emoji: '👋', label: '페이지 접속' },
+  crop_open: { emoji: '✂️', label: '포토슬롯 편집' },
+  preview_ready: { emoji: '👀', label: '미리보기 진입' },
+  purchase: { emoji: '💰', label: '결제 완료' },
+  print_request: { emoji: '🖨️', label: '인쇄 요청' },
+  payment_fail: { emoji: '❌', label: '결제 실패' },
+}
 
 export async function DELETE(req: NextRequest) {
   try {
@@ -36,9 +66,26 @@ export async function POST(req: NextRequest) {
       slug,
       action,
       params: params || {},
-      userAgent,
+      userAgent, 
       timestamp: new Date(),
     })
+
+    const notify = NOTIFY_ACTIONS[action]
+    if (notify) {
+      const now = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })
+      const device = parseUA(userAgent)
+      const lines = [
+        `${notify.emoji} *${notify.label}*`,
+        ``,
+        `📌 /${slug}`,
+        `🕐 ${now}`,
+        `📱 ${device}`,
+        `🆔 ${deviceId.slice(0, 8)}`,
+      ]
+      if (params?.value) lines.push(`💵 ${Number(params.value).toLocaleString()}원`)
+      if (params?.slotIndex !== undefined) lines.push(`🖼 슬롯 ${params.slotIndex + 1}`)
+      sendTelegram(lines.join('\n')).catch(() => {})
+    }
 
     return NextResponse.json({ ok: true })
   } catch {
