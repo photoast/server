@@ -1276,6 +1276,16 @@ function AdminPageInner() {
                 ))}
                 {(event.paymentMethods ?? []).length === 0 && <UIBadge variant="success">전체 허용</UIBadge>}
 
+                <label className="flex items-center gap-2 cursor-pointer pt-2 border-t">
+                  <input
+                    type="checkbox"
+                    checked={!!event.authCodeRequired}
+                    onChange={e => handleUpdateEvent(event._id, { authCodeRequired: e.target.checked })}
+                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">인증코드 필요</span>
+                </label>
+
                 {event.authCodeRequired && (
                   <div className="space-y-3 pt-2 border-t">
                     <div className="flex items-center gap-2">
