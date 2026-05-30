@@ -127,7 +127,7 @@ export default async function OwnerLanding() {
           </h1>
           <p className="mx-auto mt-4 max-w-md text-balance break-keep text-sm font-medium leading-relaxed text-white/80 sm:text-base">
             대관 문의마다 “포토부스 되나요?” 묻는 주최자들.{' '}
-            <span className="font-bold text-white">공간 잡아먹는 쇳덩어리 부스 대신, 한 켠에 쏙 들어가는 소형 스마트 인화기로 해결하세요.</span>
+            <span className="font-bold text-white">공간 잡아먹는 대형 부스 대신, 한 켠에 쏙 들어가는 소형 스마트 인화기로 해결하세요.</span>
           </p>
           <div className="mt-7 flex flex-col items-center gap-2.5">
             <a
