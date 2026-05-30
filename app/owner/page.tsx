@@ -348,7 +348,7 @@ export default async function OwnerLanding() {
                 <span className="text-2xl font-extrabold text-indigo-600">월 8만 원</span>
               </div>
               <p className="mt-1 text-sm text-gray-500">
-                베타 참여 매장은 정식 전환 시 <b className="text-indigo-600">렌탈비 20% 할인</b>을 평생 적용해 드려요.
+                베타 참여 매장은 정식 전환 시 <b className="text-indigo-600">렌탈비 20% 할인</b>을 적용해 드려요.
               </p>
             </div>
             <div className="rounded-xl bg-gray-50 p-4">
