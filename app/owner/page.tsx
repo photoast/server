@@ -180,43 +180,43 @@ export default async function OwnerLanding() {
         <div className="mx-auto max-w-3xl px-6 py-20">
           <p className="text-center text-sm font-bold uppercase tracking-widest text-orange-400">TECH SPEC</p>
           <h2 className="mx-auto mt-3 max-w-[22ch] text-balance break-keep text-center text-xl font-extrabold leading-snug sm:max-w-none sm:text-3xl">
-            장난감 같은 미니 프린터가 아닙니다.{' '}
+            대형 포토부스에 들어가는 그 장비,{' '}
             <br className="hidden sm:block" />
-            상용 포토부스 표준 장비, <span className="text-yellow-300">DNP DS620</span>.
+            상용 모델 <span className="text-yellow-300">DNP DS620</span> 그대로 씁니다.
           </h2>
-          <p className="mt-4 text-center text-gray-300">
-            인터넷에서 검색해 보세요. 대형 브랜드 매장에 들어가는 180만 원대 상용 모델과 동일합니다.
+          <p className="mx-auto mt-4 max-w-md text-balance break-keep text-center text-gray-300">
+            대형 브랜드 포토부스 매장에서 쓰는 180만 원대 상용 모델과 동일한 장비예요. 검색해 보시면 바로 확인되실 거예요.
           </p>
 
           <div className="mt-12 grid gap-5 sm:grid-cols-2">
             <div className="rounded-2xl bg-white/5 p-7 ring-1 ring-white/10">
               <div className="text-4xl font-extrabold text-yellow-300">스튜디오급</div>
-              <h3 className="mt-2 text-lg font-bold">압도적 화질 보장</h3>
+              <h3 className="mt-2 text-lg font-bold">선명한 인화 품질</h3>
               <p className="mt-2 text-sm leading-relaxed text-gray-300">
-                팬들이 소장하는 '특전 굿즈'인 만큼 퀄리티가 핵심입니다. 특수 코팅이 입혀져 물과 지문에 강하고, 쨍한 색감으로 인화됩니다.
+                팬들이 오래 간직하는 ‘특전 굿즈’인 만큼 품질이 중요하죠. 특수 코팅으로 물과 지문에 강하고, 색감이 선명하게 인화됩니다.
               </p>
             </div>
             <div className="rounded-2xl bg-white/5 p-7 ring-1 ring-white/10">
-              <div className="text-4xl font-extrabold text-yellow-300">10초 이내</div>
-              <h3 className="mt-2 text-lg font-bold">초고속 인쇄 속도</h3>
+              <div className="text-4xl font-extrabold text-yellow-300">약 10초</div>
+              <h3 className="mt-2 text-lg font-bold">빠른 인쇄 속도</h3>
               <p className="mt-2 text-sm leading-relaxed text-gray-300">
-                사진을 고르고 인쇄 버튼을 누르면 답답함 없이 바로 나옵니다. 손님이 몰리는 피크 타임에도 매장 회전율을 갉아먹지 않습니다.
+                사진을 고르고 누르면 한 장에 약 10초, 기다림 없이 나옵니다. 손님이 몰려도 줄이 길게 늘어지지 않아요.
               </p>
             </div>
           </div>
 
           <div className="mt-5 rounded-2xl bg-gradient-to-r from-indigo-600/25 to-violet-500/25 p-7 ring-1 ring-white/10">
-            <h3 className="text-lg font-bold">🎨 커스텀 프레임 무제한 · 주최자 맞춤 디자인</h3>
+            <h3 className="text-lg font-bold">🎨 커스텀 프레임을 쉽고 자유롭게</h3>
             <p className="mt-2 text-sm leading-relaxed text-gray-300">
-              생카마다 다른 최애 사진, 생일 날짜, 슬로건까지. 프레임을 <b className="text-white">매우 쉽고 자유롭게, 행사별로 무제한 설정</b>할 수
-              있습니다. 주최자가 원하는 디자인을 그대로 구현해 주니, 다른 매장은 못 따라오는 강력한 대관 특전이 됩니다.
+              주최자가 최애 사진, 생일 날짜, 슬로건을 넣어 <b className="text-white">프레임을 직접 쉽고 자유롭게 설정</b>할 수 있어요.
+              행사마다 콘셉트가 다른 생카에 맞게, 원하는 디자인으로 만들 수 있습니다.
             </p>
           </div>
 
           <div className="mt-5 rounded-2xl bg-gradient-to-r from-indigo-600/20 to-sky-500/20 p-7 ring-1 ring-white/10">
-            <h3 className="text-lg font-bold">🛰️ 리소스 ZERO · 100% 원격 무인 관리</h3>
+            <h3 className="text-lg font-bold">🛰️ 관리는 원격으로, 사장님은 편하게</h3>
             <p className="mt-2 text-sm leading-relaxed text-gray-300">
-              시스템 에러 대처부터 용지 잔량 모니터링까지 전담 개발자가 실시간으로 원격 관리합니다. 사장님은 전원 선만 꽂아두시면 됩니다.
+              용지 잔량 확인과 오류 대응을 원격으로 처리해 드려요. 사장님이 기계를 직접 만질 일이 거의 없습니다.
             </p>
           </div>
         </div>
@@ -331,7 +331,7 @@ export default async function OwnerLanding() {
 
           <div className="mt-5 rounded-2xl bg-indigo-50 px-5 py-4 text-center">
             <p className="text-balance break-keep text-[15px] font-extrabold text-indigo-700">
-              베타테스터 대상: 렌탈비 0원 + 수익 20% 정산
+              베타테스터 대상 한정<br/>렌탈비 0원 + 수익 20% 정산
             </p>
           </div>
 
@@ -360,7 +360,7 @@ export default async function OwnerLanding() {
             🎁 먼저 베타로 써본 사장님 혜택 — 월 10만 원이 <span className="whitespace-nowrap">8만 원으로 할인</span>
           </p>
           <p className="mt-4 text-center text-sm font-semibold text-gray-700">
-            🎯 대관 특전으로 ‘스마트폰 사진 인화 되는 매장’이라 홍보하면, 대관율 상승은 덤입니다.
+            🎯 ‘스마트폰 사진 인화 되는 매장’으로 소개하면, 대관 문의에도 도움이 됩니다.
           </p>
         </div>
       </section>
@@ -369,7 +369,7 @@ export default async function OwnerLanding() {
       <section className="bg-white">
         <div className="mx-auto max-w-3xl px-6 py-20">
           <p className="text-center text-sm font-bold uppercase tracking-widest text-indigo-500">REVIEWS</p>
-          <h2 className="mt-3 text-center text-2xl font-extrabold sm:text-3xl">이미 검증된 대관 마케팅 무기</h2>
+          <h2 className="mt-3 text-center text-2xl font-extrabold sm:text-3xl">먼저 시작한 사장님들의 후기</h2>
           <div className="mt-10 space-y-4">
             {reviews.map((r) => (
               <figure key={r.store} className="rounded-2xl border border-gray-100 bg-gray-50 p-5 sm:p-6">
