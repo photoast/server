@@ -5,7 +5,7 @@ import { useState } from 'react'
 type Status = 'idle' | 'submitting' | 'success' | 'error'
 
 const inputClass =
-  'w-full rounded-xl border border-gray-200 bg-white px-4 py-3.5 text-base text-gray-900 placeholder-gray-400 outline-none transition focus:border-pink-500 focus:ring-2 focus:ring-pink-200'
+  'w-full rounded-xl border border-gray-200 bg-white px-4 py-3.5 text-base text-gray-900 placeholder-gray-400 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200'
 
 export default function LeadForm() {
   const [status, setStatus] = useState<Status>('idle')
@@ -122,7 +122,7 @@ export default function LeadForm() {
       <button
         type="submit"
         disabled={status === 'submitting'}
-        className="mt-2 w-full rounded-xl bg-gradient-to-r from-pink-500 to-orange-400 py-4 text-lg font-bold text-white shadow-lg transition hover:opacity-95 active:scale-[0.99] disabled:opacity-60"
+        className="mt-2 w-full rounded-xl bg-gradient-to-r from-indigo-600 to-violet-500 py-4 text-lg font-bold text-white shadow-lg transition hover:opacity-95 active:scale-[0.99] disabled:opacity-60"
       >
         {status === 'submitting' ? '신청 중…' : '🎉 무료 테스트 미팅 신청하기'}
       </button>

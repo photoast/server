@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Image from 'next/image'
 import QRCode from 'qrcode'
 import LeadForm from './LeadForm'
 
@@ -7,7 +8,7 @@ const DEMO_SLUG = 'hbd'
 
 const OWNER_TITLE = '생카 대관 필수 특전, 스마트 포토 인화 입점 제안 | PhotoToast'
 const OWNER_DESC =
-  '생카 대관에 필수라는 포토프레임. 테이블 차지 없는 전용 이동식 스탠드 세팅으로 180만 원짜리 상용 프린터를 무상 테스트해 보세요.'
+  '생카 대관에 필수라는 포토프레임. 공간 잡아먹는 부스 대신 한 켠에 쏙 들어가는 소형 스마트 인화기로, 180만 원짜리 상용 프린터를 무상 테스트해 보세요.'
 const SITE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
 
 export const metadata: Metadata = {
@@ -36,7 +37,7 @@ export const metadata: Metadata = {
 const reviews = [
   {
     store: '합정 A카페 사장님',
-    text: '저희가 2층이라 철제 포토부스는 설치 엄두도 못 냈거든요. 이건 전용 스탠드 채로 쓱 밀고 들어오니까 동선 방해도 없고 인테리어도 안 해쳐서 너무 깔끔합니다. 주최자분들도 엄청 좋아하세요.',
+    text: '저희가 2층이라 철제 포토부스는 설치 엄두도 못 냈거든요. 이건 크기가 작아서 한 켠에 쏙 놓으면 끝이라 동선 방해도 없고 인테리어도 안 해쳐서 너무 깔끔합니다. 주최자분들도 엄청 좋아하세요.',
     tag: '2층 매장도 설치 가능',
   },
   {
@@ -51,68 +52,40 @@ const reviews = [
   },
 ]
 
-// ── Hero 콜라주용 인화물 썸네일 정의 ──────────────────────────────
-// 실제 결과물 사진으로 교체하려면 kind:'photo'의 src를 바꾸거나
-// /public 에 이미지를 넣고 경로를 지정하세요. (현재는 샘플/생카 프레임 연출)
-type Thumb =
-  | { kind: 'photo'; rot: number }
-  | { kind: 'strip'; rot: number }
-  | { kind: 'frame'; rot: number; grad: string; emoji: string; label: string }
-
-const THUMBS: Thumb[] = [
-  { kind: 'photo', rot: -4 },
-  { kind: 'frame', rot: 3, grad: 'from-rose-400 to-orange-300', emoji: '🎂', label: 'HAPPY\nBIRTHDAY' },
-  { kind: 'strip', rot: -2 },
-  { kind: 'frame', rot: 4, grad: 'from-indigo-400 to-sky-300', emoji: '🎉', label: 'OUR\nDAY' },
-  { kind: 'photo', rot: 2 },
-  { kind: 'frame', rot: -3, grad: 'from-violet-500 to-fuchsia-400', emoji: '💜', label: '최애\n생일' },
-  { kind: 'strip', rot: 3 },
-  { kind: 'frame', rot: -2, grad: 'from-amber-300 to-rose-300', emoji: '⭐', label: '0401\n축하해' },
-  { kind: 'photo', rot: -3 },
-  { kind: 'frame', rot: 2, grad: 'from-teal-400 to-emerald-300', emoji: '🌿', label: '봄을\n닮은' },
+// ── Hero 콜라주용 실제 인화물 썸네일 ──────────────────────────────
+// /public/owner/ 에 넣은 결과물 이미지들. 추가/교체 시 이 배열만 수정하면 됩니다.
+const OWNER_IMAGES = [
+  '/owner/1.jpeg', '/owner/2.jpeg', '/owner/3.jpeg', '/owner/4.jpeg', '/owner/5.jpg',
+  '/owner/6.jpg', '/owner/7.jpg', '/owner/8.jpg', '/owner/9.jpg', '/owner/10.jpg',
+  '/owner/11.jpg', '/owner/12.webp', '/owner/13.jpg', '/owner/14.jpg', '/owner/15.jpg',
+  '/owner/16.jpg', '/owner/17.jpg', '/owner/18.webp', '/owner/19.webp', '/owner/20.png',
 ]
 
-const SAMPLE = '/sample-photo.jpg'
+// 카드마다 살짝 다른 회전값으로 '둥둥 떠다니는' 느낌
+const ROTATIONS = [-4, 3, -2, 4, 2, -3, 3, -2, -3, 2]
 
-function PrintThumb({ t }: { t: Thumb }) {
+function PrintThumb({ src, rot }: { src: string; rot: number }) {
   return (
     <div
       className="shrink-0 rounded-md bg-white p-1.5 shadow-2xl ring-1 ring-black/5"
-      style={{ transform: `rotate(${t.rot}deg)` }}
+      style={{ transform: `rotate(${rot}deg)` }}
     >
-      {t.kind === 'photo' && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={SAMPLE} alt="" className="h-36 w-24 rounded-sm object-cover sm:h-44 sm:w-32" />
-      )}
-      {t.kind === 'strip' && (
-        <div className="flex h-36 w-[68px] flex-col gap-1 sm:h-44 sm:w-[88px]">
-          {[0, 1, 2, 3].map((i) => (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img key={i} src={SAMPLE} alt="" className="h-1/4 w-full rounded-[2px] object-cover" />
-          ))}
-        </div>
-      )}
-      {t.kind === 'frame' && (
-        <div className={`flex h-36 w-24 flex-col items-center justify-center gap-1.5 rounded-sm bg-gradient-to-br ${t.grad} sm:h-44 sm:w-32`}>
-          <span className="text-3xl">{t.emoji}</span>
-          <span className="whitespace-pre-line text-center text-[11px] font-extrabold leading-tight text-white drop-shadow">
-            {t.label}
-          </span>
-        </div>
-      )}
+      <div className="relative h-36 w-24 overflow-hidden rounded-sm bg-gray-100 sm:h-44 sm:w-32">
+        <Image src={src} alt="" fill sizes="128px" className="object-cover" />
+      </div>
     </div>
   )
 }
 
-// 한 줄(row): 썸네일 세트를 두 번 이어 붙여 끊김 없이 흐르게 한다.
+// 한 줄(row): 이미지 10장 세트를 두 번 이어 붙여 끊김 없이 흐르게 한다.
 function CollageRow({ dir, dur, offset }: { dir: 'l' | 'r'; dur: string; offset: number }) {
-  const set = [...THUMBS.slice(offset), ...THUMBS.slice(0, offset)]
+  const set = Array.from({ length: 10 }, (_, i) => OWNER_IMAGES[(offset + i) % OWNER_IMAGES.length])
   return (
     <div className={`owner-row ${dir === 'l' ? 'owner-row-l' : 'owner-row-r'} gap-3 sm:gap-4`} style={{ ['--dur' as string]: dur }}>
       {[0, 1].map((copy) => (
         <div key={copy} className="flex gap-3 pr-3 sm:gap-4 sm:pr-4" aria-hidden={copy === 1}>
-          {set.map((t, i) => (
-            <PrintThumb key={`${copy}-${i}`} t={t} />
+          {set.map((src, i) => (
+            <PrintThumb key={`${copy}-${i}`} src={src} rot={ROTATIONS[i % ROTATIONS.length]} />
           ))}
         </div>
       ))}
@@ -133,10 +106,10 @@ export default async function OwnerLanding() {
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <div className="absolute left-1/2 top-1/2 w-[160%] -translate-x-1/2 -translate-y-1/2 -rotate-6 space-y-3 opacity-70 sm:space-y-4">
             <CollageRow dir="l" dur="70s" offset={0} />
-            <CollageRow dir="r" dur="90s" offset={3} />
-            <CollageRow dir="l" dur="80s" offset={6} />
-            <CollageRow dir="r" dur="100s" offset={1} />
-            <CollageRow dir="l" dur="85s" offset={4} />
+            <CollageRow dir="r" dur="90s" offset={4} />
+            <CollageRow dir="l" dur="80s" offset={8} />
+            <CollageRow dir="r" dur="100s" offset={12} />
+            <CollageRow dir="l" dur="85s" offset={16} />
           </div>
         </div>
         {/* 가독성용 네이비 오버레이 */}
@@ -147,18 +120,14 @@ export default async function OwnerLanding() {
           <span className="inline-block rounded-full bg-white/10 px-3.5 py-1.5 text-xs font-semibold text-white/90 ring-1 ring-white/15 backdrop-blur sm:text-sm">
             홍대·합정 생카 대관 카페 사장님 전용
           </span>
-          <h1 className="mt-5 text-2xl font-extrabold leading-snug tracking-tight text-white sm:text-4xl">
+          <h1 className="mx-auto mt-5 max-w-[20ch] text-balance break-keep text-[26px] font-extrabold leading-tight tracking-tight text-white sm:max-w-none sm:text-4xl">
             생카 대관에 필수라는 <span className="text-indigo-300">포토프레임</span>,
-            <br />
-            비싸고 무거운 부스 들이기
-            <br />
-            부담스러우셨죠?
-          </h1>
-          <p className="mx-auto mt-4 max-w-md text-sm font-medium leading-relaxed text-white/80 sm:text-base">
-            대관 문의마다 "포토부스 설치 되나요?" 묻는 주최자들.
-            <br className="hidden sm:block" /> 공간 차지하는 쇳덩어리 기계 대신,
             <br className="hidden sm:block" />{' '}
-            <span className="font-bold text-white">테이블 뺄 필요 없는 깔끔한 '전용 스탠드'로 해결하세요.</span>
+            비싸고 무거운 부스는 부담스러우셨죠?
+          </h1>
+          <p className="mx-auto mt-4 max-w-md text-balance break-keep text-sm font-medium leading-relaxed text-white/80 sm:text-base">
+            대관 문의마다 “포토부스 되나요?” 묻는 주최자들.{' '}
+            <span className="font-bold text-white">공간 잡아먹는 쇳덩어리 부스 대신, 한 켠에 쏙 들어가는 소형 스마트 인화기로 해결하세요.</span>
           </p>
           <div className="mt-7 flex flex-col items-center gap-2.5">
             <a
@@ -167,35 +136,42 @@ export default async function OwnerLanding() {
             >
               무상 테스트 / 가볍게 문의하기 →
             </a>
-            <span className="text-xs text-white/70 sm:text-sm">설치비 0원 · 1개월 무료 베타 · 기기 전용 스탠드 무상 대여</span>
+            <span className="text-xs text-white/70 sm:text-sm">설치비 0원 · 1개월 무료 베타 · 부담 없이 시작</span>
           </div>
         </div>
         <div className="h-6 w-full bg-gray-50" style={{ clipPath: 'ellipse(75% 100% at 50% 100%)' }} />
       </section>
 
       {/* ───────── Section 2 · Problem & Need ───────── */}
-      <section className="mx-auto max-w-3xl px-6 py-20">
-        <p className="text-center text-sm font-bold uppercase tracking-widest text-pink-500">PROBLEM</p>
-        <h2 className="mt-3 text-center text-2xl font-extrabold leading-snug sm:text-3xl">
-          주최자들이 1순위로 찾는 포토 특전,
-          <br />
-          막상 내 매장에 들이자니 <span className="text-pink-600">골치 아프셨을 겁니다.</span>
+      <section className="mx-auto max-w-3xl px-5 py-16 sm:px-6 sm:py-20">
+        <p className="text-center text-xs font-bold uppercase tracking-[0.2em] text-indigo-500 sm:text-sm">PROBLEM</p>
+        <h2 className="mx-auto mt-3 max-w-[22ch] text-balance break-keep text-center text-xl font-extrabold leading-snug sm:max-w-none sm:text-3xl">
+          주최자들이 1순위로 찾는 포토 특전,{' '}
+          <span className="text-indigo-600">막상 들이자니 골치 아프셨죠.</span>
         </h2>
-        <div className="mt-10 grid gap-4 sm:grid-cols-3">
+        <div className="mt-8 grid gap-3 sm:mt-10 sm:grid-cols-3 sm:gap-4">
           {[
-            { icon: '📦', title: '공간 부족 & 2층 매장', desc: '기계 넣으려면 4인 테이블을 빼야 하고, 2~3층은 무거운 부스 반입 자체가 지옥입니다.' },
-            { icon: '💸', title: '부담스러운 도입 비용', desc: '유행 탈지도 모르는데 수백만 원짜리 장비나 비싼 월 렌탈비를 덜컥 감당하긴 어렵죠.' },
-            { icon: '🔧', title: '귀찮은 유지보수', desc: '바빠 죽겠는데 사장님이 직접 기계 열고 용지 갈아끼우며 본업을 방해받습니다.' },
+            { icon: '📦', title: '공간 부족 · 2층 매장', desc: '기계 넣으려면 테이블을 빼야 하고, 2~3층은 무거운 부스 반입부터 막막합니다.' },
+            { icon: '💸', title: '부담스러운 도입 비용', desc: '유행 탈지도 모르는데 수백만 원짜리 장비를 덜컥 사기엔 위험 부담이 큽니다.' },
+            { icon: '🔧', title: '귀찮은 유지보수', desc: '바쁜 와중에 용지 갈고 에러까지 직접 잡으면 본업이 방해받습니다.' },
           ].map((p) => (
-            <div key={p.title} className="rounded-2xl border border-gray-100 bg-white p-6 text-center shadow-sm">
-              <span className="text-4xl">{p.icon}</span>
-              <h3 className="mt-3 text-base font-bold">{p.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-gray-500">{p.desc}</p>
+            <div
+              key={p.title}
+              className="flex items-start gap-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm ring-1 ring-black/[0.02] sm:flex-col sm:items-center sm:gap-3 sm:p-6 sm:text-center"
+            >
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-2xl">
+                {p.icon}
+              </div>
+              <div className="min-w-0">
+                <h3 className="break-keep text-[15px] font-bold text-gray-900">{p.title}</h3>
+                <p className="mt-1.5 text-balance break-keep text-sm leading-relaxed text-gray-500">{p.desc}</p>
+              </div>
             </div>
           ))}
         </div>
-        <p className="mt-10 text-center text-lg font-semibold text-gray-700">
-          그래서 포토토스트는 거대한 부스 껍데기를 버리고, <span className="text-pink-600">핵심 인화 장비만 깔끔하게 가져왔습니다.</span>
+        <p className="mx-auto mt-8 max-w-[26ch] text-balance break-keep text-center text-base font-semibold text-gray-700 sm:mt-10 sm:max-w-none sm:text-lg">
+          그래서 포토토스트는 거대한 부스 껍데기를 버리고,{' '}
+          <span className="text-indigo-600">핵심 인화 장비만 깔끔하게 담았습니다.</span>
         </p>
       </section>
 
@@ -203,9 +179,9 @@ export default async function OwnerLanding() {
       <section className="bg-gray-900 text-white">
         <div className="mx-auto max-w-3xl px-6 py-20">
           <p className="text-center text-sm font-bold uppercase tracking-widest text-orange-400">TECH SPEC</p>
-          <h2 className="mt-3 text-center text-2xl font-extrabold leading-snug sm:text-3xl">
-            장난감 같은 미니 프린터가 아닙니다.
-            <br />
+          <h2 className="mx-auto mt-3 max-w-[22ch] text-balance break-keep text-center text-xl font-extrabold leading-snug sm:max-w-none sm:text-3xl">
+            장난감 같은 미니 프린터가 아닙니다.{' '}
+            <br className="hidden sm:block" />
             상용 포토부스 표준 장비, <span className="text-yellow-300">DNP DS620</span>.
           </h2>
           <p className="mt-4 text-center text-gray-300">
@@ -229,7 +205,7 @@ export default async function OwnerLanding() {
             </div>
           </div>
 
-          <div className="mt-5 rounded-2xl bg-gradient-to-r from-purple-600/25 to-pink-500/25 p-7 ring-1 ring-white/10">
+          <div className="mt-5 rounded-2xl bg-gradient-to-r from-indigo-600/25 to-violet-500/25 p-7 ring-1 ring-white/10">
             <h3 className="text-lg font-bold">🎨 커스텀 프레임 무제한 · 주최자 맞춤 디자인</h3>
             <p className="mt-2 text-sm leading-relaxed text-gray-300">
               생카마다 다른 최애 사진, 생일 날짜, 슬로건까지. 프레임을 <b className="text-white">매우 쉽고 자유롭게, 행사별로 무제한 설정</b>할 수
@@ -237,7 +213,7 @@ export default async function OwnerLanding() {
             </p>
           </div>
 
-          <div className="mt-5 rounded-2xl bg-gradient-to-r from-pink-600/20 to-orange-500/20 p-7 ring-1 ring-white/10">
+          <div className="mt-5 rounded-2xl bg-gradient-to-r from-indigo-600/20 to-sky-500/20 p-7 ring-1 ring-white/10">
             <h3 className="text-lg font-bold">🛰️ 리소스 ZERO · 100% 원격 무인 관리</h3>
             <p className="mt-2 text-sm leading-relaxed text-gray-300">
               시스템 에러 대처부터 용지 잔량 모니터링까지 전담 개발자가 실시간으로 원격 관리합니다. 사장님은 전원 선만 꽂아두시면 됩니다.
@@ -249,13 +225,13 @@ export default async function OwnerLanding() {
       {/* ───────── Section 3.5 · How it works (쉽고 빠름) ───────── */}
       <section className="bg-white">
         <div className="mx-auto max-w-3xl px-6 py-20">
-          <p className="text-center text-sm font-bold uppercase tracking-widest text-pink-500">SO EASY</p>
-          <h2 className="mt-3 text-center text-2xl font-extrabold leading-snug sm:text-3xl">
-            손님은 <span className="text-pink-600">QR 한 번</span>이면 끝.
-            <br />
+          <p className="text-center text-sm font-bold uppercase tracking-widest text-indigo-500">SO EASY</p>
+          <h2 className="mx-auto mt-3 max-w-[20ch] text-balance break-keep text-center text-xl font-extrabold leading-snug sm:max-w-none sm:text-3xl">
+            손님은 <span className="text-indigo-600">QR 한 번</span>이면 끝.{' '}
+            <br className="hidden sm:block" />
             앱 설치도, 직원 도움도 필요 없어요.
           </h2>
-          <p className="mt-4 text-center text-gray-500">
+          <p className="mx-auto mt-4 max-w-md text-balance break-keep text-center text-gray-500">
             폰 갤러리 사진을 그대로 인화. 누구나 30초면 손에 쥐는, 막히지 않는 흐름.
           </p>
 
@@ -266,7 +242,7 @@ export default async function OwnerLanding() {
               { step: '3', icon: '⚡', title: '즉시 출력', desc: '버튼 한 번이면 10초 내 인화 완료. 줄 서서 기다릴 일이 없습니다.' },
             ].map((s) => (
               <div key={s.step} className="relative rounded-2xl border border-gray-100 bg-gray-50 p-6 text-center">
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-pink-500 px-3 py-0.5 text-xs font-bold text-white">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-indigo-500 px-3 py-0.5 text-xs font-bold text-white">
                   STEP {s.step}
                 </div>
                 <span className="text-4xl">{s.icon}</span>
@@ -277,17 +253,17 @@ export default async function OwnerLanding() {
           </div>
 
           <p className="mt-9 text-center text-lg font-semibold text-gray-700">
-            쉬우니까 손님이 알아서 쓰고, 빠르니까 <span className="text-pink-600">회전율이 안 막힙니다.</span>
+            쉬우니까 손님이 알아서 쓰고, 빠르니까 <span className="text-indigo-600">회전율이 안 막힙니다.</span>
           </p>
 
           {/* QR 직접 체험 */}
-          <div className="mt-12 flex flex-col items-center gap-6 rounded-3xl border-2 border-dashed border-pink-200 bg-pink-50/60 p-8 sm:flex-row sm:gap-8 sm:p-9">
+          <div className="mt-12 flex flex-col items-center gap-6 rounded-3xl border-2 border-dashed border-indigo-200 bg-indigo-50/60 p-8 sm:flex-row sm:gap-8 sm:p-9">
             <div className="shrink-0 rounded-2xl bg-white p-3 shadow-md">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={demoQr} alt="체험용 QR 코드" width={150} height={150} className="h-[150px] w-[150px]" />
             </div>
             <div className="text-center sm:text-left">
-              <span className="inline-block rounded-full bg-pink-500 px-3 py-1 text-xs font-bold text-white">
+              <span className="inline-block rounded-full bg-indigo-500 px-3 py-1 text-xs font-bold text-white">
                 백문이 불여일견
               </span>
               <h3 className="mt-3 text-xl font-extrabold text-gray-900">지금 폰으로 QR을 찍어보세요.</h3>
@@ -295,8 +271,8 @@ export default async function OwnerLanding() {
                 얼마나 쉽고 간단한지, 사장님이 직접 1분만 경험해 보세요. 손님이 겪는 화면 그대로입니다.
               </p>
               <p className="mt-3 text-[15px] font-bold leading-relaxed text-gray-900">
-                <span className="text-pink-600">QR 찍고</span> → <span className="text-pink-600">사진 고르고</span> →{' '}
-                <span className="text-pink-600">출력 누르면 끝!</span>
+                <span className="text-indigo-600">QR 찍고</span> → <span className="text-indigo-600">사진 고르고</span> →{' '}
+                <span className="text-indigo-600">출력 누르면 끝!</span>
               </p>
               <p className="mt-1.5 text-sm font-medium text-gray-500">
                 ⏱️ 본인 스마트폰으로 직접 하니까 줄 서서 기다릴 필요 X — 30초면 인쇄 요청까지 끝납니다.
@@ -314,34 +290,33 @@ export default async function OwnerLanding() {
 
       {/* ───────── Section 4 · Offer ───────── */}
       <section className="mx-auto max-w-3xl px-6 py-20">
-        <p className="text-center text-sm font-bold uppercase tracking-widest text-pink-500">OFFER</p>
-        <h2 className="mt-3 text-center text-2xl font-extrabold leading-snug sm:text-3xl">
-          도입이 망설여지신다면,
-          <br />
-          <span className="text-pink-600">단기 무상 테스트</span>로 먼저 확인해 보세요.
+        <p className="text-center text-sm font-bold uppercase tracking-widest text-indigo-500">OFFER</p>
+        <h2 className="mx-auto mt-3 max-w-[20ch] text-balance break-keep text-center text-xl font-extrabold leading-snug sm:max-w-none sm:text-3xl">
+          도입이 망설여지신다면,{' '}
+          <br className="hidden sm:block" />
+          <span className="text-indigo-600">단기 무상 테스트</span>로 먼저 확인해 보세요.
         </h2>
 
-        <div className="mt-10 rounded-3xl border-2 border-pink-200 bg-white p-7 shadow-lg sm:p-9">
-          <span className="inline-block rounded-full bg-pink-100 px-4 py-1.5 text-sm font-bold text-pink-600">
+        <div className="mt-10 rounded-3xl border-2 border-indigo-200 bg-white p-7 shadow-lg sm:p-9">
+          <span className="inline-block rounded-full bg-indigo-100 px-4 py-1.5 text-sm font-bold text-indigo-600">
             STEP 1 · 무료 베타테스트
           </span>
           <h3 className="mt-4 text-xl font-extrabold">딱 1회 행사, 혹은 1개월만 써보세요.</h3>
           <ul className="mt-4 space-y-3 text-sm leading-relaxed text-gray-600">
             <li className="flex gap-2.5">
-              <span className="mt-0.5 shrink-0 text-pink-500">✓</span>
-              <span>
-                <b className="text-gray-900">테이블 손실 0</b> — 사장님 매장 가구를 건드리지 않도록, 기기를 올려둘{' '}
-                <b className="text-gray-900">‘이동식 전용 스탠드(카트)’를 무상으로 빌려드립니다.</b>
+              <span className="mt-0.5 shrink-0 text-indigo-500">✓</span>
+              <span className="break-keep">
+                <b className="text-gray-900">공간 부담 최소</b> — 부스가 아니라 작은 인화기라, 매장 한 켠이면 충분합니다. 테이블을 통째로 비울 필요가 없어요.
               </span>
             </li>
             <li className="flex gap-2.5">
-              <span className="mt-0.5 shrink-0 text-pink-500">✓</span>
-              <span>
+              <span className="mt-0.5 shrink-0 text-indigo-500">✓</span>
+              <span className="break-keep">
                 <b className="text-gray-900">비용 0원</b> — 설치비, 렌탈비 전혀 없습니다. 실제 팬들의 반응만 편하게 확인해 보세요.
               </span>
             </li>
             <li className="flex gap-2.5">
-              <span className="mt-0.5 shrink-0 text-pink-500">✓</span>
+              <span className="mt-0.5 shrink-0 text-indigo-500">✓</span>
               <span>
                 <b className="text-gray-900">즉시 회수 보장</b> — 매장 운영에 조금이라도 방해가 된다면 조건 없이 바로 기기를 빼드립니다.
               </span>
@@ -373,16 +348,16 @@ export default async function OwnerLanding() {
       {/* ───────── Section 5 · Social Proof ───────── */}
       <section className="bg-white">
         <div className="mx-auto max-w-3xl px-6 py-20">
-          <p className="text-center text-sm font-bold uppercase tracking-widest text-pink-500">REVIEWS</p>
+          <p className="text-center text-sm font-bold uppercase tracking-widest text-indigo-500">REVIEWS</p>
           <h2 className="mt-3 text-center text-2xl font-extrabold sm:text-3xl">이미 검증된 대관 마케팅 무기</h2>
           <div className="mt-10 space-y-4">
             {reviews.map((r) => (
-              <figure key={r.store} className="rounded-2xl border border-gray-100 bg-gray-50 p-6">
-                <div className="mb-2 text-sm text-orange-400">★★★★★</div>
-                <blockquote className="text-[15px] leading-relaxed text-gray-700">“{r.text}”</blockquote>
-                <figcaption className="mt-3 flex items-center justify-between">
+              <figure key={r.store} className="rounded-2xl border border-gray-100 bg-gray-50 p-5 sm:p-6">
+                <div className="mb-2 text-sm text-amber-400">★★★★★</div>
+                <blockquote className="text-balance break-keep text-[15px] leading-relaxed text-gray-700">“{r.text}”</blockquote>
+                <figcaption className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
                   <span className="text-sm font-bold text-gray-900">{r.store}</span>
-                  <span className="rounded-full bg-pink-100 px-3 py-1 text-xs font-semibold text-pink-600">{r.tag}</span>
+                  <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-600">{r.tag}</span>
                 </figcaption>
               </figure>
             ))}
@@ -394,14 +369,13 @@ export default async function OwnerLanding() {
       <section id="apply" className="relative overflow-hidden bg-gradient-to-br from-[#0b1220] via-indigo-900 to-[#0b1220]">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_20%,rgba(129,140,248,0.18),transparent_55%)]" />
         <div className="relative mx-auto max-w-xl px-6 py-20">
-          <h2 className="text-center text-2xl font-extrabold leading-snug text-white sm:text-3xl">
-            매장에 잘 맞을지 궁금하신가요?
-            <br />
+          <h2 className="mx-auto max-w-[18ch] text-balance break-keep text-center text-xl font-extrabold leading-snug text-white sm:max-w-none sm:text-3xl">
+            매장에 잘 맞을지 궁금하신가요?{' '}
+            <br className="hidden sm:block" />
             <span className="text-indigo-300">편하게 문의 남겨주세요.</span>
           </h2>
-          <p className="mt-4 text-center text-white/90">
-            간단한 궁금증 문의도 대환영입니다.<br />
-            홍대/합정/연남 지역이시라면 제가 직접 인화된 사진 샘플을 들고 찾아뵙겠습니다.
+          <p className="mx-auto mt-4 max-w-md text-balance break-keep text-center text-sm text-white/90 sm:text-base">
+            간단한 궁금증 문의도 대환영입니다. 홍대·합정·연남 지역이시라면 제가 직접 인화된 사진 샘플을 들고 찾아뵙겠습니다.
           </p>
           <div className="mt-8">
             <LeadForm />
