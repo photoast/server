@@ -197,6 +197,8 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
   // Print job tracking
   const [printJobIds, setPrintJobIds] = useState<string[]>([])
+  // 테스트용 프린터가 설정된 이벤트면 true — 실제 인쇄되지 않음을 게스트에게 알린다.
+  const [testMode, setTestMode] = useState(false)
   const [printJobStatuses, setPrintJobStatuses] = useState<{ jobId: string; status: string; queuePosition?: number; errorMessage?: string }[]>([])
 
   // Frame layout options
@@ -968,6 +970,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
 
       const data = await res.json()
       if (data.jobIds) setPrintJobIds(data.jobIds)
+      setTestMode(!!data.test)
 
       trackPrintSuccess(params.slug)
       updateStep('success')
@@ -1137,6 +1140,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
           }
           const printData = await printRes.json()
           if (printData.jobIds) setPrintJobIds(printData.jobIds)
+          setTestMode(!!printData.test)
 
           setPreviewUrl(savedPreviewUrl)
           localStorage.removeItem('pendingPrintUrl')
@@ -1761,7 +1765,16 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
               <div className="space-y-6">
                 <UISectionHeading title={t('success.title')} subtitle={t('success.subtitle')} />
 
-                <UIStatusBanner type={statusType} message={statusMessage} />
+                {testMode ? (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-center">
+                    <p className="text-base font-bold text-amber-800">🧪 테스트 모드</p>
+                    <p className="mt-1 text-sm text-amber-700">
+                      이 이벤트는 테스트용으로 동작합니다. 실제로는 인쇄되지 않아요.
+                    </p>
+                  </div>
+                ) : (
+                  <UIStatusBanner type={statusType} message={statusMessage} />
+                )}
 
                 {(event?.price ?? 0) === 0 ? (
                   <p className="text-center text-sm text-gray-500">{t('success.freeMsg')}</p>

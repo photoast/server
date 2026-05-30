@@ -65,7 +65,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log(`[Print API] Processing ${printQuantity} copy(ies) via printer "${printer.name}"`)
+    // 테스트용 프린터: 이 이벤트는 테스트 모드로 동작하며 실제 인쇄되지 않는다.
+    const isTest = printer.printMethod === 'test'
+
+    console.log(`[Print API] Processing ${printQuantity} copy(ies) via printer "${printer.name}"${isTest ? ' (TEST MODE - 실제 인쇄 안 함)' : ''}`)
 
     // Collect device information
     const deviceInfo: DeviceInfo | undefined = clientDeviceInfo
@@ -97,7 +100,23 @@ export async function POST(request: NextRequest) {
       console.log(`[Print API] Sending print job ${i + 1}/${printQuantity}`)
 
       try {
-        if (printer.printMethod === 'polling') {
+        if (isTest) {
+          // 테스트용 프린터: 실제 인쇄 없이 기록만 남긴다. (DONE 처리)
+          const printJob = await createPrintJob({
+            eventId: event._id!.toString(),
+            printerId: printer._id!.toString(),
+            imageUrl: storedImageUrl,
+            status: 'DONE',
+            deviceInfo,
+            authCode: normalizedAuthCode,
+            layoutId,
+            paymentTid,
+            paymentAmount: paymentTid ? event.price : undefined,
+            customerEmail,
+          })
+          jobIds.push(printJob._id?.toString() || '')
+          console.log(`[Print API] TEST printer "${printer.name}" — 실제 인쇄 생략 ${i + 1}/${printQuantity}`)
+        } else if (printer.printMethod === 'polling') {
           // Polling: apply image correction, upload corrected image, create PENDING job
           let imageBuffer: Buffer
           if (imageUrl.startsWith('data:')) {
@@ -307,8 +326,8 @@ export async function POST(request: NextRequest) {
       linkAuthCodeToPrintJob(event._id!.toString(), normalizedAuthCode, jobIds[0]).catch(() => {})
     }
 
-    // Send customer email notification
-    if (customerEmail && jobIds.length > 0) {
+    // Send customer email notification (테스트 모드에서는 발송하지 않음)
+    if (!isTest && customerEmail && jobIds.length > 0) {
       const emailType = printer.printMethod === 'polling' ? 'payment_complete' : 'print_complete'
       sendCustomerEmail({
         to: customerEmail,
@@ -319,8 +338,8 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Send admin notification
-    if (jobIds.length > 0) {
+    // Send admin notification (테스트 모드에서는 발송하지 않음)
+    if (!isTest && jobIds.length > 0) {
       sendAdminNotification({
         eventName: event.name,
         slug,
@@ -335,9 +354,12 @@ export async function POST(request: NextRequest) {
     if (errors.length === 0) {
       return NextResponse.json({
         success: true,
+        test: isTest,
         jobIds,
         quantity: printQuantity,
-        message: `${printQuantity}매 인쇄 완료`,
+        message: isTest
+          ? '테스트 모드입니다. 실제로는 인쇄되지 않았습니다.'
+          : `${printQuantity}매 인쇄 완료`,
       })
     } else if (jobIds.length > 0) {
       // Partial success

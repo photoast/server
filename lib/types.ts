@@ -88,7 +88,7 @@ export interface Sticker {
   createdAt: Date
 }
 
-export type PrintMethod = 'email' | 'polling' | 'epson_api'
+export type PrintMethod = 'email' | 'polling' | 'epson_api' | 'test'
 
 export interface EpsonApiAuth {
   apiKey: string             // x-api-key 헤더
@@ -102,7 +102,7 @@ export interface EpsonApiAuth {
 export interface Printer {
   _id?: ObjectId
   name: string              // e.g. "사무실 Epson L3150"
-  printMethod: PrintMethod  // 'email' | 'polling' | 'epson_api'
+  printMethod: PrintMethod  // 'email' | 'polling' | 'epson_api' | 'test'(실제 인쇄 안 함)
   email?: string            // Epson Connect 이메일 주소 (email 방식일 때 필수)
   apiKey?: string           // polling 프린터 인증용 UUID
   epsonAuth?: EpsonApiAuth  // Epson Connect API 인증 정보

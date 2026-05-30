@@ -7,7 +7,7 @@ import QRCode from 'qrcode'
 import { logClientError } from '@/lib/errorLogger'
 import { UIButton, UICard, UIFormField, UITextInput, UIStatusBanner, UIBadge, UISectionHeading } from '@/app/components/ui'
 
-type PrintMethod = 'email' | 'polling' | 'epson_api'
+type PrintMethod = 'email' | 'polling' | 'epson_api' | 'test'
 
 interface EpsonApiAuth {
   apiKey: string
@@ -1195,7 +1195,7 @@ function AdminPageInner() {
                 <option value="">프린터 선택...</option>
                 {printers.map(p => (
                   <option key={p._id} value={p._id}>
-                    {p.name} ({p.printMethod === 'email' ? '이메일' : p.printMethod === 'epson_api' ? 'API' : '폴링'})
+                    {p.name} ({p.printMethod === 'email' ? '이메일' : p.printMethod === 'epson_api' ? 'API' : p.printMethod === 'test' ? '🧪테스트' : '폴링'})
                   </option>
                 ))}
               </select>
@@ -1208,7 +1208,7 @@ function AdminPageInner() {
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-gray-800">{printer.name}</span>
                     <UIBadge variant={printer.printMethod === 'email' ? 'default' : 'info'}>
-                      {printer.printMethod === 'email' ? '이메일' : printer.printMethod === 'epson_api' ? 'API' : '폴링'}
+                      {printer.printMethod === 'email' ? '이메일' : printer.printMethod === 'epson_api' ? 'API' : printer.printMethod === 'test' ? '🧪테스트' : '폴링'}
                     </UIBadge>
                     {printer.printMethod === 'polling' && (() => {
                       const isOnline = printer.lastSeen && (Date.now() - new Date(printer.lastSeen).getTime()) < 60000
@@ -2459,23 +2459,28 @@ function AdminPageInner() {
                 />
               </UIFormField>
               <UIFormField label="인쇄 방식">
-                <div className="flex gap-2">
-                  {(['email', 'polling', 'epson_api'] as const).map(method => (
+                <div className="grid grid-cols-2 gap-2">
+                  {(['email', 'polling', 'epson_api', 'test'] as const).map(method => (
                     <button
                       key={method}
                       type="button"
                       onClick={() => setNewPrinterMethod(method)}
-                      className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                      className={`py-2 rounded-xl text-sm font-semibold transition-colors ${
                         newPrinterMethod === method
-                          ? 'bg-blue-500 text-white'
+                          ? method === 'test' ? 'bg-amber-500 text-white' : 'bg-blue-500 text-white'
                           : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
                       }`}
                     >
-                      {method === 'email' ? '이메일' : method === 'polling' ? 'DB 폴링' : 'Epson API'}
+                      {method === 'email' ? '이메일' : method === 'polling' ? 'DB 폴링' : method === 'epson_api' ? 'Epson API' : '🧪 테스트용'}
                     </button>
                   ))}
                 </div>
               </UIFormField>
+              {newPrinterMethod === 'test' && (
+                <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+                  🧪 테스트용 프린터입니다. 이 프린터를 사용하는 이벤트는 <b>테스트 모드로 동작하며 실제로는 인쇄되지 않습니다.</b> 화면 흐름과 레이아웃을 점검할 때 사용하세요.
+                </div>
+              )}
               {newPrinterMethod === 'email' && (
                 <UIFormField label="프린터 이메일" hint="Epson Connect 이메일 주소">
                   <UITextInput
@@ -2563,23 +2568,29 @@ function AdminPageInner() {
               </div>
 
               <UIFormField label="인쇄 방식">
-                <div className="flex gap-2">
-                  {(['email', 'polling', 'epson_api'] as const).map(method => (
+                <div className="grid grid-cols-2 gap-2">
+                  {(['email', 'polling', 'epson_api', 'test'] as const).map(method => (
                     <button
                       key={method}
                       type="button"
                       onClick={() => handleUpdatePrinter(editingPrinter._id, { printMethod: method })}
-                      className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                      className={`py-2 rounded-xl text-sm font-semibold transition-colors ${
                         editingPrinter.printMethod === method
-                          ? 'bg-blue-500 text-white'
+                          ? method === 'test' ? 'bg-amber-500 text-white' : 'bg-blue-500 text-white'
                           : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
                       }`}
                     >
-                      {method === 'email' ? '이메일' : method === 'polling' ? 'DB 폴링' : 'Epson API'}
+                      {method === 'email' ? '이메일' : method === 'polling' ? 'DB 폴링' : method === 'epson_api' ? 'Epson API' : '🧪 테스트용'}
                     </button>
                   ))}
                 </div>
               </UIFormField>
+
+              {editingPrinter.printMethod === 'test' && (
+                <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+                  🧪 테스트용 프린터입니다. 이 프린터를 사용하는 이벤트는 <b>테스트 모드로 동작하며 실제로는 인쇄되지 않습니다.</b>
+                </div>
+              )}
 
               {editingPrinter.printMethod === 'email' && (
                 <UIFormField label="프린터 이메일">
@@ -2788,7 +2799,7 @@ function AdminPageInner() {
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold text-gray-900">{printer.name}</span>
                     <UIBadge variant={printer.printMethod === 'polling' ? 'info' : 'default'}>
-                      {printer.printMethod === 'email' ? '이메일' : printer.printMethod === 'epson_api' ? 'API' : '폴링'}
+                      {printer.printMethod === 'email' ? '이메일' : printer.printMethod === 'epson_api' ? 'API' : printer.printMethod === 'test' ? '🧪테스트' : '폴링'}
                     </UIBadge>
                     {printer.printMethod === 'polling' && (() => {
                       const isOnline = printer.lastSeen && (Date.now() - new Date(printer.lastSeen).getTime()) < 60000
@@ -2859,7 +2870,7 @@ function AdminPageInner() {
                   <option value="">나중에 설정</option>
                   {printers.map(p => (
                     <option key={p._id} value={p._id}>
-                      {p.name} ({p.printMethod === 'email' ? '이메일' : p.printMethod === 'epson_api' ? 'API' : '폴링'})
+                      {p.name} ({p.printMethod === 'email' ? '이메일' : p.printMethod === 'epson_api' ? 'API' : p.printMethod === 'test' ? '🧪테스트' : '폴링'})
                     </option>
                   ))}
                 </select>
