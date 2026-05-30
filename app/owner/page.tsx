@@ -51,6 +51,75 @@ const reviews = [
   },
 ]
 
+// ── Hero 콜라주용 인화물 썸네일 정의 ──────────────────────────────
+// 실제 결과물 사진으로 교체하려면 kind:'photo'의 src를 바꾸거나
+// /public 에 이미지를 넣고 경로를 지정하세요. (현재는 샘플/생카 프레임 연출)
+type Thumb =
+  | { kind: 'photo'; rot: number }
+  | { kind: 'strip'; rot: number }
+  | { kind: 'frame'; rot: number; grad: string; emoji: string; label: string }
+
+const THUMBS: Thumb[] = [
+  { kind: 'photo', rot: -4 },
+  { kind: 'frame', rot: 3, grad: 'from-rose-400 to-orange-300', emoji: '🎂', label: 'HAPPY\nBIRTHDAY' },
+  { kind: 'strip', rot: -2 },
+  { kind: 'frame', rot: 4, grad: 'from-indigo-400 to-sky-300', emoji: '🎉', label: 'OUR\nDAY' },
+  { kind: 'photo', rot: 2 },
+  { kind: 'frame', rot: -3, grad: 'from-violet-500 to-fuchsia-400', emoji: '💜', label: '최애\n생일' },
+  { kind: 'strip', rot: 3 },
+  { kind: 'frame', rot: -2, grad: 'from-amber-300 to-rose-300', emoji: '⭐', label: '0401\n축하해' },
+  { kind: 'photo', rot: -3 },
+  { kind: 'frame', rot: 2, grad: 'from-teal-400 to-emerald-300', emoji: '🌿', label: '봄을\n닮은' },
+]
+
+const SAMPLE = '/sample-photo.jpg'
+
+function PrintThumb({ t }: { t: Thumb }) {
+  return (
+    <div
+      className="shrink-0 rounded-md bg-white p-1.5 shadow-2xl ring-1 ring-black/5"
+      style={{ transform: `rotate(${t.rot}deg)` }}
+    >
+      {t.kind === 'photo' && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={SAMPLE} alt="" className="h-36 w-24 rounded-sm object-cover sm:h-44 sm:w-32" />
+      )}
+      {t.kind === 'strip' && (
+        <div className="flex h-36 w-[68px] flex-col gap-1 sm:h-44 sm:w-[88px]">
+          {[0, 1, 2, 3].map((i) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img key={i} src={SAMPLE} alt="" className="h-1/4 w-full rounded-[2px] object-cover" />
+          ))}
+        </div>
+      )}
+      {t.kind === 'frame' && (
+        <div className={`flex h-36 w-24 flex-col items-center justify-center gap-1.5 rounded-sm bg-gradient-to-br ${t.grad} sm:h-44 sm:w-32`}>
+          <span className="text-3xl">{t.emoji}</span>
+          <span className="whitespace-pre-line text-center text-[11px] font-extrabold leading-tight text-white drop-shadow">
+            {t.label}
+          </span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// 한 줄(row): 썸네일 세트를 두 번 이어 붙여 끊김 없이 흐르게 한다.
+function CollageRow({ dir, dur, offset }: { dir: 'l' | 'r'; dur: string; offset: number }) {
+  const set = [...THUMBS.slice(offset), ...THUMBS.slice(0, offset)]
+  return (
+    <div className={`owner-row ${dir === 'l' ? 'owner-row-l' : 'owner-row-r'} gap-3 sm:gap-4`} style={{ ['--dur' as string]: dur }}>
+      {[0, 1].map((copy) => (
+        <div key={copy} className="flex gap-3 pr-3 sm:gap-4 sm:pr-4" aria-hidden={copy === 1}>
+          {set.map((t, i) => (
+            <PrintThumb key={`${copy}-${i}`} t={t} />
+          ))}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default async function OwnerLanding() {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
   const demoUrl = `${baseUrl}/${DEMO_SLUG}`
@@ -58,35 +127,47 @@ export default async function OwnerLanding() {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
-      {/* ───────── Section 1 · Hero ───────── */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-700 via-pink-600 to-orange-500" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_30%,rgba(255,255,255,0.18),transparent_55%)]" />
-        <div className="relative mx-auto max-w-3xl px-6 py-24 text-center sm:py-28">
-          <span className="inline-block rounded-full bg-white/15 px-4 py-1.5 text-sm font-semibold text-white backdrop-blur">
+      {/* ───────── Section 1 · Hero (넷플릭스풍 흐르는 인화물 콜라주) ───────── */}
+      <section className="relative overflow-hidden bg-[#0b1220]">
+        {/* 배경: 기울인 콜라주 줄들이 좌우로 흐른다 */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute left-1/2 top-1/2 w-[160%] -translate-x-1/2 -translate-y-1/2 -rotate-6 space-y-3 opacity-70 sm:space-y-4">
+            <CollageRow dir="l" dur="70s" offset={0} />
+            <CollageRow dir="r" dur="90s" offset={3} />
+            <CollageRow dir="l" dur="80s" offset={6} />
+            <CollageRow dir="r" dur="100s" offset={1} />
+            <CollageRow dir="l" dur="85s" offset={4} />
+          </div>
+        </div>
+        {/* 가독성용 네이비 오버레이 */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_40%,rgba(11,18,32,0.55),rgba(11,18,32,0.9))]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0b1220]/80 via-[#0b1220]/55 to-[#0b1220]" />
+
+        <div className="relative mx-auto max-w-3xl px-6 py-20 text-center sm:py-28">
+          <span className="inline-block rounded-full bg-white/10 px-3.5 py-1.5 text-xs font-semibold text-white/90 ring-1 ring-white/15 backdrop-blur sm:text-sm">
             홍대·합정 생카 대관 카페 사장님 전용
           </span>
-          <h1 className="mt-6 text-4xl font-extrabold leading-tight tracking-tight text-white sm:text-5xl">
-            생카 대관에 필수라는 <span className="text-yellow-300">포토프레임</span>,
+          <h1 className="mt-5 text-2xl font-extrabold leading-snug tracking-tight text-white sm:text-4xl">
+            생카 대관에 필수라는 <span className="text-indigo-300">포토프레임</span>,
             <br />
             비싸고 무거운 부스 들이기
             <br />
             부담스러우셨죠?
           </h1>
-          <p className="mt-6 text-lg font-medium leading-relaxed text-white/90">
+          <p className="mx-auto mt-4 max-w-md text-sm font-medium leading-relaxed text-white/80 sm:text-base">
             대관 문의마다 "포토부스 설치 되나요?" 묻는 주최자들.
             <br className="hidden sm:block" /> 공간 차지하는 쇳덩어리 기계 대신,
-            <br />
-            <span className="font-bold text-white">매장 테이블 뺄 필요 없는 깔끔한 '전용 스탠드'로 해결하세요.</span>
+            <br className="hidden sm:block" />{' '}
+            <span className="font-bold text-white">테이블 뺄 필요 없는 깔끔한 '전용 스탠드'로 해결하세요.</span>
           </p>
-          <div className="mt-9 flex flex-col items-center gap-3">
+          <div className="mt-7 flex flex-col items-center gap-2.5">
             <a
               href="#apply"
-              className="w-full max-w-xs rounded-xl bg-white py-4 text-lg font-bold text-pink-600 shadow-xl transition hover:scale-[1.02] active:scale-[0.99]"
+              className="w-full max-w-xs rounded-xl bg-white py-3.5 text-base font-bold text-indigo-700 shadow-xl transition hover:scale-[1.02] active:scale-[0.99] sm:text-lg"
             >
               무상 테스트 / 가볍게 문의하기 →
             </a>
-            <span className="text-sm text-white/80">설치비 0원 · 1개월 무료 베타 · 기기 전용 스탠드 무상 대여</span>
+            <span className="text-xs text-white/70 sm:text-sm">설치비 0원 · 1개월 무료 베타 · 기기 전용 스탠드 무상 대여</span>
           </div>
         </div>
         <div className="h-6 w-full bg-gray-50" style={{ clipPath: 'ellipse(75% 100% at 50% 100%)' }} />
@@ -310,13 +391,13 @@ export default async function OwnerLanding() {
       </section>
 
       {/* ───────── Section 6 · CTA Form ───────── */}
-      <section id="apply" className="relative overflow-hidden bg-gradient-to-br from-purple-700 via-pink-600 to-orange-500">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_20%,rgba(255,255,255,0.15),transparent_55%)]" />
+      <section id="apply" className="relative overflow-hidden bg-gradient-to-br from-[#0b1220] via-indigo-900 to-[#0b1220]">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_20%,rgba(129,140,248,0.18),transparent_55%)]" />
         <div className="relative mx-auto max-w-xl px-6 py-20">
           <h2 className="text-center text-2xl font-extrabold leading-snug text-white sm:text-3xl">
             매장에 잘 맞을지 궁금하신가요?
             <br />
-            <span className="text-yellow-300">편하게 문의 남겨주세요.</span>
+            <span className="text-indigo-300">편하게 문의 남겨주세요.</span>
           </h2>
           <p className="mt-4 text-center text-white/90">
             간단한 궁금증 문의도 대환영입니다.<br />

@@ -49,3 +49,23 @@ body {
     text-wrap: balance;
   }
 }
+
+/* ── 영업 랜딩(/owner) Hero: 넷플릭스 스타일 흐르는 썸네일 콜라주 ── */
+@keyframes owner-marquee-l {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@keyframes owner-marquee-r {
+  from { transform: translateX(-50%); }
+  to { transform: translateX(0); }
+}
+.owner-row {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+}
+.owner-row-l { animation: owner-marquee-l var(--dur, 60s) linear infinite; }
+.owner-row-r { animation: owner-marquee-r var(--dur, 60s) linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .owner-row-l, .owner-row-r { animation: none; }
+}
