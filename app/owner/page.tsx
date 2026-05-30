@@ -167,7 +167,7 @@ export default function OwnerLanding() {
             </div>
             <div className="rounded-xl bg-gray-50 p-4">
               <div className="text-2xl font-extrabold text-gray-900">수익의 20%</div>
-              <p className="mt-1 text-sm text-gray-500">인쇄 매출의 20%를 매달 정산받아요.</p>
+              <p className="mt-1 text-sm text-gray-500">인쇄 수익의 20%를 매달 정산받아요.</p>
             </div>
           </div>
           <p className="mt-4 text-center text-sm font-semibold text-gray-700">
