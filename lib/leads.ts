@@ -79,15 +79,14 @@ function formatMessage(doc: LeadDoc): string {
 }
 
 /**
- * 수집한 리드를 사장(나)의 스마트폰으로 즉시 알림 전송한다.
+ * 임의의 텍스트를 설정된 알림 채널로 전송한다. (리드/방문 알림 공용)
  *
  * 환경변수가 설정된 채널로만 전송하며, 여러 채널을 동시에 켜둘 수 있다.
  * - 텔레그램:   TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID
  * - 슬랙:       SLACK_WEBHOOK_URL
  * - 디스코드:   DISCORD_WEBHOOK_URL
  */
-export async function notifyLead(doc: LeadDoc): Promise<void> {
-  const text = formatMessage(doc)
+export async function sendNotification(text: string): Promise<void> {
   const tasks: Promise<unknown>[] = []
 
   const tgToken = process.env.TELEGRAM_BOT_TOKEN
@@ -126,12 +125,17 @@ export async function notifyLead(doc: LeadDoc): Promise<void> {
   }
 
   if (tasks.length === 0) {
-    console.warn('[leads] 알림 채널이 설정되지 않았습니다. (TELEGRAM_/SLACK_/DISCORD_ env 확인)')
+    console.warn('[notify] 알림 채널이 설정되지 않았습니다. (TELEGRAM_/SLACK_/DISCORD_ env 확인)')
     return
   }
 
   const results = await Promise.allSettled(tasks)
   results.forEach((r) => {
-    if (r.status === 'rejected') console.error('[leads] 알림 전송 실패:', r.reason)
+    if (r.status === 'rejected') console.error('[notify] 알림 전송 실패:', r.reason)
   })
+}
+
+/** 수집한 리드를 사장(나)의 스마트폰으로 즉시 알림 전송한다. */
+export async function notifyLead(doc: LeadDoc): Promise<void> {
+  await sendNotification(formatMessage(doc))
 }

@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Image from 'next/image'
 import QRCode from 'qrcode'
 import LeadForm from './LeadForm'
+import VisitTracker from './VisitTracker'
 
 // 사장님이 직접 체험해 볼 수 있는 데모 이벤트 slug. (예: /hbd)
 const DEMO_SLUG = 'hbd'
@@ -100,6 +101,7 @@ export default async function OwnerLanding() {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
+      <VisitTracker />
       {/* ───────── Section 1 · Hero (넷플릭스풍 흐르는 인화물 콜라주) ───────── */}
       <section className="relative overflow-hidden bg-[#0b1220]">
         {/* 배경: 기울인 콜라주 줄들이 좌우로 흐른다 */}
