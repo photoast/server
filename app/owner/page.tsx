@@ -147,7 +147,7 @@ export default async function OwnerLanding() {
         <p className="text-center text-xs font-bold uppercase tracking-[0.2em] text-indigo-500 sm:text-sm">PROBLEM</p>
         <h2 className="mx-auto mt-3 max-w-[22ch] text-balance break-keep text-center text-xl font-extrabold leading-snug sm:max-w-none sm:text-3xl">
           주최자들이 1순위로 찾는 포토 특전,{' '}
-          <span className="text-indigo-600">막상 들이자니 골치 아프셨죠.</span>
+          <span className="whitespace-nowrap text-indigo-600">막상 들이자니 골치 아프셨죠.</span>
         </h2>
         <div className="mt-8 grid gap-3 sm:mt-10 sm:grid-cols-3 sm:gap-4">
           {[
@@ -171,7 +171,7 @@ export default async function OwnerLanding() {
         </div>
         <p className="mx-auto mt-8 max-w-[26ch] text-balance break-keep text-center text-base font-semibold text-gray-700 sm:mt-10 sm:max-w-none sm:text-lg">
           그래서 포토토스트는 거대한 부스 껍데기를 버리고,{' '}
-          <span className="text-indigo-600">핵심 인화 장비만 깔끔하게 담았습니다.</span>
+          <span className="whitespace-nowrap text-indigo-600">핵심 장비만 깔끔하게 담았어요.</span>
         </p>
       </section>
 
@@ -252,8 +252,8 @@ export default async function OwnerLanding() {
             ))}
           </div>
 
-          <p className="mt-9 text-center text-lg font-semibold text-gray-700">
-            쉬우니까 손님이 알아서 쓰고, 빠르니까 <span className="text-indigo-600">회전율이 안 막힙니다.</span>
+          <p className="mx-auto mt-9 max-w-md text-balance break-keep text-center text-lg font-semibold text-gray-700">
+            쉬우니까 손님이 알아서 쓰고, 빠르니까 <span className="whitespace-nowrap text-indigo-600">회전율이 안 막힙니다.</span>
           </p>
 
           {/* QR 직접 체험 */}
@@ -331,10 +331,7 @@ export default async function OwnerLanding() {
 
           <div className="mt-5 rounded-2xl bg-indigo-50 px-5 py-4 text-center">
             <p className="text-balance break-keep text-[15px] font-extrabold text-indigo-700">
-              렌탈비 0원 + 수익 20% 정산까지.
-            </p>
-            <p className="mt-1 text-balance break-keep text-sm font-medium text-indigo-600/90">
-              부담은 0, 손해 볼 게 없으니 안 할 이유가 없죠.
+              베타테스터 대상: 렌탈비 0원 + 수익 20% 정산
             </p>
           </div>
 
@@ -346,14 +343,22 @@ export default async function OwnerLanding() {
           <h3 className="mt-4 text-xl font-extrabold">월 10만 원 + 인쇄수익 20% 정산</h3>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <div className="rounded-xl bg-gray-50 p-4">
-              <div className="text-2xl font-extrabold text-gray-900">월 10만 원</div>
-              <p className="mt-1 text-sm text-gray-500">180만 원 고가 장비의 합리적인 렌탈비.</p>
+              <div className="flex items-baseline gap-2">
+                <span className="text-base font-semibold text-gray-400 line-through">월 10만 원</span>
+                <span className="text-2xl font-extrabold text-indigo-600">월 8만 원</span>
+              </div>
+              <p className="mt-1 text-sm text-gray-500">
+                베타 참여 매장은 정식 전환 시 <b className="text-indigo-600">렌탈비 20% 할인</b>을 평생 적용해 드려요.
+              </p>
             </div>
             <div className="rounded-xl bg-gray-50 p-4">
               <div className="text-2xl font-extrabold text-gray-900">수익의 20%</div>
               <p className="mt-1 text-sm text-gray-500">인쇄 수익의 20%를 매달 조건 없이 정산받아요.</p>
             </div>
           </div>
+          <p className="mt-3 rounded-xl bg-indigo-50 px-4 py-3 text-center text-sm font-bold text-indigo-700">
+            🎁 먼저 베타로 써본 사장님 혜택 — 월 10만 원이 <span className="whitespace-nowrap">8만 원으로 할인</span>
+          </p>
           <p className="mt-4 text-center text-sm font-semibold text-gray-700">
             🎯 대관 특전으로 ‘스마트폰 사진 인화 되는 매장’이라 홍보하면, 대관율 상승은 덤입니다.
           </p>
