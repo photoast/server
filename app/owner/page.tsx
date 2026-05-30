@@ -219,6 +219,14 @@ export default async function OwnerLanding() {
               용지 잔량 확인과 오류 대응을 원격으로 처리해 드려요. 사장님이 기계를 직접 만질 일이 거의 없습니다.
             </p>
           </div>
+
+          <div className="mt-5 rounded-2xl bg-gradient-to-r from-amber-500/20 to-orange-500/20 p-7 ring-1 ring-white/10">
+            <h3 className="text-lg font-bold">📸 생카가 없는 날에도 꾸준히</h3>
+            <p className="mt-2 text-sm leading-relaxed text-gray-300">
+              생일 이벤트 기간이 아니어도, 카페에 온 손님이 스마트폰 사진을 고화질로 바로 인화할 수 있어요.
+              평상시에도 자연스럽게 쓰이는 작은 수익원이 됩니다.
+            </p>
+          </div>
         </div>
       </section>
 
