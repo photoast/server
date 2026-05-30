@@ -1,5 +1,9 @@
 import type { Metadata } from 'next'
+import QRCode from 'qrcode'
 import LeadForm from './LeadForm'
+
+// 사장님이 직접 체험해 볼 수 있는 데모 이벤트 slug. (예: /test)
+const DEMO_SLUG = 'test'
 
 export const metadata: Metadata = {
   title: '생카 대관 필수 특전, 스마트 포토 인화 입점 제안 | PhotoToast',
@@ -25,7 +29,11 @@ const reviews = [
   },
 ]
 
-export default function OwnerLanding() {
+export default async function OwnerLanding() {
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+  const demoUrl = `${baseUrl}/${DEMO_SLUG}`
+  const demoQr = await QRCode.toDataURL(demoUrl, { width: 480, margin: 1, errorCorrectionLevel: 'H' })
+
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
       {/* ───────── Section 1 · Hero ───────── */}
@@ -127,6 +135,72 @@ export default function OwnerLanding() {
         </div>
       </section>
 
+      {/* ───────── Section 3.5 · How it works (쉽고 빠름) ───────── */}
+      <section className="bg-white">
+        <div className="mx-auto max-w-3xl px-6 py-20">
+          <p className="text-center text-sm font-bold uppercase tracking-widest text-pink-500">SO EASY</p>
+          <h2 className="mt-3 text-center text-2xl font-extrabold leading-snug sm:text-3xl">
+            손님은 <span className="text-pink-600">QR 한 번</span>이면 끝.
+            <br />
+            앱 설치도, 직원 도움도 필요 없어요.
+          </h2>
+          <p className="mt-4 text-center text-gray-500">
+            폰 갤러리 사진을 그대로 인화. 누구나 30초면 손에 쥐는, 막히지 않는 흐름.
+          </p>
+
+          <div className="mt-10 grid gap-4 sm:grid-cols-3">
+            {[
+              { step: '1', icon: '📱', title: 'QR 스캔', desc: '테이블 위 QR을 폰으로 찍으면 바로 접속. 앱 설치 필요 없어요.' },
+              { step: '2', icon: '🖼️', title: '사진 선택', desc: '갤러리에서 원하는 사진을 고르고 프레임만 터치. 조작이 직관적이에요.' },
+              { step: '3', icon: '⚡', title: '즉시 출력', desc: '버튼 한 번이면 10초 내 인화 완료. 줄 서서 기다릴 일이 없습니다.' },
+            ].map((s) => (
+              <div key={s.step} className="relative rounded-2xl border border-gray-100 bg-gray-50 p-6 text-center">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-pink-500 px-3 py-0.5 text-xs font-bold text-white">
+                  STEP {s.step}
+                </div>
+                <span className="text-4xl">{s.icon}</span>
+                <h3 className="mt-3 text-base font-bold text-gray-900">{s.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-gray-500">{s.desc}</p>
+              </div>
+            ))}
+          </div>
+
+          <p className="mt-9 text-center text-lg font-semibold text-gray-700">
+            쉬우니까 손님이 알아서 쓰고, 빠르니까 <span className="text-pink-600">회전율이 안 막힙니다.</span>
+          </p>
+
+          {/* QR 직접 체험 */}
+          <div className="mt-12 flex flex-col items-center gap-6 rounded-3xl border-2 border-dashed border-pink-200 bg-pink-50/60 p-8 sm:flex-row sm:gap-8 sm:p-9">
+            <div className="shrink-0 rounded-2xl bg-white p-3 shadow-md">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={demoQr} alt="체험용 QR 코드" width={150} height={150} className="h-[150px] w-[150px]" />
+            </div>
+            <div className="text-center sm:text-left">
+              <span className="inline-block rounded-full bg-pink-500 px-3 py-1 text-xs font-bold text-white">
+                백문이 불여일견
+              </span>
+              <h3 className="mt-3 text-xl font-extrabold text-gray-900">지금 폰으로 QR을 찍어보세요.</h3>
+              <p className="mt-2 text-sm leading-relaxed text-gray-600">
+                얼마나 쉽고 간단한지, 사장님이 직접 1분만 경험해 보세요. 손님이 겪는 화면 그대로입니다.
+              </p>
+              <p className="mt-3 text-[15px] font-bold leading-relaxed text-gray-900">
+                <span className="text-pink-600">QR 찍고</span> → <span className="text-pink-600">사진 고르고</span> →{' '}
+                <span className="text-pink-600">출력 누르면 끝!</span>
+              </p>
+              <p className="mt-1.5 text-sm font-medium text-gray-500">
+                ⏱️ 본인 스마트폰으로 직접 하니까 줄 서서 기다릴 필요 X — 30초면 인쇄 요청까지 끝납니다.
+              </p>
+              <a
+                href={demoUrl}
+                className="mt-4 inline-block rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-bold text-white transition hover:opacity-90"
+              >
+                PC에서는 여기를 눌러 체험 →
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ───────── Section 4 · Offer ───────── */}
       <section className="mx-auto max-w-3xl px-6 py-20">
         <p className="text-center text-sm font-bold uppercase tracking-widest text-pink-500">OFFER</p>
@@ -141,15 +215,25 @@ export default function OwnerLanding() {
             STEP 1 · 무료 베타테스트
           </span>
           <h3 className="mt-4 text-xl font-extrabold">딱 1회 행사, 혹은 1개월만 써보세요.</h3>
-          <ul className="mt-4 space-y-2.5 text-sm text-gray-600">
-            <li className="flex gap-2">
-              <span className="text-pink-500">✓</span> <b>테이블 손실 0</b>: 사장님 매장 가구를 건드리지 않도록, 기기를 올려둘 <b>'이동식 전용 스탠드(카트)'를 무상으로 빌려드립니다.</b>
+          <ul className="mt-4 space-y-3 text-sm leading-relaxed text-gray-600">
+            <li className="flex gap-2.5">
+              <span className="mt-0.5 shrink-0 text-pink-500">✓</span>
+              <span>
+                <b className="text-gray-900">테이블 손실 0</b> — 사장님 매장 가구를 건드리지 않도록, 기기를 올려둘{' '}
+                <b className="text-gray-900">‘이동식 전용 스탠드(카트)’를 무상으로 빌려드립니다.</b>
+              </span>
             </li>
-            <li className="flex gap-2">
-              <span className="text-pink-500">✓</span> <b>비용 0원</b>: 설치비, 렌탈비 전혀 없습니다. 실제 팬들의 반응만 편하게 확인해 보세요.
+            <li className="flex gap-2.5">
+              <span className="mt-0.5 shrink-0 text-pink-500">✓</span>
+              <span>
+                <b className="text-gray-900">비용 0원</b> — 설치비, 렌탈비 전혀 없습니다. 실제 팬들의 반응만 편하게 확인해 보세요.
+              </span>
             </li>
-            <li className="flex gap-2">
-              <span className="text-pink-500">✓</span> <b>즉시 회수 보장</b>: 매장 운영에 조금이라도 방해가 된다면 조건 없이 바로 기기를 빼드립니다.
+            <li className="flex gap-2.5">
+              <span className="mt-0.5 shrink-0 text-pink-500">✓</span>
+              <span>
+                <b className="text-gray-900">즉시 회수 보장</b> — 매장 운영에 조금이라도 방해가 된다면 조건 없이 바로 기기를 빼드립니다.
+              </span>
             </li>
           </ul>
 
@@ -216,6 +300,12 @@ export default function OwnerLanding() {
 
       <footer className="bg-gray-900 py-10 text-center">
         <p className="text-sm text-gray-400">&copy; {new Date().getFullYear()} PhotoToast · 스마트 포토 인화 시스템</p>
+        <a
+          href="mailto:phototoast.official@gmail.com"
+          className="mt-2 inline-block text-sm font-medium text-gray-300 transition hover:text-white"
+        >
+          phototoast.official@gmail.com
+        </a>
       </footer>
     </div>
   )
