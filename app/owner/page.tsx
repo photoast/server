@@ -182,7 +182,7 @@ export default async function OwnerLanding() {
           <h2 className="mx-auto mt-3 max-w-[22ch] text-balance break-keep text-center text-xl font-extrabold leading-snug sm:max-w-none sm:text-3xl">
             대형 포토부스에 들어가는 그 장비,{' '}
             <br className="hidden sm:block" />
-            상용 모델 <span className="text-yellow-300">DNP DS620</span> 그대로 씁니다.
+            상용 모델 <span className="whitespace-nowrap text-yellow-300">DNP DS620</span> 그대로 씁니다.
           </h2>
           <p className="mx-auto mt-4 max-w-md text-balance break-keep text-center text-gray-300">
             대형 브랜드 포토부스 매장에서 쓰는 180만 원대 상용 모델과 동일한 장비예요. 검색해 보시면 바로 확인되실 거예요.
@@ -279,8 +279,9 @@ export default async function OwnerLanding() {
                 얼마나 쉽고 간단한지, 사장님이 직접 1분만 경험해 보세요. 손님이 겪는 화면 그대로입니다.
               </p>
               <p className="mt-3 text-[15px] font-bold leading-relaxed text-gray-900">
-                <span className="text-indigo-600">QR 찍고</span> → <span className="text-indigo-600">사진 고르고</span> →{' '}
-                <span className="text-indigo-600">출력 누르면 끝!</span>
+                <span className="whitespace-nowrap text-indigo-600">QR 찍고</span> →{' '}
+                <span className="whitespace-nowrap text-indigo-600">사진 고르고</span> →{' '}
+                <span className="whitespace-nowrap text-indigo-600">출력 누르면 끝!</span>
               </p>
               <p className="mt-1.5 text-sm font-medium text-gray-500">
                 ⏱️ 본인 스마트폰으로 직접 하니까 줄 서서 기다릴 필요 X — 30초면 인쇄 요청까지 끝납니다.
@@ -400,7 +401,7 @@ export default async function OwnerLanding() {
           <h2 className="mx-auto max-w-[18ch] text-balance break-keep text-center text-xl font-extrabold leading-snug text-white sm:max-w-none sm:text-3xl">
             매장에 잘 맞을지 궁금하신가요?{' '}
             <br className="hidden sm:block" />
-            <span className="text-indigo-300">편하게 문의 남겨주세요.</span>
+            <span className="whitespace-nowrap text-indigo-300">편하게 문의 남겨주세요.</span>
           </h2>
           <p className="mx-auto mt-4 max-w-md text-balance break-keep text-center text-sm text-white/90 sm:text-base">
             간단한 궁금증 문의도 대환영입니다. 홍대·합정·연남 지역이시라면 제가 직접 인화된 사진 샘플을 들고 찾아뵙겠습니다.
