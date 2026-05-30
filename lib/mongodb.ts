@@ -39,6 +39,7 @@ export const COLLECTIONS = {
   pageViews: 'pageViews',
   userEvents: 'userEvents',
   telegramTopics: 'telegramTopics',
+  leads: 'leads',
 } as const
 
 export async function getDb(): Promise<Db> {
