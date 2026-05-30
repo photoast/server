@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import Image from 'next/image'
 import QRCode from 'qrcode'
 import LeadForm from './LeadForm'
 
@@ -26,6 +25,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
+    site: '@phototoast_kr',
+    creator: '@phototoast_kr',
     title: OWNER_TITLE,
     description: OWNER_DESC,
     images: ['/logo.png'],
@@ -328,17 +329,27 @@ export default async function OwnerLanding() {
       </section>
 
       <footer className="bg-gray-900 py-10 text-center">
-        <div className="mb-3 flex items-center justify-center gap-2">
-          <Image src="/logo-without-bg.png" alt="PhotoToast" width={28} height={28} className="h-7 w-7 opacity-90" />
-          <span className="text-base font-bold text-gray-200">PhotoToast</span>
+        <p className="text-base font-bold text-gray-200">PhotoToast</p>
+        <p className="mt-1 text-sm text-gray-400">&copy; {new Date().getFullYear()} 스마트 포토 인화 시스템</p>
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm">
+          <a
+            href="https://twitter.com/phototoast_kr"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 font-medium text-gray-300 transition hover:text-white"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 fill-current">
+              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+            </svg>
+            @phototoast_kr
+          </a>
+          <a
+            href="mailto:phototoast.official@gmail.com"
+            className="font-medium text-gray-300 transition hover:text-white"
+          >
+            phototoast.official@gmail.com
+          </a>
         </div>
-        <p className="text-sm text-gray-400">&copy; {new Date().getFullYear()} PhotoToast · 스마트 포토 인화 시스템</p>
-        <a
-          href="mailto:phototoast.official@gmail.com"
-          className="mt-2 inline-block text-sm font-medium text-gray-300 transition hover:text-white"
-        >
-          phototoast.official@gmail.com
-        </a>
       </footer>
     </div>
   )
