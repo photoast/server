@@ -28,6 +28,7 @@ interface Event {
   printerUrl: string
   availableLayouts?: string[]
   supportedSizes?: string[]
+  isTestPrinter?: boolean
   price?: number
   authCodeRequired?: boolean
   paymentMethods?: ('card' | 'kakaopay' | 'naverpay')[]
@@ -246,6 +247,8 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
         if (!res.ok) throw new Error('Event not found')
         const data = await res.json()
         setEvent(data)
+        // 테스트용 프린터 이벤트면 인쇄 전부터 안내를 띄운다.
+        if (data.isTestPrinter) setTestMode(true)
         trackPageEnter(params.slug, `/${params.slug}`)
 
         let deviceId = localStorage.getItem('pt_device_id')
@@ -1579,6 +1582,13 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                   <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 px-3 py-2 rounded-lg">
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
                     {t('auth.verified')}
+                  </div>
+                )}
+
+                {/* 테스트 모드 안내: 인쇄 버튼 누르기 전에 미리 알림 */}
+                {testMode && allSlotsFilled && previewUrl && !processing && (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-center text-sm text-amber-800">
+                    🧪 <b>테스트 모드</b>입니다. 인쇄 버튼을 눌러도 실제로는 인쇄되지 않아요.
                   </div>
                 )}
 

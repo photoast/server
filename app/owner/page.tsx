@@ -1,14 +1,35 @@
 import type { Metadata } from 'next'
+import Image from 'next/image'
 import QRCode from 'qrcode'
 import LeadForm from './LeadForm'
 
 // 사장님이 직접 체험해 볼 수 있는 데모 이벤트 slug. (예: /hbd)
 const DEMO_SLUG = 'hbd'
 
+const OWNER_TITLE = '생카 대관 필수 특전, 스마트 포토 인화 입점 제안 | PhotoToast'
+const OWNER_DESC =
+  '생카 대관에 필수라는 포토프레임. 테이블 차지 없는 전용 이동식 스탠드 세팅으로 180만 원짜리 상용 프린터를 무상 테스트해 보세요.'
+const SITE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+
 export const metadata: Metadata = {
-  title: '생카 대관 필수 특전, 스마트 포토 인화 입점 제안 | PhotoToast',
-  description:
-    '생카 대관에 필수라는 포토프레임. 테이블 차지 없는 전용 이동식 스탠드 세팅으로 180만 원짜리 상용 프린터를 무상 테스트해 보세요.',
+  metadataBase: new URL(SITE_URL),
+  title: OWNER_TITLE,
+  description: OWNER_DESC,
+  openGraph: {
+    type: 'website',
+    siteName: 'PhotoToast',
+    title: OWNER_TITLE,
+    description: OWNER_DESC,
+    url: '/owner',
+    locale: 'ko_KR',
+    images: [{ url: '/logo.png', width: 1200, height: 630, alt: 'PhotoToast' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: OWNER_TITLE,
+    description: OWNER_DESC,
+    images: ['/logo.png'],
+  },
 }
 
 const reviews = [
@@ -41,6 +62,17 @@ export default async function OwnerLanding() {
         <div className="absolute inset-0 bg-gradient-to-br from-purple-700 via-pink-600 to-orange-500" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_30%,rgba(255,255,255,0.18),transparent_55%)]" />
         <div className="relative mx-auto max-w-3xl px-6 py-24 text-center sm:py-28">
+          <div className="mb-7 flex items-center justify-center gap-2.5">
+            <Image
+              src="/logo-without-bg.png"
+              alt="PhotoToast"
+              width={48}
+              height={48}
+              priority
+              className="h-12 w-12 drop-shadow-lg"
+            />
+            <span className="text-2xl font-extrabold tracking-tight text-white drop-shadow">PhotoToast</span>
+          </div>
           <span className="inline-block rounded-full bg-white/15 px-4 py-1.5 text-sm font-semibold text-white backdrop-blur">
             홍대·합정 생카 대관 카페 사장님 전용
           </span>
@@ -307,6 +339,10 @@ export default async function OwnerLanding() {
       </section>
 
       <footer className="bg-gray-900 py-10 text-center">
+        <div className="mb-3 flex items-center justify-center gap-2">
+          <Image src="/logo-without-bg.png" alt="PhotoToast" width={28} height={28} className="h-7 w-7 opacity-90" />
+          <span className="text-base font-bold text-gray-200">PhotoToast</span>
+        </div>
         <p className="text-sm text-gray-400">&copy; {new Date().getFullYear()} PhotoToast · 스마트 포토 인화 시스템</p>
         <a
           href="mailto:phototoast.official@gmail.com"
