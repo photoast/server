@@ -1356,6 +1356,18 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
           <LanguageToggle />
         </div>
 
+        {/* 테스트 모드 안내 배너: 테스트용 프린터 이벤트면 진입 시점부터 항상 표시 */}
+        {testMode && (
+          <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-center">
+            <p className="text-base font-bold text-amber-800">🧪 테스트 모드 이벤트입니다</p>
+            <p className="mt-1 text-sm leading-relaxed text-amber-700">
+              실제 인쇄로 이어지지 않으니 <b>마음껏 자유롭게 테스트</b>해 보세요.
+              <br />
+              사진 선택부터 인쇄 요청까지 전 과정을 체험할 수 있어요.
+            </p>
+          </div>
+        )}
+
         {/* Step Bar */}
         {step !== 'success' && (
           <div className="bg-white rounded-2xl border border-gray-100 px-5 py-4 mb-4">
@@ -1588,7 +1600,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                 {/* 테스트 모드 안내: 인쇄 버튼 누르기 전에 미리 알림 */}
                 {testMode && allSlotsFilled && previewUrl && !processing && (
                   <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-center text-sm text-amber-800">
-                    🧪 <b>테스트 모드</b>입니다. 인쇄 버튼을 눌러도 실제로는 인쇄되지 않아요.
+                    🧪 <b>테스트 모드</b>예요. 눌러도 실제 인쇄되지 않으니 마음껏 테스트하셔도 됩니다.
                   </div>
                 )}
 
@@ -1779,7 +1791,7 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
                   <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-center">
                     <p className="text-base font-bold text-amber-800">🧪 테스트 모드</p>
                     <p className="mt-1 text-sm text-amber-700">
-                      이 이벤트는 테스트용으로 동작합니다. 실제로는 인쇄되지 않아요.
+                      테스트용 이벤트라 실제로는 인쇄되지 않았어요. 마음껏 다시 테스트해 보셔도 됩니다.
                     </p>
                   </div>
                 ) : (
