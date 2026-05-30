@@ -126,6 +126,14 @@ export default async function OwnerLanding() {
             </div>
           </div>
 
+          <div className="mt-5 rounded-2xl bg-gradient-to-r from-purple-600/25 to-pink-500/25 p-7 ring-1 ring-white/10">
+            <h3 className="text-lg font-bold">🎨 커스텀 프레임 무제한 · 주최자 맞춤 디자인</h3>
+            <p className="mt-2 text-sm leading-relaxed text-gray-300">
+              생카마다 다른 최애 사진, 생일 날짜, 슬로건까지. 프레임을 <b className="text-white">매우 쉽고 자유롭게, 행사별로 무제한 설정</b>할 수
+              있습니다. 주최자가 원하는 디자인을 그대로 구현해 주니, 다른 매장은 못 따라오는 강력한 대관 특전이 됩니다.
+            </p>
+          </div>
+
           <div className="mt-5 rounded-2xl bg-gradient-to-r from-pink-600/20 to-orange-500/20 p-7 ring-1 ring-white/10">
             <h3 className="text-lg font-bold">🛰️ 리소스 ZERO · 100% 원격 무인 관리</h3>
             <p className="mt-2 text-sm leading-relaxed text-gray-300">
