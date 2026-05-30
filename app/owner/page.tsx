@@ -62,17 +62,6 @@ export default async function OwnerLanding() {
         <div className="absolute inset-0 bg-gradient-to-br from-purple-700 via-pink-600 to-orange-500" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_30%,rgba(255,255,255,0.18),transparent_55%)]" />
         <div className="relative mx-auto max-w-3xl px-6 py-24 text-center sm:py-28">
-          <div className="mb-7 flex items-center justify-center gap-2.5">
-            <Image
-              src="/logo-without-bg.png"
-              alt="PhotoToast"
-              width={48}
-              height={48}
-              priority
-              className="h-12 w-12 drop-shadow-lg"
-            />
-            <span className="text-2xl font-extrabold tracking-tight text-white drop-shadow">PhotoToast</span>
-          </div>
           <span className="inline-block rounded-full bg-white/15 px-4 py-1.5 text-sm font-semibold text-white backdrop-blur">
             홍대·합정 생카 대관 카페 사장님 전용
           </span>
