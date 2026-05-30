@@ -136,7 +136,7 @@ export default async function OwnerLanding() {
             >
               무상 테스트 / 가볍게 문의하기 →
             </a>
-            <span className="text-xs text-white/70 sm:text-sm">설치비 0원 · 1개월 무료 베타 · 부담 없이 시작</span>
+            <span className="text-xs text-white/70 sm:text-sm">렌탈비 0원 · 무료 베타에도 수익 20% 정산 · 부담 없이 시작</span>
           </div>
         </div>
         <div className="h-6 w-full bg-gray-50" style={{ clipPath: 'ellipse(75% 100% at 50% 100%)' }} />
@@ -306,22 +306,37 @@ export default async function OwnerLanding() {
             <li className="flex gap-2.5">
               <span className="mt-0.5 shrink-0 text-indigo-500">✓</span>
               <span className="break-keep">
+                <b className="text-gray-900">렌탈비 0원</b> — 설치비, 렌탈비 전혀 없습니다. 실제 팬들의 반응만 편하게 확인해 보세요.
+              </span>
+            </li>
+            <li className="flex gap-2.5">
+              <span className="mt-0.5 shrink-0 text-indigo-500">✓</span>
+              <span className="break-keep">
+                <b className="text-gray-900">베타 기간에도 수익 20% 정산</b> — 무료로 써보는 동안에도 인쇄 매출의 20%를 그대로 정산해 드립니다. 테스트만 해도 매장에 수익이 남아요.
+              </span>
+            </li>
+            <li className="flex gap-2.5">
+              <span className="mt-0.5 shrink-0 text-indigo-500">✓</span>
+              <span className="break-keep">
                 <b className="text-gray-900">공간 부담 최소</b> — 부스가 아니라 작은 인화기라, 매장 한 켠이면 충분합니다. 테이블을 통째로 비울 필요가 없어요.
               </span>
             </li>
             <li className="flex gap-2.5">
               <span className="mt-0.5 shrink-0 text-indigo-500">✓</span>
               <span className="break-keep">
-                <b className="text-gray-900">비용 0원</b> — 설치비, 렌탈비 전혀 없습니다. 실제 팬들의 반응만 편하게 확인해 보세요.
-              </span>
-            </li>
-            <li className="flex gap-2.5">
-              <span className="mt-0.5 shrink-0 text-indigo-500">✓</span>
-              <span>
                 <b className="text-gray-900">즉시 회수 보장</b> — 매장 운영에 조금이라도 방해가 된다면 조건 없이 바로 기기를 빼드립니다.
               </span>
             </li>
           </ul>
+
+          <div className="mt-5 rounded-2xl bg-indigo-50 px-5 py-4 text-center">
+            <p className="text-balance break-keep text-[15px] font-extrabold text-indigo-700">
+              렌탈비 0원 + 수익 20% 정산까지.
+            </p>
+            <p className="mt-1 text-balance break-keep text-sm font-medium text-indigo-600/90">
+              부담은 0, 손해 볼 게 없으니 안 할 이유가 없죠.
+            </p>
+          </div>
 
           <div className="my-7 h-px bg-gray-100" />
 
