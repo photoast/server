@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import QRCode from 'qrcode'
 import LeadForm from './LeadForm'
 
-// 사장님이 직접 체험해 볼 수 있는 데모 이벤트 slug. (예: /test)
-const DEMO_SLUG = 'test'
+// 사장님이 직접 체험해 볼 수 있는 데모 이벤트 slug. (예: /hbd)
+const DEMO_SLUG = 'hbd'
 
 export const metadata: Metadata = {
   title: '생카 대관 필수 특전, 스마트 포토 인화 입점 제안 | PhotoToast',
@@ -202,7 +202,7 @@ export default async function OwnerLanding() {
                 href={demoUrl}
                 className="mt-4 inline-block rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-bold text-white transition hover:opacity-90"
               >
-                PC에서는 여기를 눌러 체험 →
+                여기를 눌러서도 접속 가능합니다 →
               </a>
             </div>
           </div>
