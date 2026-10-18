@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { drawWeddingFrame, WEDDING_STYLES, weddingBundle, type WeddingOptions } from '@/lib/weddingFrames'
+import { drawWeddingFrame, WEDDING_GROUPS, WEDDING_STYLES, weddingBundle, type WeddingOptions } from '@/lib/weddingFrames'
 import './studio.css'
 
 const initial: WeddingOptions = { style: 'vows', names: '영근 · 예진', date: '', title: 'Our wedding day', accent: '#687e61', nameFont: 'serif' }
@@ -14,6 +14,7 @@ export default function FrameStudio() {
   const [photos, setPhotos] = useState<(HTMLImageElement | null)[]>([null, null, null])
   const [message, setMessage] = useState(''), [ready, setReady] = useState(false), [busy, setBusy] = useState(false)
   const [selected, setSelected] = useState(false)
+  const [group, setGroup] = useState<string>('all')
   const canvases = useRef<(HTMLCanvasElement | null)[]>([])
   const revision = useRef(0)
   useEffect(() => {
@@ -58,7 +59,7 @@ export default function FrameStudio() {
   }
   return <main className="wedding-studio">
     <header className="ws-header"><a href="/admin">PHOTO TOAST <span>/ FRAME STUDIO</span></a><span>웨딩 컬렉션 01</span></header>
-    <div className="ws-intro"><p className="ws-eyebrow">MADE FOR YOUR DAY</p><h1>두 사람의 날을,<br />오래 간직할 프레임으로.</h1><p>이름과 색을 담고, 세 가지 디자인을 나란히 비교해 보세요.</p></div>
+    <div className="ws-intro"><p className="ws-eyebrow">MADE FOR YOUR DAY</p><h1>두 사람의 날을,<br />오래 간직할 프레임으로.</h1><p>이름과 색을 담고, 취향에 맞는 프레임을 골라보세요.</p></div>
     <div className="ws-workspace"><aside className="ws-controls">
       <div className="ws-section-title"><span>01</span><h2>우리의 이야기</h2></div>
       <label>두 사람의 이름<input value={options.names} maxLength={28} onChange={e => change('names', e.target.value)} /></label>
@@ -70,10 +71,11 @@ export default function FrameStudio() {
       <div className="ws-photo-inputs">{[0, 1, 2].map(i => <label key={i} className="ws-photo-input">{photos[i] ? `${i + 1}번 사진 교체` : `${i + 1}번 사진 선택`}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={e => { void photo(e.target.files?.[0], i); e.target.value = '' }} /></label>)}</div>
       {photos.some(Boolean) && <button className="ws-reset" onClick={() => setPhotos([null, null, null])}>사진 지우기</button>}
     </aside><section className="ws-results" aria-label="프레임 디자인 비교">
-      <div className="ws-results-heading"><h2>하나의 이야기, 세 가지 무드</h2><span>2×6 · 동일한 사진 3칸</span></div>
-      <p className="ws-swipe">옆으로 넘겨 세 가지 디자인을 비교해 보세요 →</p>
-      <div className="ws-designs">{WEDDING_STYLES.map((style, i) => <button className={`ws-design ${options.style === style.id ? 'is-selected' : ''}`} key={style.id} aria-pressed={options.style === style.id} onClick={() => { change('style', style.id); setSelected(true) }}>
-        <div className="ws-paper"><canvas ref={node => { canvases.current[i] = node }} aria-label={`${style.name} 미리보기`} /></div><div className="ws-design-label"><span>0{i + 1}</span><h3>{style.name}</h3><span className="ws-check">{options.style === style.id ? '✓' : '○'}</span></div><p>{style.description}</p>
+      <div className="ws-results-heading"><h2>하나의 이야기, 열다섯 가지 무드</h2><span>2×6 · 동일한 사진 3칸</span></div>
+      <p className="ws-swipe">옆으로 넘겨 디자인을 비교해 보세요 →</p>
+      <div className="ws-filters" role="group" aria-label="템플릿 분류">{WEDDING_GROUPS.map(item => <button key={item.id} aria-pressed={group === item.id} onClick={() => { setGroup(item.id); if (item.id !== 'all' && WEDDING_STYLES.find(s => s.id === options.style)?.group !== item.id) { const first = WEDDING_STYLES.find(s => s.group === item.id); if (first) change('style', first.id) } }}>{item.name}<span>{item.id === 'all' ? WEDDING_STYLES.length : WEDDING_STYLES.filter(s => s.group === item.id).length}</span></button>)}</div>
+      <div className="ws-designs">{WEDDING_STYLES.map((style, i) => <button hidden={group !== 'all' && group !== style.group} className={`ws-design ${options.style === style.id ? 'is-selected' : ''}`} key={style.id} aria-pressed={options.style === style.id} onClick={() => { change('style', style.id); setSelected(true) }}>
+        <div className="ws-paper"><canvas ref={node => { canvases.current[i] = node }} aria-label={`${style.name} 미리보기`} /></div><div className="ws-design-label"><span>{String(i + 1).padStart(2, '0')}</span><h3>{style.name}</h3><span className="ws-check">{options.style === style.id ? '✓' : '○'}</span></div><p>{style.description}</p>
       </button>)}</div>
       <div className="ws-export"><div><span className="ws-eyebrow">YOUR KEEPSAKE</span><h2>{WEDDING_STYLES.find(s => s.id === options.style)?.name}</h2><p>600 × 1800px · 300ppi 기준 · 슬롯 내부 완전 투명</p></div><div className="ws-export-buttons"><button disabled={!ready || busy} onClick={() => void exportFile('png')}>투명 프레임 PNG ↓</button><button className="secondary" disabled={!ready || busy} onClick={() => void exportFile('json')}>포토토스트 레이아웃 ↓</button><button className="secondary" disabled={!ready || busy} onClick={() => void exportFile('preview')}>사진 포함 미리보기 ↓</button></div></div>
       <p className="ws-status" role="status">{message || (!ready ? '인화용 폰트를 준비하고 있어요…' : selected ? '선택한 디자인으로 내려받습니다.' : '마음에 드는 디자인을 선택해 주세요.')}</p>

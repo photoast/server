@@ -25,3 +25,6 @@ TypeScript noEmit passed. Browser QA: 1440px desktop, 390px phone; name edits, b
 
 ## Limits
 Template-driven first version, not reference-image extraction or arbitrary AI generation. Photo crop is centered; custom crop and multi-event accounts/billing are future scope. No physical print verified. The new local studio needs no account; existing admin editor and storage behavior remain as configured in the application. No database writes or cloud uploads were performed in QA.
+
+## Collection expansion
+Expanded to 15 original templates (12 additions), retaining all canonical photo geometry. Categories: minimal 4, typography 4, line drawing 4, natural 3. Category selection moves the active selection to the first visible template if needed; chosen design remains the export source. No new fonts, third-party art, generated images or services. Browser QA verified 9,408,960 photo-hole pixels across all 15 templates, all category filters, selected JSON export, desktop 1440px/mobile 390px and no page errors or mobile overflow. Visual review found the monogram seal too close to the last photo; reduced its radius and lowered it to add breathing room, then re-rendered. Physical print remains unverified.
