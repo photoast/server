@@ -1583,7 +1583,7 @@ function AdminPageInner() {
           {/* Layout Management */}
           <UICard>
             <div className="flex items-center justify-between mb-3">
-              <UISectionHeading title="레이아웃 관리" subtitle="드래그로 순서 변경 · 클릭하여 편집" />
+              <div><UISectionHeading title="레이아웃 관리" subtitle="드래그로 순서 변경 · 클릭하여 편집" /><a href="/frame-studio" className="text-sm text-green-700 underline">웨딩 프레임 스튜디오 ↗</a></div>
               <UIButton size="sm" onClick={() => setShowLayoutCreate(prev => !prev)}>
                 {showLayoutCreate ? '취소' : '+ 새 레이아웃'}
               </UIButton>
