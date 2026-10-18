@@ -5,6 +5,8 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import QRCode from 'qrcode'
 import { logClientError } from '@/lib/errorLogger'
+import type { FrameLayout } from '@/lib/types'
+import BoothLayoutPreview from '@/app/components/BoothLayoutPreview'
 import { UIButton, UICard, UIFormField, UITextInput, UIStatusBanner, UIBadge, UISectionHeading } from '@/app/components/ui'
 
 type PrintMethod = 'email' | 'polling' | 'epson_api' | 'test'
@@ -48,6 +50,7 @@ interface Event {
   availableLayouts?: string[]
   boothLayoutId?: string
   boothCountdownSeconds?: number
+  boothSampleImageUrl?: string
   price?: number
   authCodeRequired?: boolean
   paymentMethods?: ('card' | 'kakaopay' | 'naverpay')[]
@@ -76,6 +79,28 @@ function getBoothCaptureCount(layout: { slots: { x: number; y: number; width: nu
       : null
   })
   return offsets.every(offset => offset !== null && offset === offsets[0]) ? half : layout.slots.length
+}
+
+async function prepareBoothSample(file: File): Promise<File> {
+  const image = await createImageBitmap(file, { imageOrientation: 'from-image' })
+  try {
+    const scale = Math.min(1, 1600 / Math.max(image.width, image.height))
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.max(1, Math.round(image.width * scale))
+    canvas.height = Math.max(1, Math.round(image.height * scale))
+    const context = canvas.getContext('2d')
+    if (!context) throw new Error('샘플 사진을 준비하지 못했습니다.')
+    context.fillStyle = '#FFFFFF'
+    context.fillRect(0, 0, canvas.width, canvas.height)
+    context.drawImage(image, 0, 0, canvas.width, canvas.height)
+    const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob(
+      value => value ? resolve(value) : reject(new Error('샘플 사진을 준비하지 못했습니다.')),
+      'image/jpeg', .88,
+    ))
+    return new File([blob], 'booth-sample.jpg', { type: 'image/jpeg' })
+  } finally {
+    image.close()
+  }
 }
 
 interface DeviceInfo {
@@ -203,7 +228,8 @@ function AdminPageInner() {
   const [authCodeGenerating, setAuthCodeGenerating] = useState(false)
 
   // Event layouts (FrameLayout-based)
-  const [eventLayouts, setEventLayouts] = useState<Record<string, { _id: string; name: string; printSize: string; slots: any[]; isPreset?: boolean; order?: number; visible?: boolean; price?: number }[]>>({})
+  const [eventLayouts, setEventLayouts] = useState<Record<string, FrameLayout[]>>({})
+  const [boothSampleUploading, setBoothSampleUploading] = useState(false)
   const [dragLayoutId, setDragLayoutId] = useState<string | null>(null)
   const [dragOverLayoutId, setDragOverLayoutId] = useState<string | null>(null)
   const [showLayoutCreate, setShowLayoutCreate] = useState(false)
@@ -541,7 +567,7 @@ function AdminPageInner() {
     }
   }
 
-  const handleUpdateEvent = async (eventId: string, updates: { name?: string; slug?: string; printerId?: string; availableLayouts?: string[]; boothLayoutId?: string; boothCountdownSeconds?: number; price?: number; paymentMethods?: ('card' | 'kakaopay' | 'naverpay')[]; backgroundColors?: string[]; donation?: Event['donation']; logoUrl?: string; contactPhone?: string; authCodeRequired?: boolean }) => {
+  const handleUpdateEvent = async (eventId: string, updates: { name?: string; slug?: string; printerId?: string; availableLayouts?: string[]; boothLayoutId?: string; boothCountdownSeconds?: number; boothSampleImageUrl?: string; price?: number; paymentMethods?: ('card' | 'kakaopay' | 'naverpay')[]; backgroundColors?: string[]; donation?: Event['donation']; logoUrl?: string; contactPhone?: string; authCodeRequired?: boolean }) => {
     try {
       const updateRes = await fetch(`/api/events/${eventId}`, {
         method: 'PATCH',
@@ -551,7 +577,8 @@ function AdminPageInner() {
 
       if (!updateRes.ok) throw new Error('Failed to update event')
 
-      fetchEvents()
+      await fetchEvents()
+      return true
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to update event'
       setError(errorMessage)
@@ -559,6 +586,7 @@ function AdminPageInner() {
         eventId,
         updates,
       })
+      return false
     }
   }
 
@@ -1769,6 +1797,48 @@ function AdminPageInner() {
                     </button>
                   ))}
                 </div>
+              </UIFormField>
+              <UIFormField label="첫 화면 샘플 사진" hint="올린 사진을 선택한 레이아웃의 각 사진 칸에 넣어 보여줍니다. 샘플은 촬영·인화에 사용되지 않습니다.">
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className={`inline-flex min-h-11 items-center rounded-xl bg-blue-50 px-4 text-sm font-semibold text-blue-700 ${boothSampleUploading ? 'opacity-50' : 'cursor-pointer hover:bg-blue-100'}`}>
+                    {boothSampleUploading ? '샘플 저장 중…' : event.boothSampleImageUrl ? '샘플 사진 변경' : '샘플 사진 올리기'}
+                    <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={boothSampleUploading}
+                      onChange={async e => {
+                        const file = e.target.files?.[0]
+                        e.target.value = ''
+                        if (!file) return
+                        if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 8 * 1024 * 1024) {
+                          setError('샘플은 8MB 이하 JPG, PNG, WebP 사진을 선택해 주세요.')
+                          return
+                        }
+                        setBoothSampleUploading(true)
+                        setError('')
+                        try {
+                          const body = new FormData()
+                          body.append('file', await prepareBoothSample(file))
+                          body.append('type', 'booth-sample')
+                          const response = await fetch('/api/upload', { method: 'POST', body })
+                          const data = await response.json()
+                          if (!response.ok || !data.url) throw new Error(data.error || '샘플 사진을 올리지 못했습니다.')
+                          await handleUpdateEvent(event._id, { boothSampleImageUrl: data.url })
+                        } catch (err) {
+                          setError(err instanceof Error ? err.message : '샘플 사진을 저장하지 못했습니다.')
+                        } finally {
+                          setBoothSampleUploading(false)
+                        }
+                      }} />
+                  </label>
+                  {event.boothSampleImageUrl && <button type="button" disabled={boothSampleUploading}
+                    onClick={() => handleUpdateEvent(event._id, { boothSampleImageUrl: '' })}
+                    className="min-h-11 rounded-xl border border-gray-200 bg-white px-4 text-sm text-gray-600">샘플 제거</button>}
+                  <span className="text-xs text-gray-400">JPG · PNG · WebP, 최대 8MB</span>
+                </div>
+                {(() => {
+                  const boothLayout = layouts.find(layout => layout._id === event.boothLayoutId)
+                  return boothLayout ? <div className="mt-3 flex h-72 items-center justify-center rounded-xl border border-gray-200 bg-gray-100 p-4">
+                    <BoothLayoutPreview layout={boothLayout} sampleImageUrl={event.boothSampleImageUrl} photoCount={getBoothCaptureCount(boothLayout)} />
+                  </div> : <p className="mt-2 text-xs text-gray-500">촬영 레이아웃을 선택하면 첫 화면 미리보기가 표시됩니다.</p>
+                })()}
               </UIFormField>
             </div>
           </UICard>

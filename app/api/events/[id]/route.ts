@@ -39,7 +39,7 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const { name, slug, printerId, availableLayouts, price, paymentMethods, backgroundColors, donation, logoUrl, contactPhone, authCodeRequired, boothLayoutId, boothCountdownSeconds } = body
+    const { name, slug, printerId, availableLayouts, price, paymentMethods, backgroundColors, donation, logoUrl, contactPhone, authCodeRequired, boothLayoutId, boothCountdownSeconds, boothSampleImageUrl } = body
 
     const updates: any = {}
     if (name) updates.name = name
@@ -65,6 +65,12 @@ export async function PATCH(
     if (body.endedAt !== undefined) updates.endedAt = body.endedAt
     if (authCodeRequired !== undefined) updates.authCodeRequired = authCodeRequired
     if (boothLayoutId !== undefined) updates.boothLayoutId = boothLayoutId || ''
+    if (boothSampleImageUrl !== undefined) {
+      if (typeof boothSampleImageUrl !== 'string' || (boothSampleImageUrl !== '' && !/^(https?:\/\/|\/uploads\/|\/api\/serve-image\/)/i.test(boothSampleImageUrl))) {
+        return NextResponse.json({ error: '샘플 사진 주소를 확인해 주세요.' }, { status: 400 })
+      }
+      updates.boothSampleImageUrl = boothSampleImageUrl
+    }
     if (boothCountdownSeconds !== undefined) {
       const seconds = Number(boothCountdownSeconds)
       if (!Number.isInteger(seconds) || seconds < 3 || seconds > 15) {

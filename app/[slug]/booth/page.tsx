@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Script from 'next/script'
 import { useParams, useSearchParams } from 'next/navigation'
+import BoothLayoutPreview from '@/app/components/BoothLayoutPreview'
+import type { FrameLayout } from '@/lib/types'
+import QRCode from 'qrcode'
 
 const NICEPAY_CLIENT_ID = process.env.NEXT_PUBLIC_NICEPAY_CLIENT_ID || 'S2_af4543a0be4d49a98122e01ec2059a56'
 
@@ -32,6 +35,7 @@ type BoothEvent = {
   endedAt?: string | null
   boothLayoutId?: string
   boothCountdownSeconds?: number
+  boothSampleImageUrl?: string
   isTestPrinter?: boolean
 }
 
@@ -43,7 +47,9 @@ type BoothLayout = {
   canvasWidth: number
   canvasHeight: number
   backgroundColor?: string
-  slots: { id: string; x: number; y: number; width: number; height: number }[]
+  slots: FrameLayout['slots']
+  frameLayers?: FrameLayout['frameLayers']
+  frameUrl?: string | null
   price?: number
   visible?: boolean
 }
@@ -90,6 +96,11 @@ export default function WeddingBoothPage() {
   // The printer API counts sheets/jobs. A 2x6 sheet is cut into two strips.
   const [printQuantity, setPrintQuantity] = useState(1)
   const [stageSize, setStageSize] = useState({ width: 0, height: 0 })
+  const [resultJobId, setResultJobId] = useState<string | null>(null)
+  const [downloadQr, setDownloadQr] = useState('')
+  const [qrError, setQrError] = useState('')
+  const [returnSeconds, setReturnSeconds] = useState(30)
+  const [paymentOpen, setPaymentOpen] = useState(false)
 
   useEffect(() => {
     if (screen !== 'shoot' || !stageRef.current) return
@@ -278,6 +289,8 @@ export default function WeddingBoothPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || '인쇄 요청을 보내지 못했어요.')
+      setResultJobId(data.jobIds?.[0] || null)
+      if (Number.isInteger(data.quantity) && data.quantity >= 1 && data.quantity <= 10) setPrintQuantity(data.quantity)
       setScreen('done')
     } catch (err) {
       setError(err instanceof Error ? err.message : '인쇄 중 문제가 생겼어요.')
@@ -320,16 +333,25 @@ export default function WeddingBoothPage() {
     localStorage.setItem('pendingLayoutId', layout._id)
     localStorage.setItem('pendingBoothQuantity', String(printQuantity))
     if (authCode) localStorage.setItem('pendingAuthCode', authCode)
-    window.AUTHNICE.requestPay({
-      clientId: NICEPAY_CLIENT_ID,
-      method: 'card',
-      orderId: `PRINT_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
-      amount: price,
-      goodsName: `${layout.name} ${printQuantity * (layout.printSize === '2x6' ? 2 : 1)}장`,
-      returnUrl: `${window.location.origin}/api/payment/nicepay-return`,
-      mallReserved: window.location.pathname,
-      fnError: result => setError(result.errorMsg || '결제를 완료하지 못했어요.'),
-    })
+    setPaymentOpen(true)
+    try {
+      window.AUTHNICE.requestPay({
+        clientId: NICEPAY_CLIENT_ID,
+        method: 'card',
+        orderId: `PRINT_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+        amount: price,
+        goodsName: `${layout.name} ${printQuantity * (layout.printSize === '2x6' ? 2 : 1)}장`,
+        returnUrl: `${window.location.origin}/api/payment/nicepay-return`,
+        mallReserved: window.location.pathname,
+        fnError: result => {
+          setPaymentOpen(false)
+          setError(result.errorMsg || '결제를 완료하지 못했어요.')
+        },
+      })
+    } catch (err) {
+      setPaymentOpen(false)
+      throw err
+    }
   }
 
   const handlePrintAction = async () => {
@@ -389,7 +411,10 @@ export default function WeddingBoothPage() {
             authCode: localStorage.getItem('pendingAuthCode'),
           }),
         })
-        if (!print.ok) throw new Error((await print.json()).error || '인쇄 요청을 보내지 못했어요.')
+        const printData = await print.json()
+        if (!print.ok) throw new Error(printData.error || '인쇄 요청을 보내지 못했어요.')
+        setResultJobId(printData.jobIds?.[0] || null)
+        if (Number.isInteger(printData.quantity) && printData.quantity >= 1 && printData.quantity <= 10) setPrintQuantity(printData.quantity)
         localStorage.removeItem('pendingPrintUrl')
         localStorage.removeItem('pendingLayoutId')
         localStorage.removeItem('pendingBoothQuantity')
@@ -405,7 +430,27 @@ export default function WeddingBoothPage() {
     void complete()
   }, [searchParams, slug])
 
-  const startAgain = () => {
+  useEffect(() => {
+    if (screen !== 'done' || !resultJobId) {
+      setDownloadQr('')
+      return
+    }
+    let active = true
+    setDownloadQr('')
+    setQrError('')
+    const url = `${window.location.origin}/result/${encodeURIComponent(resultJobId)}?download=1`
+    QRCode.toDataURL(url, { width: 320, margin: 3, errorCorrectionLevel: 'M', color: { dark: '#392f27', light: '#FFFFFF' } })
+      .then(data => { if (active) setDownloadQr(data) })
+      .catch(() => { if (active) setQrError('QR을 불러오지 못했어요. 아래 저장 페이지를 열어 주세요.') })
+    return () => { active = false }
+  }, [screen, resultJobId])
+
+  const startAgain = useCallback(() => {
+    stopCamera()
+    setBusy(false)
+    setCountdown(null)
+    setReturnSeconds(30)
+    setPaymentOpen(false)
     setPhotos([])
     photosRef.current = []
     setPreviewUrl('')
@@ -413,9 +458,29 @@ export default function WeddingBoothPage() {
     setCustomerEmail('')
     setNeedEmail(false)
     setPrintQuantity(1)
+    setResultJobId(null)
+    setDownloadQr('')
+    setQrError('')
     setError('')
     setScreen('welcome')
-  }
+  }, [stopCamera])
+
+  useEffect(() => {
+    setReturnSeconds(30)
+    if ((screen !== 'preview' && screen !== 'done') || busy || paymentOpen) return
+    const deadline = Date.now() + 30_000
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000))
+      setReturnSeconds(remaining)
+      if (remaining === 0) startAgain()
+    }
+    const interval = window.setInterval(tick, 250)
+    document.addEventListener('visibilitychange', tick)
+    return () => {
+      window.clearInterval(interval)
+      document.removeEventListener('visibilitychange', tick)
+    }
+  }, [screen, busy, paymentOpen, startAgain])
 
   const ended = Boolean(event?.endedAt && new Date(event.endedAt).getTime() <= Date.now())
   const photoCount = layout ? getCaptureCount(layout) : 0
@@ -441,13 +506,23 @@ export default function WeddingBoothPage() {
               <video ref={videoRef} autoPlay muted playsInline className="booth-video" />
               <div className="booth-viewfinder"><span /><span /><span /><span /></div>
               <span className="booth-crop-label">인화되는 사진 영역</span>
+              {!busy && <div className="booth-start-overlay">
+                <button type="button" className="booth-shutter-start" onClick={captureSequence} disabled={!cameraReady}>
+                  <strong>{cameraReady ? '촬영 시작' : '카메라 준비 중…'}</strong>
+                  <span>{cameraReady ? `누르면 ${event.boothCountdownSeconds ?? 7}초 뒤에 찍어요` : '카메라 권한을 허용해 주세요'}</span>
+                </button>
+                <p>한 번만 누르면 {photoCount}장 자동 촬영</p>
+              </div>}
             </div>
             <div className="booth-live-label"><span /> {cameraReady ? '셀카 모드' : '카메라 준비 중'}</div>
             <div className="booth-camera-instruction" aria-live="polite">{busy ? `${Math.min(photos.length + 1, photoCount)}번째 사진 · 카메라를 봐 주세요` : '모두 화면 안에 들어오도록 모여 주세요'}</div>
             <div className="booth-shot-progress">{Array.from({ length: photoCount }, (_, index) => <span key={index} className={index < photos.length ? 'is-shot' : ''}>{index + 1}</span>)}</div>
             {countdown !== null && <div className="booth-countdown" key={`${photos.length}-${countdown}`}>{countdown}</div>}
           </>}
-          {screen === 'welcome' && <div className="booth-welcome-art"><div className="booth-art-frame"><div className="booth-art-spark">✳</div><div className="booth-art-placeholder"><span>♡</span></div><div className="booth-art-caption">THE WEDDING DAY<br /><small>FOUR LITTLE MEMORIES</small></div></div><span className="booth-art-stamp">KEEP<br />THIS<br />MOMENT</span></div>}
+          {screen === 'welcome' && (layout ? <>
+            <div className="booth-welcome-layout"><BoothLayoutPreview layout={layout} sampleImageUrl={event.boothSampleImageUrl} photoCount={photoCount} /></div>
+            <div className="booth-welcome-layout-caption"><strong>{layout.name}</strong><span>{event.boothSampleImageUrl ? '샘플 미리보기 · 실제로는 직접 촬영한 사진이 들어가요' : '이 프레임에 직접 촬영한 사진이 들어가요'}</span></div>
+          </> : <div className="booth-message"><h2>촬영 프레임 준비 중</h2><p>관리자가 프레임을 선택하면 여기에 보여요.</p></div>)}
           {(screen === 'preview' || screen === 'sending' || screen === 'done') && previewUrl && <div className="booth-print-preview"><img src={previewUrl} alt={`${layout?.name || '사진'} ${screen === 'done' ? '인화 요청한 사진' : '인화 미리보기'}`} /></div>}
           {(screen === 'composing' || (screen === 'sending' && !previewUrl)) && <div className="booth-message"><span className="booth-spinner"/><h2>{screen === 'composing' ? '사진을 예쁘게 담고 있어요' : '사진을 보내고 있어요'}</h2><p>잠시만 기다려 주세요.</p></div>}
         </section>
@@ -467,8 +542,7 @@ export default function WeddingBoothPage() {
             </>}
           </>}
           {screen === 'shoot' && <>
-            <div className="booth-shoot-summary"><strong>{busy ? `${photos.length} / ${photoCount}장 촬영 완료` : '모두 사진 안에 들어왔나요?'}</strong><p>{busy ? '포즈를 바꿔 주세요. 다음 사진은 자동으로 찍어요.' : '지금 보이는 사진 영역 그대로 인화돼요.'}</p></div>
-            <button className="booth-primary" onClick={captureSequence} disabled={busy || !cameraReady}>{busy ? '자동으로 촬영 중이에요' : cameraReady ? '준비됐어요! 촬영 시작' : '카메라 준비 중…'} <span aria-hidden="true">◎</span></button>
+            <div className="booth-shoot-summary"><strong>{busy ? `${photos.length} / ${photoCount}장 촬영 완료` : '화면 가운데 ‘촬영 시작’을 눌러 주세요'}</strong><p>{busy ? '포즈를 바꿔 주세요. 다음 사진은 자동으로 찍어요.' : `누른 뒤 ${event.boothCountdownSeconds ?? 7}초마다 한 장씩 찍어요. 보이는 사진 영역 그대로 인화돼요.`}</p></div>
             <button className="booth-text-button" disabled={busy} onClick={() => { stopCamera(); setScreen('welcome') }}>처음으로</button>
           </>}
           {screen === 'preview' && <>
@@ -485,13 +559,26 @@ export default function WeddingBoothPage() {
             </div>
             <div className="booth-preview-actions">
             <div className="booth-price">{price > 0 ? `총 ${(price * printQuantity).toLocaleString()}원 · ${photoQuantity}장` : `${photoQuantity}장 무료 인화`}</div>
-            <button className="booth-primary" onClick={handlePrintAction} disabled={busy}>{busy ? '처리 중이에요…' : price > 0 ? `${photoQuantity}장 결제하고 인화하기` : `${photoQuantity}장 인화하기`} <span aria-hidden="true">→</span></button>
-            <button className="booth-text-button" onClick={() => { setPhotos([]); photosRef.current = []; setPreviewUrl(''); setError(''); void openCamera() }}>다시 촬영하기</button>
+            <button className="booth-primary" onClick={handlePrintAction} disabled={busy || paymentOpen}>{paymentOpen ? '결제를 진행해 주세요…' : busy ? '처리 중이에요…' : price > 0 ? `${photoQuantity}장 결제하고 인화하기` : `${photoQuantity}장 인화하기`} <span aria-hidden="true">→</span></button>
+            <button className="booth-text-button" disabled={busy || paymentOpen} onClick={() => { setPhotos([]); photosRef.current = []; setPreviewUrl(''); setError(''); void openCamera() }}>다시 촬영하기 <span className="booth-return-count">{returnSeconds}S</span></button>
+            <p className="booth-return-notice">{paymentOpen ? '결제 중에는 첫 화면으로 돌아가지 않아요.' : busy ? '인화 요청을 처리하고 있어요.' : `${returnSeconds}초 후 첫 화면으로 돌아가요.`}</p>
             </div>
           </>}
           {screen === 'composing' && <><h1>잠시만요,<br /><em>사진을 담고 있어요.</em></h1><p className="booth-description">관리자가 고른 레이아웃에 맞춰 사진을 합성하고 있어요.</p></>}
           {screen === 'sending' && <><h1>잠시만요,<br /><em>사진을 보내고 있어요.</em></h1><p className="booth-description">사진 {photoQuantity}장을 인화할 수 있도록 프린터로 요청을 보내고 있어요.</p></>}
-          {screen === 'done' && <><div className="booth-done-badge" role="status">{event.isTestPrinter ? '테스트 요청 완료' : '인화 요청 완료'} · {photoQuantity}장</div><h1>오늘의 사진을<br /><em>챙겨 주세요.</em></h1><p className="booth-description">{event.isTestPrinter ? '실제 출력 없이 테스트 요청을 기록했어요.' : `왼쪽 사진 ${photoQuantity}장을 프린터로 보냈어요. 인화된 사진을 챙긴 뒤 다음 촬영을 시작해 주세요.`}</p><button className="booth-primary" onClick={startAgain}>다음 촬영 시작하기 <span aria-hidden="true">→</span></button></>}
+          {screen === 'done' && <>
+            <div className="booth-done-details">
+              <div className="booth-done-badge" role="status">{event.isTestPrinter ? '테스트 요청 완료' : '인화 요청 완료'} · {photoQuantity}장</div>
+              <h1>오늘의 사진을<br /><em>챙겨 주세요.</em></h1>
+              <p className="booth-description">{event.isTestPrinter ? '실제 출력 없이 테스트 요청을 기록했어요.' : `사진 ${photoQuantity}장을 프린터로 보냈어요. 휴대폰에도 저장해 보세요.`}</p>
+              {resultJobId ? <div className="booth-download-card">
+                <div className="booth-download-qr">{downloadQr ? <img src={downloadQr} alt="휴대폰으로 사진 저장 페이지를 여는 QR 코드" width="160" height="160" /> : <span role="status">{qrError ? 'QR 준비 실패' : 'QR 준비 중…'}</span>}</div>
+                <div><strong>휴대폰에 사진 저장</strong><p>휴대폰 카메라로<br />QR을 스캔해 주세요.</p><small>저장 페이지는 24시간 동안 열려요.</small><a href={`/result/${encodeURIComponent(resultJobId)}?download=1`} target="_blank" rel="noopener noreferrer">사진 저장 페이지 열기 ↗</a></div>
+                {qrError && <p className="booth-qr-error" role="alert">{qrError}</p>}
+              </div> : <p className="booth-description">사진 저장 링크를 준비하지 못했어요. 현장 관리자에게 알려 주세요.</p>}
+            </div>
+            <div className="booth-done-actions"><button className="booth-primary" onClick={startAgain}>다시 촬영하기 <span className="booth-return-count">{returnSeconds}S</span></button><p className="booth-return-notice">{returnSeconds}초 후 첫 화면으로 돌아가요. QR을 먼저 스캔해 주세요.</p></div>
+          </>}
           {error && <div className="booth-error" role="alert">{error}</div>}
           {event.isTestPrinter && <div className="booth-test-note">테스트 프린터가 설정된 이벤트예요. 실제 사진은 출력되지 않습니다.</div>}
         </aside>

@@ -14,7 +14,8 @@ interface JobResult {
   paymentTid?: string
 }
 
-export default function ResultPage({ params }: { params: { jobId: string } }) {
+export default function ResultPage({ params, searchParams }: { params: { jobId: string }; searchParams?: { download?: string } }) {
+  const downloadOnly = searchParams?.download === '1'
   const [job, setJob] = useState<JobResult | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -22,17 +23,19 @@ export default function ResultPage({ params }: { params: { jobId: string } }) {
   const [cancelRequested, setCancelRequested] = useState(false)
   const [expired, setExpired] = useState(false)
   const [remainTime, setRemainTime] = useState('')
+  const [downloading, setDownloading] = useState(false)
+  const [downloadError, setDownloadError] = useState('')
 
   const fetchJob = useCallback(async () => {
     try {
       const res = await fetch(`/api/print-jobs/job/${params.jobId}`)
-      if (!res.ok) {
-        setError(res.status === 404 ? '인쇄 결과를 찾을 수 없습니다' : '불러오기 실패')
-        return
-      }
       if (res.status === 410) {
         setExpired(true)
         setError('')
+        return
+      }
+      if (!res.ok) {
+        setError(res.status === 404 ? '인쇄 결과를 찾을 수 없습니다' : '불러오기 실패')
         return
       }
       const data = await res.json()
@@ -70,20 +73,37 @@ export default function ResultPage({ params }: { params: { jobId: string } }) {
   }, [job?.expiresAt])
 
   const handleDownload = async () => {
-    if (!job) return
+    if (!job || downloading) return
     const url = job.imageUrl
     if (!url) return
+    setDownloading(true)
+    setDownloadError('')
     try {
       const res = await fetch(url)
+      if (!res.ok) throw new Error('사진을 불러오지 못했습니다.')
       const blob = await res.blob()
+      const file = new File([blob], `photo-${job.orderNumber || job.jobId}.jpg`, { type: blob.type || 'image/jpeg' })
+      if (navigator.canShare?.({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: '오늘의 사진' })
+          return
+        } catch (err) {
+          if (err instanceof Error && err.name === 'AbortError') return
+          // Browsers may reject sharing after fetching; use a download instead.
+        }
+      }
       const blobUrl = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = blobUrl
-      a.download = `photo-${job.orderNumber || job.jobId}.jpg`
+      a.download = file.name
+      document.body.appendChild(a)
       a.click()
-      URL.revokeObjectURL(blobUrl)
-    } catch {
-      alert('다운로드에 실패했습니다')
+      a.remove()
+      window.setTimeout(() => URL.revokeObjectURL(blobUrl), 10000)
+    } catch (err) {
+      if (!(err instanceof Error && err.name === 'AbortError')) setDownloadError('사진을 저장하지 못했어요. 다시 눌러 주세요.')
+    } finally {
+      setDownloading(false)
     }
   }
 
@@ -151,6 +171,7 @@ export default function ResultPage({ params }: { params: { jobId: string } }) {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center px-4 py-8">
       <div className="w-full max-w-md space-y-5">
+        {downloadOnly && <div className="text-center"><h1 className="text-2xl font-bold text-gray-900">오늘의 사진을 저장하세요</h1><p className="mt-2 text-base text-gray-500">아래 버튼을 눌러 휴대폰에 간직해 주세요.</p></div>}
         {/* Order Number */}
         {job.orderNumber && (
           <div className="text-center">
@@ -197,13 +218,16 @@ export default function ResultPage({ params }: { params: { jobId: string } }) {
           {/* Download */}
           <button
             onClick={handleDownload}
-            className="w-full py-3.5 rounded-2xl bg-gray-900 text-white font-semibold text-sm hover:bg-gray-800 transition-colors"
+            disabled={downloading}
+            className="w-full min-h-14 py-3.5 rounded-2xl bg-gray-900 text-white font-semibold text-base hover:bg-gray-800 transition-colors disabled:opacity-50"
           >
-            사진 저장
+            {downloading ? '사진 준비 중…' : '사진 저장 / 공유'}
           </button>
+          {downloadOnly && <p className="text-center text-sm text-gray-500">공유 메뉴가 열리면 이미지 저장을 선택해 주세요.</p>}
+          {downloadError && <p role="alert" className="text-center text-sm text-red-600">{downloadError}</p>}
 
           {/* Cancel - direct cancel for PENDING, request for others */}
-          {job.paymentTid && !job.refunded && job.status === 'PENDING' && (
+          {!downloadOnly && job.paymentTid && !job.refunded && job.status === 'PENDING' && (
             <button
               onClick={handleCancel}
               disabled={cancelling}
@@ -213,11 +237,11 @@ export default function ResultPage({ params }: { params: { jobId: string } }) {
             </button>
           )}
 
-          {job.paymentTid && !job.refunded && job.status === 'PRINTING' && (
+          {!downloadOnly && job.paymentTid && !job.refunded && job.status === 'PRINTING' && (
             <p className="text-center text-xs text-gray-400">현재 인쇄 중이므로 취소할 수 없습니다</p>
           )}
 
-          {job.paymentTid && !job.refunded && job.status !== 'PENDING' && job.status !== 'PRINTING' && !cancelRequested && (
+          {!downloadOnly && job.paymentTid && !job.refunded && job.status !== 'PENDING' && job.status !== 'PRINTING' && !cancelRequested && (
             <button
               onClick={handleCancelRequest}
               className="w-full py-3.5 rounded-2xl bg-white text-red-500 font-semibold text-sm border border-red-200 hover:bg-red-50 transition-colors"

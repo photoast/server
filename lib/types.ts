@@ -139,6 +139,7 @@ export interface Event {
   availableLayouts?: FrameType[]
   boothLayoutId?: string
   boothCountdownSeconds?: number
+  boothSampleImageUrl?: string
   puzzleEnabled?: boolean
   price?: number
   authCodeRequired?: boolean
