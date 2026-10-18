@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
+import ZoomableImage from '@/app/components/ZoomableImage'
 import ProposalSample from '@/app/components/ProposalSample'
 import type { FrameProposal } from '@/lib/frameProposals'
 import '@/app/frame-studio/studio.css'
@@ -40,7 +41,7 @@ export default function ProposalPage() {
       {proposal.selection && <p className="proposal-saved">현재 저장된 선택: <strong>{proposal.items.find(item => item.id === proposal.selection?.itemId)?.name}</strong></p>}
       <div className="proposal-grid">{proposal.items.map((item, i) => <section id={`design-${item.id}`} key={item.id} className={`proposal-card ${chosen === item.id ? 'chosen' : ''}`}>
         <div className="proposal-card-title"><span>{String(i + 1).padStart(2, '0')}</span><h2>{item.name}</h2></div>
-        <div className="proposal-images"><ProposalSample item={item} photos={proposal.photos} /><figure><div className="proposal-transparent"><img src={item.overlay} alt={`${item.name} 투명 프레임`} /></div><figcaption>프레임 · 사진 영역 투명</figcaption></figure></div>
+        <div className="proposal-images"><ProposalSample item={item} photos={proposal.photos} /><figure><div className="proposal-transparent"><ZoomableImage src={item.overlay} alt={`${item.name} 투명 프레임`} transparent /></div><figcaption>프레임 · 사진 영역 투명</figcaption></figure></div>
         <button className="proposal-choose" aria-pressed={chosen === item.id} disabled={busy} onClick={() => { setChosen(item.id); setMessage('') }}>{chosen === item.id ? '✓ 고른 디자인' : '이 디자인 고르기'}</button>
         <div className="proposal-downloads"><a href={item.overlay} download={`phototoast-${item.id}-frame.png`}>프레임 PNG ↓</a></div>
       </section>)}</div>

@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import type { ProposalItem } from '@/lib/frameProposals'
+import ZoomableImage from './ZoomableImage'
 import { WEDDING_SLOTS } from '@/lib/weddingFrames'
 
 const load = (src: string) => new Promise<HTMLImageElement>((resolve, reject) => {
@@ -31,7 +32,7 @@ export default function ProposalSample({ item, photos }: { item: ProposalItem; p
     return () => { cancelled = true; observer.disconnect() }
   }, [item.overlay, photos, retry])
   return <figure ref={ref}>
-    {src ? <img src={src} alt={`${item.name}에 샘플 사진을 넣은 모습`} /> : <div className="proposal-sample-loading">{error ? <button onClick={() => setRetry(n => n + 1)}>샘플 다시 불러오기</button> : '샘플을 준비하고 있어요…'}</div>}
+    {src ? <ZoomableImage src={src} alt={`${item.name}에 샘플 사진을 넣은 모습`} /> : <div className="proposal-sample-loading">{error ? <button onClick={() => setRetry(n => n + 1)}>샘플 다시 불러오기</button> : '샘플을 준비하고 있어요…'}</div>}
     <figcaption>사진을 담은 모습</figcaption>
     {src && <a className="proposal-sample-download" href={src} download={`phototoast-${item.id}-sample.${photos?.length ? 'png' : 'jpg'}`}>샘플 이미지 ↓</a>}
   </figure>
