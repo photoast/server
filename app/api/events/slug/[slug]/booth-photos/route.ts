@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getRandomPreviewConfig } from '@/lib/boothRandomPreviews'
 import { findEventBySlug, getRandomBoothPhotos, getLayoutById } from '@/lib/models'
 
 export const dynamic = 'force-dynamic'
@@ -14,14 +15,15 @@ export async function GET(_request: NextRequest, { params }: { params: { slug: s
     }
     const source = layout.boothPreviewSource || 'samples'
     const sampleUrls = Array.from(new Set([layout.testPreviewImageUrl, ...(layout.previewImageUrls || [])].filter((url): url is string => Boolean(url))))
-    const samplesOnly = source === 'samples' && sampleUrls.length > 0
+    const randomPreview = getRandomPreviewConfig(layout)
+    const samplesOnly = source === 'samples' && (sampleUrls.length > 0 || Boolean(randomPreview))
     const printed = samplesOnly ? [] : await getRandomBoothPhotos(event._id!.toString(), layout._id)
     const urls = Array.from(new Set([...(source === 'prints' ? [] : sampleUrls), ...printed.map(photo => photo.imageUrl)]))
     for (let i = urls.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1))
       ;[urls[i], urls[j]] = [urls[j], urls[i]]
     }
-    return NextResponse.json({ photos: urls.slice(0, 6).map(imageUrl => ({ imageUrl })), isSampleOnly: samplesOnly }, { headers: { 'Cache-Control': 'no-store' } })
+    return NextResponse.json({ photos: urls.slice(0, 6).map(imageUrl => ({ imageUrl })), isSampleOnly: samplesOnly, randomPreview }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (error) {
     console.error('Error loading booth photos:', error)
     return NextResponse.json({ error: 'Could not load photos' }, { status: 500 })

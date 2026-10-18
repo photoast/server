@@ -36,6 +36,16 @@ export interface FrameLayer {
   rotation?: number    // degrees (default 0)
 }
 
+export interface PreviewPoolPhoto {
+  id: string
+  imageUrl: string // cropped, ready for the photo slot
+  originalUrl: string // retained for crop editing
+  originalWidth: number
+  originalHeight: number
+  crop: { x: number; y: number; width: number; height: number }
+  aspectRatio: number
+}
+
 export interface FrameLayout {
   _id: string
   eventId: string
@@ -55,6 +65,7 @@ export interface FrameLayout {
   testImageUrls?: Record<string, string>
   testPreviewImageUrl?: string
   previewImageUrls?: string[]
+  previewPhotoPool?: PreviewPoolPhoto[]
   boothPreviewSource?: 'samples' | 'prints' | 'mixed'
   createdAt: string
   updatedAt: string

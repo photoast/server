@@ -1,11 +1,13 @@
 'use client'
 
+import type { RandomPreviewConfig } from '@/lib/boothRandomPreviews'
+import { renderRandomBoothPreviews } from '@/lib/renderRandomBoothPreviews'
 import { useEffect, useState, type CSSProperties } from 'react'
 
 type WallPhoto = { imageUrl: string }
 
-export default function BoothPhotoWall({ slug, initialImageUrls = [], initialSamplesOnly = false }: {
-  slug: string; initialImageUrls?: string[]; initialSamplesOnly?: boolean
+export default function BoothPhotoWall({ slug, initialImageUrls = [], initialSamplesOnly = false, initialRandomPreview }: {
+  slug: string; initialImageUrls?: string[]; initialSamplesOnly?: boolean; initialRandomPreview?: RandomPreviewConfig | null
 }) {
   const [photos, setPhotos] = useState<WallPhoto[]>(() => Array.from(new Set(initialImageUrls.filter(Boolean))).slice(0, 6).map(imageUrl => ({ imageUrl })))
   const [initialLoading, setInitialLoading] = useState(initialImageUrls.length === 0)
@@ -15,6 +17,7 @@ export default function BoothPhotoWall({ slug, initialImageUrls = [], initialSam
   useEffect(() => {
     const controller = new AbortController()
     let loading = false
+    let refreshed = false
     const refresh = async () => {
       if (document.hidden || loading) return
       loading = true
@@ -23,7 +26,16 @@ export default function BoothPhotoWall({ slug, initialImageUrls = [], initialSam
         if (!response.ok) return
         const data = await response.json()
         if (controller.signal.aborted || !Array.isArray(data.photos)) return
-        const next: WallPhoto[] = Array.from(new Set<string>(data.photos.filter((photo: WallPhoto) => typeof photo?.imageUrl === 'string' && photo.imageUrl).map((photo: WallPhoto) => photo.imageUrl))).slice(0, 6).map(imageUrl => ({ imageUrl }))
+        let next: WallPhoto[] = Array.from(new Set<string>(data.photos.filter((photo: WallPhoto) => typeof photo?.imageUrl === 'string' && photo.imageUrl).map((photo: WallPhoto) => photo.imageUrl))).slice(0, 6).map(imageUrl => ({ imageUrl }))
+        if (data.randomPreview) {
+          try {
+            const generated = await renderRandomBoothPreviews(data.randomPreview, 3, controller.signal)
+            if (!generated.length && !next.length) return
+            const merged = [...generated.map(imageUrl => ({imageUrl})), ...next]
+            for (let i=merged.length-1;i>0;i--) { const j=Math.floor(Math.random()*(i+1)); [merged[i],merged[j]]=[merged[j],merged[i]] }
+            next = merged.slice(0,6)
+          } catch { if (!next.length) return }
+        }
         // Preload the next set so the floating frames never flash empty.
         await Promise.all(next.map((photo: WallPhoto) => new Promise<void>(resolve => {
           const image = new Image()
@@ -34,6 +46,7 @@ export default function BoothPhotoWall({ slug, initialImageUrls = [], initialSam
           image.src = photo.imageUrl
         })))
         if (!controller.signal.aborted) {
+          refreshed = true
           setPhotos(next)
           setFailed([])
           setSamplesOnly(data.isSampleOnly === true)
@@ -44,6 +57,13 @@ export default function BoothPhotoWall({ slug, initialImageUrls = [], initialSam
         loading = false
         if (!controller.signal.aborted) setInitialLoading(false)
       }
+    }
+    if (initialRandomPreview) {
+      void renderRandomBoothPreviews(initialRandomPreview,3,controller.signal).then(images=>{
+        if (!refreshed && !controller.signal.aborted && images.length) {
+          setPhotos(previous=>[...images.map(imageUrl=>({imageUrl})),...previous].slice(0,6));setInitialLoading(false)
+        }
+      }).catch(()=>{})
     }
     void refresh()
     const interval = window.setInterval(() => void refresh(), 30_000)

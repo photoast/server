@@ -9,6 +9,14 @@ const compiled = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOpt
 const component = new Module(file)
 component.filename = file
 component.paths = Module._nodeModulePaths(path.dirname(file))
+const nativeRequire = Module.createRequire(path.resolve(__dirname, '../package.json'))
+function loadTs(file) {
+ const m=new Module(file);m.filename=file;m.paths=component.paths
+ m.require=id=>id.startsWith('@/')?loadTs(path.resolve(__dirname,'..',id.slice(2))+'.ts'):id.startsWith('./')?loadTs(path.resolve(path.dirname(file),id)+'.ts'):nativeRequire(id)
+ m._compile(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2020,module:ts.ModuleKind.CommonJS,esModuleInterop:true}}).outputText,file)
+ return m.exports
+}
+component.require=id=>id.startsWith('@/')?loadTs(path.resolve(__dirname,'..',id.slice(2))+'.ts'):nativeRequire(id)
 component._compile(compiled, file)
 const Wall = component.exports.default
 const gallery = renderToStaticMarkup(React.createElement(Wall, { slug: 'qa', initialImageUrls: ['/one.png', '/two.png', '/one.png'], initialSamplesOnly: true }))

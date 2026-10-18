@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getLayoutById, updateLayout, deleteLayout } from '@/lib/models'
+import { validPoolPhoto } from '@/lib/boothRandomPreviews'
 import { checkAuth } from '@/lib/middleware'
 
 export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
@@ -11,10 +12,13 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const body = await request.json()
-    const sampleFields = ['testImageUrls', 'testPreviewImageUrl', 'previewImageUrls', 'boothPreviewSource']
+    const sampleFields = ['testImageUrls', 'testPreviewImageUrl', 'previewImageUrls', 'boothPreviewSource', 'previewPhotoPool']
     if (sampleFields.some(field => body[field] !== undefined)) {
       if (!checkAuth(request)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
       const validUrl = (value: unknown) => typeof value === 'string' && value.length <= 4000 && /^(https?:\/\/|\/uploads\/|\/api\/serve-image\/)/i.test(value)
+      if (body.previewPhotoPool !== undefined && (!Array.isArray(body.previewPhotoPool) || body.previewPhotoPool.length > 50 || !body.previewPhotoPool.every((p: unknown) => validPoolPhoto(p,validUrl)) || new Set(body.previewPhotoPool.map((p: {id:string}) => p.id)).size !== body.previewPhotoPool.length)) {
+        return NextResponse.json({ error: '랜덤 사진과 크롭 영역을 확인해 주세요. 최대 50장까지 등록할 수 있어요.' }, { status: 400 })
+      }
       if (body.previewImageUrls !== undefined && (!Array.isArray(body.previewImageUrls) || body.previewImageUrls.length > 30 || !body.previewImageUrls.every(validUrl))) {
         return NextResponse.json({ error: '완성 미리보기는 올바른 사진 주소로 최대 30장까지 등록해 주세요.' }, { status: 400 })
       }

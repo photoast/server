@@ -6,6 +6,7 @@ import { useParams, useSearchParams } from 'next/navigation'
 import BoothPhotoWall from '@/app/components/BoothPhotoWall'
 import type { FrameLayout } from '@/lib/types'
 import QRCode from 'qrcode'
+import { getRandomPreviewConfig } from '@/lib/boothRandomPreviews'
 import { BoothCaptureSound } from '@/lib/boothCaptureSound'
 
 const NICEPAY_CLIENT_ID = process.env.NEXT_PUBLIC_NICEPAY_CLIENT_ID || 'S2_af4543a0be4d49a98122e01ec2059a56'
@@ -57,6 +58,7 @@ type BoothLayout = {
   testPreviewImageUrl?: string
   previewImageUrls?: string[]
   boothPreviewSource?: FrameLayout['boothPreviewSource']
+  previewPhotoPool?: FrameLayout['previewPhotoPool']
 }
 
 type Screen = 'welcome' | 'shoot' | 'composing' | 'preview' | 'sending' | 'done'
@@ -573,6 +575,7 @@ export default function WeddingBoothPage() {
           {screen === 'welcome' && (layout ? <BoothPhotoWall
             key={`${slug}-${layout._id}`}
             slug={slug}
+            initialRandomPreview={getRandomPreviewConfig({ ...layout, backgroundColor:layout.backgroundColor||'#FFFFFF', frameLayers:layout.frameLayers||[] } as FrameLayout)}
             initialImageUrls={layout.boothPreviewSource === 'prints' ? [] : [layout.testPreviewImageUrl, ...(layout.previewImageUrls || [])].filter((url): url is string => Boolean(url))}
             initialSamplesOnly={layout.boothPreviewSource !== 'mixed' && layout.boothPreviewSource !== 'prints'}
           /> : <div className="booth-message"><h2>촬영 프레임 준비 중</h2><p>관리자가 프레임을 선택하면 여기에 보여요.</p></div>)}
