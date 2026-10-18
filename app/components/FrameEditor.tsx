@@ -1,5 +1,6 @@
 'use client'
 
+import useSlotPhotoCrop from './useSlotPhotoCrop'
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { Stage, Layer, Rect, Image as KonvaImage, Transformer, Text, Line, Circle, Group } from 'react-konva'
 import type Konva from 'konva'
@@ -57,6 +58,7 @@ type LayerItem =
   | { type: 'frame'; id: string; name: string; zIndex: number; visible: boolean }
 
 export default function FrameEditor({ layout, onSave }: Props) {
+  const cropEditor = useSlotPhotoCrop()
   const [slots, setSlots] = useState<PhotoSlot[]>(layout.slots)
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null)
   const [selectedFrameLayerId, setSelectedFrameLayerId] = useState<string | null>(null)
@@ -1007,12 +1009,8 @@ export default function FrameEditor({ layout, onSave }: Props) {
   const handleTestImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file || !selectedSlotId) return
-    const url = URL.createObjectURL(file)
-    const img = new window.Image()
-    img.onload = () => {
-      setTestImages(prev => new Map(prev).set(selectedSlotId, img))
-    }
-    img.src = url
+    const slot = slots.find(s=>s.id===selectedSlotId)
+    if (slot) cropEditor.select([file],[slot],(id,img)=>setTestImages(prev=>new Map(prev).set(id,img)))
     e.target.value = ''
   }
 
@@ -1251,7 +1249,7 @@ export default function FrameEditor({ layout, onSave }: Props) {
           {showGrid ? '격자 끄기' : '# 격자'}
         </button>
 
-        <button onClick={handleSave} disabled={saving || testImagesLoading || failedTestImages.some(id => slots.some(slot => slot.id === id) && !testImages.has(id))}
+        <button onClick={handleSave} disabled={saving || cropEditor.active || testImagesLoading || failedTestImages.some(id => slots.some(slot => slot.id === id) && !testImages.has(id))}
           className="px-4 py-1.5 text-xs rounded-xl font-semibold bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50">
           {saving ? '저장 중...' : '저장'}
         </button>
@@ -1689,6 +1687,7 @@ export default function FrameEditor({ layout, onSave }: Props) {
                     <input ref={testImageInputRef} type="file" accept="image/*" className="hidden"
                       onChange={handleTestImageUpload} />
                   </label>
+                  {testImages.has(selectedSlot.id) && <button onClick={()=>cropEditor.edit(selectedSlot,testImages.get(selectedSlot.id)!, (id,img)=>setTestImages(prev=>new Map(prev).set(id,img)))} className="min-h-11 px-2 text-xs rounded-lg bg-green-50 text-green-800">사진 위치 조정</button>}
                   {testImages.has(selectedSlot.id) && (
                     <button onClick={() => removeTestImage(selectedSlot.id)}
                       className="px-2 py-1 text-[10px] rounded-lg bg-gray-100 text-gray-500 font-semibold hover:bg-gray-200">
@@ -2217,6 +2216,8 @@ export default function FrameEditor({ layout, onSave }: Props) {
           </div>
         </div>
       )}
+      {cropEditor.dialog}
+      {cropEditor.error && !cropEditor.active && <p role="alert" className="text-sm text-red-600">{cropEditor.error}</p>}
     </div>
   )
 }

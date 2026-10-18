@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { drawWeddingFrame, WEDDING_GROUPS, WEDDING_STYLES, weddingBundle, type WeddingOptions } from '@/lib/weddingFrames'
+import { drawWeddingFrame, WEDDING_SLOTS, WEDDING_GROUPS, WEDDING_STYLES, weddingBundle, type WeddingOptions } from '@/lib/weddingFrames'
 import './studio.css'
+import useSlotPhotoCrop from '@/app/components/useSlotPhotoCrop'
 import FrameStudioPublishing from '@/app/components/FrameStudioPublishing'
 
 const initial: WeddingOptions = { style: 'vows', names: '영근 · 예진', date: '', title: 'Our wedding day', accent: '#687e61', nameFont: 'serif', palette: 'concept' }
@@ -11,6 +12,8 @@ function download(blob: Blob, name: string) {
   anchor.href = url; anchor.download = name; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 export default function FrameStudio() {
+  const cropEditor = useSlotPhotoCrop()
+  const applyPhoto = (id: string,image:HTMLImageElement) => { const index = WEDDING_SLOTS.findIndex(slot=>slot.id===id); setPhotos(old=>old.map((p,i)=>i===index?image:p)); setMessage('') }
   const [options, setOptions] = useState<WeddingOptions>(initial)
   const [photos, setPhotos] = useState<(HTMLImageElement | null)[]>([null, null, null])
   const [message, setMessage] = useState(''), [ready, setReady] = useState(false), [busy, setBusy] = useState(false)
@@ -32,16 +35,7 @@ export default function FrameStudio() {
       .catch(() => { if (current === revision.current) setMessage('폰트를 불러오지 못했어요. 새로고침한 뒤 다시 시도해 주세요.') })
   }, [options, photos])
   function change<K extends keyof WeddingOptions>(key: K, value: WeddingOptions[K]) { setOptions(o => ({ ...o, [key]: value })); setMessage('') }
-  async function photo(file: File | undefined, index: number) {
-    if (!file) return
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 12 * 1024 * 1024) { setMessage('12MB 이하 JPG·PNG·WebP 사진을 선택해 주세요.'); return }
-    const url = URL.createObjectURL(file)
-    try {
-      const image = await new Promise<HTMLImageElement>((resolve, reject) => { const img = new Image(); img.onload = () => resolve(img); img.onerror = reject; img.src = url })
-      setPhotos(previous => previous.map((p, i) => i === index ? image : p)); setMessage('')
-    } catch { setMessage('사진을 읽지 못했어요. 다른 파일을 선택해 주세요.') }
-    finally { URL.revokeObjectURL(url) }
-  }
+  function photo(file: File | undefined, index: number) { if(file) cropEditor.select([file],[WEDDING_SLOTS[index]],applyPhoto) }
   async function exportFile(kind: 'png' | 'json' | 'preview') {
     if (!options.names.trim()) { setMessage('두 사람의 이름을 입력해 주세요.'); return }
     if (kind === 'preview' && photos.some(p => !p)) { setMessage('미리보기 사진 3장을 모두 선택해 주세요.'); return }
@@ -70,6 +64,7 @@ export default function FrameStudio() {
       <label>포인트 색상<div className="ws-colors">{['#687e61', '#343f35', '#7d6659', '#786578', '#303030'].map(color => <button key={color} style={{ background: color }} aria-label={`색상 ${color}`} aria-pressed={options.palette !== 'concept' && options.accent === color} onClick={() => { setOptions(o => ({ ...o, accent: color, palette: 'custom' })); setMessage('') }} />)}<input aria-label="직접 색상 선택" type="color" value={options.accent} onChange={e => { const color = e.target.value; setOptions(o => ({ ...o, accent: color, palette: 'custom' })); setMessage('') }} /></div><button className="ws-default-palette" aria-pressed={options.palette === 'concept'} onClick={() => change('palette', 'concept')}>컨셉 기본색{options.palette === 'concept' ? ' ✓' : '으로 돌아가기'}</button><small className="ws-palette-note">필름·딥 그린은 밝은 글씨를 유지합니다.</small></label>
       <div className="ws-section-title ws-photo-heading"><span>02</span><h2>사진으로 확인하기</h2></div><p className="ws-note">미리보기는 브라우저에서 처리합니다.<br />제안 링크를 만들면 완성 샘플이 저장됩니다.</p>
       <div className="ws-photo-inputs">{[0, 1, 2].map(i => <label key={i} className="ws-photo-input">{photos[i] ? `${i + 1}번 사진 교체` : `${i + 1}번 사진 선택`}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={e => { void photo(e.target.files?.[0], i); e.target.value = '' }} /></label>)}</div>
+      <div className="ws-photo-adjust">{photos.map((photo,i)=>photo&&<button key={i} onClick={()=>cropEditor.edit(WEDDING_SLOTS[i],photo,applyPhoto)}>{i+1}번 사진 위치 조정</button>)}</div>
       {photos.some(Boolean) && <button className="ws-reset" onClick={() => setPhotos([null, null, null])}>사진 지우기</button>}
     </aside><section className="ws-results" aria-label="프레임 디자인 비교">
       <div className="ws-results-heading"><h2>프레임 컬렉션 · {WEDDING_STYLES.length}가지 무드</h2><span>2×6 · 동일한 사진 3칸</span></div>
@@ -83,6 +78,8 @@ export default function FrameStudio() {
       <p className="ws-footnote">체크무늬는 투명 영역입니다. 실제 인화 전에는 사용하는 프린터의 2×6 규격과 재단 위치를 한 장 테스트해 주세요.</p>
       <FrameStudioPublishing options={options} photos={photos} ready={ready} />
     </section></div>
+    {cropEditor.dialog}
+    {cropEditor.error && !cropEditor.active && <p role="alert">{cropEditor.error}</p>}
     <footer className="ws-footer">PHOTO TOAST <span>사진은 크게. 장식은 조용하게. 기억은 오래도록.</span></footer>
   </main>
 }
