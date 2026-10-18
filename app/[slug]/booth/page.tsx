@@ -6,6 +6,7 @@ import { useParams, useSearchParams } from 'next/navigation'
 import BoothPhotoWall from '@/app/components/BoothPhotoWall'
 import type { FrameLayout } from '@/lib/types'
 import QRCode from 'qrcode'
+import { BoothCaptureSound } from '@/lib/boothCaptureSound'
 
 const NICEPAY_CLIENT_ID = process.env.NEXT_PUBLIC_NICEPAY_CLIENT_ID || 'S2_af4543a0be4d49a98122e01ec2059a56'
 
@@ -90,6 +91,11 @@ export default function WeddingBoothPage() {
   const [screen, setScreen] = useState<Screen>('welcome')
   const [photos, setPhotos] = useState<string[]>([])
   const [previewUrl, setPreviewUrl] = useState('')
+  const soundRef = useRef<BoothCaptureSound | null>(null)
+  const soundEnabledRef = useRef(true)
+  const [soundEnabled, setSoundEnabled] = useState(true)
+  const [soundUnavailable, setSoundUnavailable] = useState(false)
+  const [capturedFrame, setCapturedFrame] = useState<string | null>(null)
   const [countdown, setCountdown] = useState<number | null>(null)
   const [cameraReady, setCameraReady] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -105,6 +111,30 @@ export default function WeddingBoothPage() {
   const [qrError, setQrError] = useState('')
   const [returnSeconds, setReturnSeconds] = useState(30)
   const [paymentOpen, setPaymentOpen] = useState(false)
+
+  useEffect(() => {
+    try {
+      const enabled = localStorage.getItem('booth-sound') !== 'off'
+      soundEnabledRef.current = enabled; setSoundEnabled(enabled)
+    } catch {}
+    return () => soundRef.current?.close()
+  }, [])
+
+  const unlockSound = () => {
+    soundRef.current ||= new BoothCaptureSound()
+    void soundRef.current.unlock().then(ok => setSoundUnavailable(!ok))
+  }
+  const toggleSound = () => {
+    const enabled = !soundEnabledRef.current
+    soundEnabledRef.current = enabled; setSoundEnabled(enabled)
+    try { localStorage.setItem('booth-sound', enabled ? 'on' : 'off') } catch {}
+    if (enabled) unlockSound()
+  }
+
+  const playSound = (cue: 'tick' | 'shutter') => {
+    if (!soundEnabledRef.current) return
+    try { soundRef.current?.[cue]() } catch { setSoundUnavailable(true) }
+  }
 
   useEffect(() => {
     if (screen !== 'shoot' || !stageRef.current) return
@@ -124,6 +154,7 @@ export default function WeddingBoothPage() {
     streamRef.current?.getTracks().forEach(track => track.stop())
     streamRef.current = null
     setCameraReady(false)
+    setCapturedFrame(null)
   }, [])
 
   useEffect(() => {
@@ -214,10 +245,13 @@ export default function WeddingBoothPage() {
 
   const captureNextPhoto = (video: HTMLVideoElement, seconds: number) => {
     let remaining = seconds
+    setCapturedFrame(null)
     setCountdown(remaining)
+    if (remaining <= 3) playSound('tick')
     timerRef.current = setInterval(() => {
       remaining -= 1
       if (remaining > 0) {
+        if (remaining <= 3) playSound('tick')
         setCountdown(remaining)
         return
       }
@@ -249,24 +283,28 @@ export default function WeddingBoothPage() {
       context.drawImage(video,
         (video.videoWidth - sourceWidth) / 2, (video.videoHeight - sourceHeight) / 2,
         sourceWidth, sourceHeight, 0, 0, canvas.width, canvas.height)
-      photosRef.current = [...photosRef.current, canvas.toDataURL('image/jpeg', 0.92)]
+      const captured = canvas.toDataURL('image/jpeg', 0.92)
+      photosRef.current = [...photosRef.current, captured]
       setPhotos(photosRef.current)
       setCountdown(null)
-      if (layout && photosRef.current.length >= getCaptureCount(layout)) {
-        void finishCapture()
-      } else {
-        delayRef.current = window.setTimeout(() => {
-          delayRef.current = null
-          captureNextPhoto(video, Math.max(3, Math.min(15, event?.boothCountdownSeconds ?? 7)))
-        }, 900)
-      }
+      setCapturedFrame(captured)
+      playSound('shutter')
+      // Let every shot, including the last, land before progressing.
+      delayRef.current = window.setTimeout(() => {
+        delayRef.current = null
+        setCapturedFrame(null)
+        if (layout && photosRef.current.length >= getCaptureCount(layout)) void finishCapture()
+        else captureNextPhoto(video, Math.max(3, Math.min(15, event?.boothCountdownSeconds ?? 7)))
+      }, 1200)
     }, 1000)
   }
 
   const captureSequence = () => {
     const video = videoRef.current
     if (!video || !cameraReady || busy || !layout) return
+    if (soundEnabledRef.current) unlockSound()
     setBusy(true)
+    setCapturedFrame(null)
     setError('')
     photosRef.current = []
     setPhotos([])
@@ -508,6 +546,11 @@ export default function WeddingBoothPage() {
           {screen === 'shoot' && <>
             <div className={`booth-camera-window ${!busy ? 'is-ready-to-start' : ''}`} style={{ width: cameraWidth || '100%', aspectRatio: activeRatio }}>
               <video ref={videoRef} autoPlay muted playsInline className="booth-video" />
+              {capturedFrame && <>
+                <img className="booth-capture-still" src={capturedFrame} alt={`${photos.length}번째 촬영된 사진`} />
+                <div className="booth-capture-flash" key={photos.length} aria-hidden="true" />
+                <div className="booth-capture-confirm" role="status"><span aria-hidden="true">✓</span><strong>{photos.length}번째 사진 촬영 완료</strong><p>{photos.length >= photoCount ? '모든 사진을 담았어요' : '좋아요! 다음 포즈를 준비해 주세요'}</p></div>
+              </>}
               <div className="booth-viewfinder"><span /><span /><span /><span /></div>
               <span className="booth-crop-label">인화되는 사진 영역</span>
               {!busy && <div className="booth-start-overlay">
@@ -521,8 +564,9 @@ export default function WeddingBoothPage() {
                 <p>{cameraReady ? `${event.boothCountdownSeconds ?? 7}초 간격 · 총 ${photoCount}장 자동 촬영` : '카메라 권한을 허용해 주세요'}</p>
               </div>}
             </div>
+            <button className="booth-sound-toggle" onClick={toggleSound} aria-pressed={soundEnabled} aria-label={soundEnabled ? '촬영 소리 끄기' : '촬영 소리 켜기'}>{soundEnabled ? '소리 켜짐' : '소리 꺼짐'}</button>
             <div className="booth-live-label"><span /> {cameraReady ? '셀카 모드' : '카메라 준비 중'}</div>
-            {busy && <div className="booth-camera-instruction" aria-live="polite">{Math.min(photos.length + 1, photoCount)}번째 사진 · 카메라를 봐 주세요</div>}
+            {busy && !capturedFrame && <div className="booth-camera-instruction" aria-live="polite">{Math.min(photos.length + 1, photoCount)}번째 사진 · 카메라를 봐 주세요</div>}
             <div className="booth-shot-progress">{Array.from({ length: photoCount }, (_, index) => <span key={index} className={index < photos.length ? 'is-shot' : ''}>{index + 1}</span>)}</div>
             {countdown !== null && <div className="booth-countdown" key={`${photos.length}-${countdown}`}>{countdown}</div>}
           </>}
@@ -551,7 +595,7 @@ export default function WeddingBoothPage() {
             </>}
           </>}
           {screen === 'shoot' && <>
-            <div className="booth-shoot-summary"><strong>{busy ? `${photos.length} / ${photoCount}장 촬영 완료` : '편하게 자리 잡아주세요'}</strong><p>{busy ? '포즈를 바꿔 주세요. 다음 사진은 자동으로 찍어요.' : `누른 뒤 ${event.boothCountdownSeconds ?? 7}초마다 한 장씩 찍어요. 보이는 사진 영역 그대로 인화돼요.`}</p></div>
+            <div className="booth-shoot-summary"><strong>{capturedFrame ? `${photos.length} / ${photoCount}장 촬영 완료` : busy ? `${Math.min(photos.length + 1, photoCount)}번째 사진 준비 중` : '편하게 자리 잡아주세요'}</strong><p>{capturedFrame ? (photos.length >= photoCount ? '잠시 후 완성 사진을 보여드릴게요.' : '다음 포즈를 준비해 주세요.') : busy ? '카운트다운이 끝나면 사진이 찍혀요.' : `누른 뒤 ${event.boothCountdownSeconds ?? 7}초마다 한 장씩 찍어요. 보이는 사진 영역 그대로 인화돼요.`}</p>{soundEnabled && soundUnavailable && <small>소리를 재생할 수 없어 화면으로 촬영을 안내합니다.</small>}</div>
             <button className="booth-text-button" disabled={busy} onClick={() => { stopCamera(); setScreen('welcome') }}>처음으로</button>
           </>}
           {screen === 'preview' && <>
@@ -569,7 +613,7 @@ export default function WeddingBoothPage() {
             <div className="booth-preview-actions">
             <div className="booth-price">{price > 0 ? `총 ${(price * printQuantity).toLocaleString()}원 · ${photoQuantity}장` : `${photoQuantity}장 무료 인화`}</div>
             <button className="booth-primary" onClick={handlePrintAction} disabled={busy || paymentOpen}>{paymentOpen ? '결제를 진행해 주세요…' : busy ? '처리 중이에요…' : price > 0 ? `${photoQuantity}장 결제하고 인화하기` : `${photoQuantity}장 인화하기`} <span aria-hidden="true">→</span></button>
-            <button className="booth-text-button" disabled={busy || paymentOpen} onClick={() => { setPhotos([]); photosRef.current = []; setPreviewUrl(''); setError(''); void openCamera() }}>다시 촬영하기 <span className="booth-return-count">{returnSeconds}S</span></button>
+            <button className="booth-text-button" disabled={busy || paymentOpen} onClick={() => { setPhotos([]); photosRef.current = []; setPreviewUrl(''); setError(''); void openCamera() }}>다시 촬영하기</button>
             <p className="booth-return-notice">{paymentOpen ? '결제 중에는 첫 화면으로 돌아가지 않아요.' : busy ? '인화 요청을 처리하고 있어요.' : `${returnSeconds}초 후 첫 화면으로 돌아가요.`}</p>
             </div>
           </>}
@@ -586,7 +630,7 @@ export default function WeddingBoothPage() {
                 {qrError && <p className="booth-qr-error" role="alert">{qrError}</p>}
               </div> : <p className="booth-description">사진 저장 링크를 준비하지 못했어요. 현장 관리자에게 알려 주세요.</p>}
             </div>
-            <div className="booth-done-actions"><button className="booth-primary" onClick={startAgain}>다시 촬영하기 <span className="booth-return-count">{returnSeconds}S</span></button><p className="booth-return-notice">{returnSeconds}초 후 첫 화면으로 돌아가요. QR을 먼저 스캔해 주세요.</p></div>
+            <div className="booth-done-actions"><button className="booth-primary" onClick={startAgain}>다시 촬영하기</button><p className="booth-return-notice">{returnSeconds}초 후 첫 화면으로 돌아가요. QR을 먼저 스캔해 주세요.</p></div>
           </>}
           {error && <div className="booth-error" role="alert">{error}</div>}
           {event.isTestPrinter && <div className="booth-test-note">테스트 프린터가 설정된 이벤트예요. 실제 사진은 출력되지 않습니다.</div>}
