@@ -5,7 +5,7 @@ import { drawWeddingFrame, WEDDING_GROUPS, WEDDING_STYLES, weddingBundle, type W
 import './studio.css'
 import FrameStudioPublishing from '@/app/components/FrameStudioPublishing'
 
-const initial: WeddingOptions = { style: 'vows', names: '영근 · 예진', date: '', title: 'Our wedding day', accent: '#687e61', nameFont: 'serif' }
+const initial: WeddingOptions = { style: 'vows', names: '영근 · 예진', date: '', title: 'Our wedding day', accent: '#687e61', nameFont: 'serif', palette: 'concept' }
 function download(blob: Blob, name: string) {
   const url = URL.createObjectURL(blob), anchor = document.createElement('a')
   anchor.href = url; anchor.download = name; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 1000)
@@ -26,7 +26,7 @@ export default function FrameStudio() {
       await drawWeddingFrame(scratch, { ...options, style: style.id }, photos)
       if (current === revision.current) {
         const target = canvases.current[i]
-        if (target) { target.width = 600; target.height = 1800; target.getContext('2d')?.drawImage(scratch, 0, 0) }
+        if (target) { target.width = 240; target.height = 720; target.getContext('2d')?.drawImage(scratch, 0, 0, 240, 720) }
       }
     })).then(() => { if (current === revision.current) setReady(true) })
       .catch(() => { if (current === revision.current) setMessage('폰트를 불러오지 못했어요. 새로고침한 뒤 다시 시도해 주세요.') })
@@ -67,12 +67,12 @@ export default function FrameStudio() {
       <label>예식 날짜 <small>미정이면 비워두세요</small><input type="date" min="1900-01-01" max="2199-12-31" value={options.date} onChange={e => change('date', e.target.value)} /></label>
       <label>상단 문구<input value={options.title} maxLength={45} onChange={e => change('title', e.target.value)} /></label>
       <label>이름 글씨<select value={options.nameFont} onChange={e => change('nameFont', e.target.value as 'serif' | 'sans')}><option value="serif">나눔명조 · 차분하고 섬세하게</option><option value="sans">고딕 · 또렷하고 단정하게</option></select></label>
-      <label>포인트 색상<div className="ws-colors">{['#687e61', '#343f35', '#7d6659', '#786578', '#303030'].map(color => <button key={color} style={{ background: color }} aria-label={`색상 ${color}`} aria-pressed={options.accent === color} onClick={() => change('accent', color)} />)}<input aria-label="직접 색상 선택" type="color" value={options.accent} onChange={e => change('accent', e.target.value)} /></div></label>
+      <label>포인트 색상<div className="ws-colors">{['#687e61', '#343f35', '#7d6659', '#786578', '#303030'].map(color => <button key={color} style={{ background: color }} aria-label={`색상 ${color}`} aria-pressed={options.palette !== 'concept' && options.accent === color} onClick={() => { setOptions(o => ({ ...o, accent: color, palette: 'custom' })); setMessage('') }} />)}<input aria-label="직접 색상 선택" type="color" value={options.accent} onChange={e => { const color = e.target.value; setOptions(o => ({ ...o, accent: color, palette: 'custom' })); setMessage('') }} /></div><button className="ws-default-palette" aria-pressed={options.palette === 'concept'} onClick={() => change('palette', 'concept')}>컨셉 기본색{options.palette === 'concept' ? ' ✓' : '으로 돌아가기'}</button><small className="ws-palette-note">필름·딥 그린은 밝은 글씨를 유지합니다.</small></label>
       <div className="ws-section-title ws-photo-heading"><span>02</span><h2>사진으로 확인하기</h2></div><p className="ws-note">미리보기는 브라우저에서 처리합니다.<br />제안 링크를 만들면 완성 샘플이 저장됩니다.</p>
       <div className="ws-photo-inputs">{[0, 1, 2].map(i => <label key={i} className="ws-photo-input">{photos[i] ? `${i + 1}번 사진 교체` : `${i + 1}번 사진 선택`}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={e => { void photo(e.target.files?.[0], i); e.target.value = '' }} /></label>)}</div>
       {photos.some(Boolean) && <button className="ws-reset" onClick={() => setPhotos([null, null, null])}>사진 지우기</button>}
     </aside><section className="ws-results" aria-label="프레임 디자인 비교">
-      <div className="ws-results-heading"><h2>하나의 이야기, 열다섯 가지 무드</h2><span>2×6 · 동일한 사진 3칸</span></div>
+      <div className="ws-results-heading"><h2>프레임 컬렉션 · {WEDDING_STYLES.length}가지 무드</h2><span>2×6 · 동일한 사진 3칸</span></div>
       <p className="ws-swipe">옆으로 넘겨 디자인을 비교해 보세요 →</p>
       <div className="ws-filters" role="group" aria-label="템플릿 분류">{WEDDING_GROUPS.map(item => <button key={item.id} aria-pressed={group === item.id} onClick={() => { setGroup(item.id); if (item.id !== 'all' && WEDDING_STYLES.find(s => s.id === options.style)?.group !== item.id) { const first = WEDDING_STYLES.find(s => s.group === item.id); if (first) change('style', first.id) } }}>{item.name}<span>{item.id === 'all' ? WEDDING_STYLES.length : WEDDING_STYLES.filter(s => s.group === item.id).length}</span></button>)}</div>
       <div className="ws-designs">{WEDDING_STYLES.map((style, i) => <button hidden={group !== 'all' && group !== style.group} className={`ws-design ${options.style === style.id ? 'is-selected' : ''}`} key={style.id} aria-pressed={options.style === style.id} onClick={() => { change('style', style.id); setSelected(true) }}>
