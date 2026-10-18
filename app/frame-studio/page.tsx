@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { drawWeddingFrame, WEDDING_GROUPS, WEDDING_STYLES, weddingBundle, type WeddingOptions } from '@/lib/weddingFrames'
 import './studio.css'
+import FrameStudioPublishing from '@/app/components/FrameStudioPublishing'
 
 const initial: WeddingOptions = { style: 'vows', names: '영근 · 예진', date: '', title: 'Our wedding day', accent: '#687e61', nameFont: 'serif' }
 function download(blob: Blob, name: string) {
@@ -67,7 +68,7 @@ export default function FrameStudio() {
       <label>상단 문구<input value={options.title} maxLength={45} onChange={e => change('title', e.target.value)} /></label>
       <label>이름 글씨<select value={options.nameFont} onChange={e => change('nameFont', e.target.value as 'serif' | 'sans')}><option value="serif">나눔명조 · 차분하고 섬세하게</option><option value="sans">고딕 · 또렷하고 단정하게</option></select></label>
       <label>포인트 색상<div className="ws-colors">{['#687e61', '#343f35', '#7d6659', '#786578', '#303030'].map(color => <button key={color} style={{ background: color }} aria-label={`색상 ${color}`} aria-pressed={options.accent === color} onClick={() => change('accent', color)} />)}<input aria-label="직접 색상 선택" type="color" value={options.accent} onChange={e => change('accent', e.target.value)} /></div></label>
-      <div className="ws-section-title ws-photo-heading"><span>02</span><h2>사진으로 확인하기</h2></div><p className="ws-note">사진은 이 브라우저 안에서만 사용합니다.<br />각 칸의 중앙을 기준으로 잘라 보여드려요.</p>
+      <div className="ws-section-title ws-photo-heading"><span>02</span><h2>사진으로 확인하기</h2></div><p className="ws-note">미리보기는 브라우저에서 처리합니다.<br />제안 링크를 만들면 완성 샘플이 저장됩니다.</p>
       <div className="ws-photo-inputs">{[0, 1, 2].map(i => <label key={i} className="ws-photo-input">{photos[i] ? `${i + 1}번 사진 교체` : `${i + 1}번 사진 선택`}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={e => { void photo(e.target.files?.[0], i); e.target.value = '' }} /></label>)}</div>
       {photos.some(Boolean) && <button className="ws-reset" onClick={() => setPhotos([null, null, null])}>사진 지우기</button>}
     </aside><section className="ws-results" aria-label="프레임 디자인 비교">
@@ -80,6 +81,7 @@ export default function FrameStudio() {
       <div className="ws-export"><div><span className="ws-eyebrow">YOUR KEEPSAKE</span><h2>{WEDDING_STYLES.find(s => s.id === options.style)?.name}</h2><p>600 × 1800px · 300ppi 기준 · 슬롯 내부 완전 투명</p></div><div className="ws-export-buttons"><button disabled={!ready || busy} onClick={() => void exportFile('png')}>투명 프레임 PNG ↓</button><button className="secondary" disabled={!ready || busy} onClick={() => void exportFile('json')}>포토토스트 레이아웃 ↓</button><button className="secondary" disabled={!ready || busy} onClick={() => void exportFile('preview')}>사진 포함 미리보기 ↓</button></div></div>
       <p className="ws-status" role="status">{message || (!ready ? '인화용 폰트를 준비하고 있어요…' : selected ? '선택한 디자인으로 내려받습니다.' : '마음에 드는 디자인을 선택해 주세요.')}</p>
       <p className="ws-footnote">체크무늬는 투명 영역입니다. 실제 인화 전에는 사용하는 프린터의 2×6 규격과 재단 위치를 한 장 테스트해 주세요.</p>
+      <FrameStudioPublishing options={options} photos={photos} ready={ready} />
     </section></div>
     <footer className="ws-footer">PHOTO TOAST <span>사진은 크게. 장식은 조용하게. 기억은 오래도록.</span></footer>
   </main>
