@@ -201,10 +201,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse background color (hex → RGB)
-    const bgColorHex = (formData.get('backgroundColor') as string) || '#FFFFFF'
-    const bgR = parseInt(bgColorHex.slice(1, 3), 16) || 255
-    const bgG = parseInt(bgColorHex.slice(3, 5), 16) || 255
-    const bgB = parseInt(bgColorHex.slice(5, 7), 16) || 255
+    const bgColorHex = (formData.get('backgroundColor') as string) || layout.backgroundColor || '#FFFFFF'
+    const channel = (start: number) => {
+      const value = parseInt(bgColorHex.slice(start, start + 2), 16)
+      return Number.isNaN(value) ? 255 : value
+    }
+    const bgR = channel(1)
+    const bgG = channel(3)
+    const bgB = channel(5)
 
     // Create canvas with background color and composite all layers
     const result = await sharp({
