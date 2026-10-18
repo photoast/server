@@ -1353,6 +1353,13 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
             <h1 className="text-xl font-bold text-gray-900">{event.name}</h1>
             <p className="text-sm text-gray-400 mt-0.5">{t('header.subtitle')}</p>
           </div>
+          <button
+            type="button"
+            onClick={() => router.push(`/${params.slug}/booth`)}
+            className="min-h-11 rounded-full border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-800 transition-colors hover:bg-rose-100"
+          >
+            셀프 포토부스
+          </button>
           <LanguageToggle />
         </div>
 

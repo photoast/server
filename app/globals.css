@@ -69,3 +69,110 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .owner-row-l, .owner-row-r { animation: none; }
 }
+
+/* iPad landscape wedding booth */
+.booth-page {
+  --booth-ink: #392f27;
+  --booth-muted: #85786a;
+  --booth-gold: #a98a65;
+  --booth-paper: #f4efe7;
+  min-height: 100dvh;
+  height: 100dvh;
+  overflow: hidden;
+  padding: 22px 34px 16px;
+  display: flex;
+  flex-direction: column;
+  color: var(--booth-ink);
+  background: var(--booth-paper);
+  font-family: Arial, Helvetica, sans-serif;
+}
+.booth-topbar, .booth-footer { display: flex; align-items: center; justify-content: space-between; flex: 0 0 auto; }
+.booth-topbar { height: 45px; padding: 0 2px 18px; border-bottom: 1px solid #ded5c9; }
+.booth-brand { display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 700; letter-spacing: .14em; }
+.booth-brand-mark { width: 29px; height: 29px; border: 1px solid var(--booth-gold); border-radius: 50%; display: grid; place-items: center; color: var(--booth-gold); font-size: 17px; }
+.booth-brand i { margin-left: 7px; color: var(--booth-gold); font-size: 9px; font-style: normal; letter-spacing: .12em; }
+.booth-event-name { max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--booth-muted); font-size: 13px; }
+.booth-layout { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(300px, .8fr); gap: clamp(24px, 4vw, 64px); align-items: center; padding: 22px 3.3vw; }
+.booth-stage { position: relative; height: 100%; min-height: 320px; max-height: 690px; overflow: hidden; display: grid; place-items: center; background: #e9e2d8; border: 1px solid #d8cbbb; }
+.booth-stage-shoot { background: #1d1c1a; }
+.booth-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+.booth-viewfinder { position: absolute; inset: 7%; pointer-events: none; }
+.booth-viewfinder span { position: absolute; width: 26px; height: 26px; border-color: rgba(255,255,255,.68); border-style: solid; }
+.booth-viewfinder span:nth-child(1) { top: 0; left: 0; border-width: 2px 0 0 2px; }
+.booth-viewfinder span:nth-child(2) { top: 0; right: 0; border-width: 2px 2px 0 0; }
+.booth-viewfinder span:nth-child(3) { bottom: 0; left: 0; border-width: 0 0 2px 2px; }
+.booth-viewfinder span:nth-child(4) { bottom: 0; right: 0; border-width: 0 2px 2px 0; }
+.booth-live-label { position: absolute; top: 25px; left: 28px; display: flex; align-items: center; gap: 8px; color: white; font-size: 10px; letter-spacing: .16em; text-shadow: 0 1px 8px #000; }
+.booth-live-label span { width: 7px; height: 7px; border-radius: 50%; background: #d89286; box-shadow: 0 0 10px #d89286; }
+.booth-shot-progress { position: absolute; bottom: 25px; left: 50%; display: flex; gap: 12px; transform: translateX(-50%); }
+.booth-shot-progress span { width: 38px; height: 38px; display: grid; place-items: center; border: 1px solid rgba(255,255,255,.66); border-radius: 50%; color: white; font-size: 13px; background: rgba(23,21,19,.22); }
+.booth-shot-progress .is-shot { color: var(--booth-ink); background: #f5eee4; border-color: #f5eee4; }
+.booth-countdown { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; font-family: Georgia, serif; font-size: clamp(100px, 18vw, 220px); font-weight: 400; text-shadow: 0 3px 35px #0008; animation: booth-tick .35s ease-out; }
+@keyframes booth-tick { from { transform: scale(1.18); opacity: .45; } to { transform: scale(1); opacity: 1; } }
+.booth-welcome-art { position: relative; width: min(55%, 320px); aspect-ratio: .67; transform: rotate(-3deg); }
+.booth-art-frame { position: absolute; inset: 0; padding: 15px; background: #fffdf9; box-shadow: 0 22px 55px #55453326; }
+.booth-art-spark { height: 16%; display: grid; place-items: center; color: #b49872; font-size: 24px; }
+.booth-art-placeholder { height: 62%; display: grid; place-items: center; background: linear-gradient(145deg, #ded5c8, #c6b8a7); color: #fff9; font-size: 64px; }
+.booth-art-caption { padding-top: 13px; text-align: center; color: #695743; font: italic 14px/1.6 Georgia, serif; letter-spacing: .1em; }
+.booth-art-caption small { font: 8px Arial, sans-serif; letter-spacing: .2em; }
+.booth-art-stamp { position: absolute; right: -34px; bottom: 18%; width: 82px; height: 82px; display: grid; place-items: center; border: 1px solid #aa8d69; border-radius: 50%; color: #927651; text-align: center; font: 9px/1.35 Georgia, serif; letter-spacing: .1em; transform: rotate(12deg); }
+.booth-print-preview { height: 94%; max-width: 90%; padding: 10px; background: #fffdf9; box-shadow: 0 10px 38px #493d3124; }
+.booth-print-preview img { width: auto; height: 100%; max-width: 100%; object-fit: contain; }
+.booth-message { text-align: center; }
+.booth-message h2 { margin: 20px 0 8px; font: 30px Georgia, serif; }
+.booth-message p { color: var(--booth-muted); font-size: 14px; }
+.booth-complete > span { width: 90px; height: 90px; margin: auto; display: grid; place-items: center; border: 1px solid var(--booth-gold); border-radius: 50%; color: var(--booth-gold); font-size: 40px; }
+.booth-spinner { width: 48px; height: 48px; display: inline-block; border: 2px solid #d8cbbb; border-top-color: var(--booth-gold); border-radius: 50%; animation: booth-spin 1s linear infinite; }
+@keyframes booth-spin { to { transform: rotate(360deg); } }
+.booth-controls { width: 100%; max-width: 410px; justify-self: center; padding: 12px 0; }
+.booth-kicker { margin-bottom: 19px; color: var(--booth-gold); font-size: 10px; font-weight: 700; letter-spacing: .2em; }
+.booth-controls h1 { margin: 0; color: var(--booth-ink); font: 400 clamp(34px, 4.1vw, 54px)/1.18 Georgia, 'Times New Roman', serif; letter-spacing: -.045em; }
+.booth-controls h1 em { color: #a48764; font-weight: 400; }
+.booth-description { margin: 18px 0 26px; color: var(--booth-muted); font-size: 15px; line-height: 1.8; }
+.booth-howto { display: flex; align-items: flex-start; gap: 15px; padding: 12px 0; border-top: 1px solid #e1d8cd; }
+.booth-howto > span { padding-top: 2px; color: var(--booth-gold); font: italic 17px Georgia, serif; }
+.booth-howto b, .booth-howto small { display: block; }
+.booth-howto b { font-size: 14px; font-weight: 600; }
+.booth-howto small { margin-top: 4px; color: var(--booth-muted); font-size: 12px; }
+.booth-primary { width: 100%; min-height: 58px; margin-top: 27px; padding: 0 21px; display: flex; align-items: center; justify-content: space-between; border: 0; background: var(--booth-ink); color: #fffaf2; text-align: left; font-size: 15px; font-weight: 600; cursor: pointer; transition: background .2s ease, transform .2s ease; }
+.booth-primary:hover:not(:disabled) { background: #594738; transform: translateY(-1px); }
+.booth-primary:disabled { opacity: .56; cursor: wait; }
+.booth-primary span { color: #d4b991; font-size: 22px; }
+.booth-text-button { min-height: 46px; margin-top: 12px; padding: 0 8px; border: 0; background: transparent; color: var(--booth-muted); font-size: 13px; cursor: pointer; }
+.booth-counter { display: flex; align-items: center; gap: 13px; margin: 25px 0 12px; }
+.booth-counter strong { color: var(--booth-gold); font: 44px Georgia, serif; }
+.booth-counter span { color: var(--booth-muted); font-size: 10px; line-height: 1.5; letter-spacing: .1em; }
+.booth-price { margin: 18px 0 -18px; color: var(--booth-muted); font-size: 14px; }
+.booth-input { width: 100%; min-height: 48px; margin-top: 10px; padding: 0 14px; border: 1px solid #d9cbbb; background: #fffdf9; color: var(--booth-ink); font-size: 16px; outline: none; }
+.booth-input:focus-visible { border-color: var(--booth-gold); box-shadow: 0 0 0 3px #a98a6528; }
+.booth-error { margin-top: 14px; padding: 12px 14px; background: #f6e5e1; color: #8d443d; font-size: 13px; line-height: 1.5; }
+.booth-test-note { margin-top: 16px; color: #8c7255; font-size: 11px; line-height: 1.5; }
+.booth-footer { min-height: 23px; color: #9a8d7d; font-size: 9px; letter-spacing: .15em; }
+.booth-loading { height: 100%; display: grid; place-items: center; color: var(--booth-muted); }
+@media (max-width: 760px) {
+  .booth-page { height: auto; min-height: 100dvh; padding: 14px 16px 10px; overflow: auto; }
+  .booth-topbar { padding-bottom: 12px; }
+  .booth-brand { font-size: 10px; }
+  .booth-brand i { display: none; }
+  .booth-layout { display: flex; flex-direction: column; gap: 18px; padding: 16px 0 20px; }
+  .booth-stage { width: 100%; height: min(51vh, 430px); min-height: 260px; flex: none; }
+  .booth-controls { max-width: 500px; padding: 4px 4px 14px; }
+  .booth-controls h1 { font-size: clamp(36px, 10vw, 48px); }
+  .booth-description { margin: 12px 0 18px; font-size: 14px; }
+  .booth-howto { padding: 9px 0; }
+  .booth-primary { min-height: 54px; margin-top: 19px; }
+  .booth-footer { font-size: 8px; }
+}
+@media (max-height: 700px) and (min-width: 761px) {
+  .booth-page { padding-top: 14px; padding-bottom: 8px; }
+  .booth-layout { padding-top: 12px; padding-bottom: 12px; gap: 28px; }
+  .booth-kicker { margin-bottom: 11px; }
+  .booth-controls h1 { font-size: 40px; }
+  .booth-description { margin: 12px 0 16px; font-size: 14px; }
+  .booth-howto { padding: 8px 0; }
+  .booth-primary { min-height: 52px; margin-top: 17px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .booth-countdown, .booth-spinner { animation: none; }
+  .booth-primary { transition: none; }
+}
