@@ -8,7 +8,9 @@ export async function GET(_request: NextRequest, { params }: { params: { slug: s
     const event = await findEventBySlug(params.slug)
     if (!event) return NextResponse.json({ error: 'Event not found' }, { status: 404 })
     // Only image URLs are public; print/customer/payment records stay private.
-    const photos = await getRandomBoothPhotos(event._id!.toString())
+    const photos = event.boothLayoutId
+      ? await getRandomBoothPhotos(event._id!.toString(), event.boothLayoutId)
+      : []
     return NextResponse.json({ photos }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (error) {
     console.error('Error loading booth photos:', error)
