@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Script from 'next/script'
 import { useParams, useSearchParams } from 'next/navigation'
-import BoothLayoutPreview from '@/app/components/BoothLayoutPreview'
 import BoothPhotoWall from '@/app/components/BoothPhotoWall'
 import type { FrameLayout } from '@/lib/types'
 import QRCode from 'qrcode'
@@ -56,6 +55,7 @@ type BoothLayout = {
   testImageUrls?: FrameLayout['testImageUrls']
   testPreviewImageUrl?: string
   previewImageUrls?: string[]
+  boothPreviewSource?: FrameLayout['boothPreviewSource']
 }
 
 type Screen = 'welcome' | 'shoot' | 'composing' | 'preview' | 'sending' | 'done'
@@ -134,7 +134,6 @@ export default function WeddingBoothPage() {
         if (!eventRes.ok) throw new Error('이 이벤트를 찾을 수 없어요.')
         const eventData: BoothEvent = await eventRes.json()
         if (cancelled) return
-        setEvent(eventData)
         if (eventData.boothLayoutId) {
           const layoutRes = await fetch(`/api/layouts/${eventData.boothLayoutId}`)
           if (!layoutRes.ok) throw new Error('관리자에서 포토부스 레이아웃을 다시 선택해 주세요.')
@@ -145,6 +144,7 @@ export default function WeddingBoothPage() {
           }
           setLayout(layoutData)
         }
+        if (!cancelled) setEvent(eventData)
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : '포토부스 설정을 불러오지 못했어요.')
       }
@@ -523,10 +523,12 @@ export default function WeddingBoothPage() {
             <div className="booth-shot-progress">{Array.from({ length: photoCount }, (_, index) => <span key={index} className={index < photos.length ? 'is-shot' : ''}>{index + 1}</span>)}</div>
             {countdown !== null && <div className="booth-countdown" key={`${photos.length}-${countdown}`}>{countdown}</div>}
           </>}
-          {screen === 'welcome' && (layout ? <BoothPhotoWall slug={slug} fallback={<>
-            <div className="booth-welcome-layout"><BoothLayoutPreview layout={layout} slotImageUrls={layout.testImageUrls} photoCount={photoCount} /></div>
-            <div className="booth-welcome-layout-caption"><strong>{layout.name}</strong><span>{Object.keys(layout.testImageUrls || {}).length ? '샘플 미리보기 · 실제로는 직접 촬영한 사진이 들어가요' : '이 프레임에 직접 촬영한 사진이 들어가요'}</span></div>
-          </>} /> : <div className="booth-message"><h2>촬영 프레임 준비 중</h2><p>관리자가 프레임을 선택하면 여기에 보여요.</p></div>)}
+          {screen === 'welcome' && (layout ? <BoothPhotoWall
+            key={`${slug}-${layout._id}`}
+            slug={slug}
+            initialImageUrls={layout.boothPreviewSource === 'prints' ? [] : [layout.testPreviewImageUrl, ...(layout.previewImageUrls || [])].filter((url): url is string => Boolean(url))}
+            initialSamplesOnly={layout.boothPreviewSource !== 'mixed' && layout.boothPreviewSource !== 'prints'}
+          /> : <div className="booth-message"><h2>촬영 프레임 준비 중</h2><p>관리자가 프레임을 선택하면 여기에 보여요.</p></div>)}
           {(screen === 'preview' || screen === 'sending' || screen === 'done') && previewUrl && <div className="booth-print-preview"><img src={previewUrl} alt={`${layout?.name || '사진'} ${screen === 'done' ? '인화 요청한 사진' : '인화 미리보기'}`} /></div>}
           {(screen === 'composing' || (screen === 'sending' && !previewUrl)) && <div className="booth-message"><span className="booth-spinner"/><h2>{screen === 'composing' ? '사진을 예쁘게 담고 있어요' : '사진을 보내고 있어요'}</h2><p>잠시만 기다려 주세요.</p></div>}
         </section>

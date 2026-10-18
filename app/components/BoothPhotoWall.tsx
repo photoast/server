@@ -1,13 +1,16 @@
 'use client'
 
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 
 type WallPhoto = { imageUrl: string }
 
-export default function BoothPhotoWall({ slug, fallback }: { slug: string; fallback: ReactNode }) {
-  const [photos, setPhotos] = useState<WallPhoto[]>([])
+export default function BoothPhotoWall({ slug, initialImageUrls = [], initialSamplesOnly = false }: {
+  slug: string; initialImageUrls?: string[]; initialSamplesOnly?: boolean
+}) {
+  const [photos, setPhotos] = useState<WallPhoto[]>(() => Array.from(new Set(initialImageUrls.filter(Boolean))).slice(0, 6).map(imageUrl => ({ imageUrl })))
+  const [initialLoading, setInitialLoading] = useState(initialImageUrls.length === 0)
   const [failed, setFailed] = useState<string[]>([])
-  const [samplesOnly, setSamplesOnly] = useState(false)
+  const [samplesOnly, setSamplesOnly] = useState(initialSamplesOnly)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -20,7 +23,7 @@ export default function BoothPhotoWall({ slug, fallback }: { slug: string; fallb
         if (!response.ok) return
         const data = await response.json()
         if (controller.signal.aborted || !Array.isArray(data.photos)) return
-        const next = data.photos.filter((photo: WallPhoto) => typeof photo?.imageUrl === 'string' && photo.imageUrl).slice(0, 6)
+        const next: WallPhoto[] = Array.from(new Set<string>(data.photos.filter((photo: WallPhoto) => typeof photo?.imageUrl === 'string' && photo.imageUrl).map((photo: WallPhoto) => photo.imageUrl))).slice(0, 6).map(imageUrl => ({ imageUrl }))
         // Preload the next set so the floating frames never flash empty.
         await Promise.all(next.map((photo: WallPhoto) => new Promise<void>(resolve => {
           const image = new Image()
@@ -36,9 +39,10 @@ export default function BoothPhotoWall({ slug, fallback }: { slug: string; fallb
           setSamplesOnly(data.isSampleOnly === true)
         }
       } catch {
-        // Retain the last wall (or the layout sample) when the network is unavailable.
+        // Retain the existing photo gallery when the network is unavailable.
       } finally {
         loading = false
+        if (!controller.signal.aborted) setInitialLoading(false)
       }
     }
     void refresh()
@@ -52,7 +56,11 @@ export default function BoothPhotoWall({ slug, fallback }: { slug: string; fallb
   }, [slug])
 
   const visible = photos.filter(photo => !failed.includes(photo.imageUrl))
-  if (!visible.length) return <>{fallback}</>
+  if (!visible.length) return <div className="booth-message" role="status">
+    {initialLoading && <span className="booth-spinner" />}
+    <h2>{initialLoading ? '미리보기를 불러오고 있어요' : '여러분의 사진을 기다려요'}</h2>
+    <p>{initialLoading ? '잠시만 기다려 주세요.' : '촬영을 시작해 첫 추억을 남겨 주세요.'}</p>
+  </div>
 
   return <div className="booth-photo-wall" aria-label={samplesOnly ? '등록된 포토부스 샘플 미리보기' : '이 결혼식에서 함께 남긴 사진들'}>
     <div className={`booth-floating-photos booth-floating-count-${visible.length}`}>
