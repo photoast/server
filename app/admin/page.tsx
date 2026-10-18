@@ -46,6 +46,8 @@ interface Event {
   slug: string
   printerId?: string
   availableLayouts?: string[]
+  boothLayoutId?: string
+  boothCountdownSeconds?: number
   price?: number
   authCodeRequired?: boolean
   paymentMethods?: ('card' | 'kakaopay' | 'naverpay')[]
@@ -62,6 +64,18 @@ interface Event {
   }
   endedAt?: string | null
   createdAt: string
+}
+
+function getBoothCaptureCount(layout: { slots: { x: number; y: number; width: number; height: number }[] }): number {
+  const half = layout.slots.length / 2
+  if (!Number.isInteger(half) || half < 3) return layout.slots.length
+  const offsets = layout.slots.slice(0, half).map((slot, index) => {
+    const twin = layout.slots[index + half]
+    return twin && slot.y === twin.y && slot.width === twin.width && slot.height === twin.height
+      ? twin.x - slot.x
+      : null
+  })
+  return offsets.every(offset => offset !== null && offset === offsets[0]) ? half : layout.slots.length
 }
 
 interface DeviceInfo {
@@ -527,7 +541,7 @@ function AdminPageInner() {
     }
   }
 
-  const handleUpdateEvent = async (eventId: string, updates: { name?: string; slug?: string; printerId?: string; availableLayouts?: string[]; price?: number; paymentMethods?: ('card' | 'kakaopay' | 'naverpay')[]; backgroundColors?: string[]; donation?: Event['donation']; logoUrl?: string; contactPhone?: string; authCodeRequired?: boolean }) => {
+  const handleUpdateEvent = async (eventId: string, updates: { name?: string; slug?: string; printerId?: string; availableLayouts?: string[]; boothLayoutId?: string; boothCountdownSeconds?: number; price?: number; paymentMethods?: ('card' | 'kakaopay' | 'naverpay')[]; backgroundColors?: string[]; donation?: Event['donation']; logoUrl?: string; contactPhone?: string; authCodeRequired?: boolean }) => {
     try {
       const updateRes = await fetch(`/api/events/${eventId}`, {
         method: 'PATCH',
@@ -990,6 +1004,9 @@ function AdminPageInner() {
             <UIButton size="sm" variant="secondary" onClick={() => {
               window.open(`${window.location.origin}/${event.slug}`, '_blank')
             }}>링크 열기</UIButton>
+            <UIButton size="sm" variant="secondary" onClick={() => {
+              window.open(`${window.location.origin}/${event.slug}/booth`, '_blank')
+            }}>아이패드 부스</UIButton>
             <UIButton size="sm" variant="secondary" onClick={() => viewPrintHistory(event)}>인쇄 기록</UIButton>
             <UIButton size="sm" variant="secondary" onClick={() => window.open(`/admin/user-events?slug=${event.slug}`, '_blank')}>사용자 통계</UIButton>
             <UIButton size="sm" variant="secondary" onClick={async () => {
@@ -1718,6 +1735,42 @@ function AdminPageInner() {
               )}
             </div>
             <p className="text-xs text-gray-400 mt-2">{layouts.length}개 레이아웃</p>
+            <div className="mt-4 border-t border-gray-100 pt-4 space-y-3">
+              <UISectionHeading title="아이패드 셀프 포토부스" subtitle="촬영 화면에서 사용할 레이아웃과 컷별 타이머를 설정합니다" />
+              <UIFormField label="촬영 레이아웃" hint="설정한 컷 수만큼 촬영합니다. 좌우가 복제된 네컷 스트립은 네 장만 찍어 양쪽에 배치해요.">
+                <select
+                  value={event.boothLayoutId || ''}
+                  onChange={e => handleUpdateEvent(event._id, { boothLayoutId: e.target.value })}
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                <option value="">포토부스 레이아웃 선택...</option>
+                  {layouts
+                    .filter(layout => layout.visible !== false && layout.slots?.length > 0 && (!printerSupportedSizes || printerSupportedSizes.includes(layout.printSize)))
+                    .map(layout => (
+                      <option key={layout._id} value={layout._id}>
+                        {layout.name} · {getBoothCaptureCount(layout)}컷 · {layout.printSize}
+                      </option>
+                    ))}
+                </select>
+                {layouts.filter(layout => layout.visible !== false && layout.slots?.length > 0 && (!printerSupportedSizes || printerSupportedSizes.includes(layout.printSize))).length === 0 && (
+                  <p className="mt-2 text-xs text-amber-700">사용할 수 있는 레이아웃이 없습니다. 사진 슬롯이 있는 레이아웃을 만들고, 프린터 지원 규격을 확인해 주세요.</p>
+                )}
+              </UIFormField>
+              <UIFormField label={`컷별 촬영 타이머: ${event.boothCountdownSeconds ?? 7}초`} hint="각 사진을 찍기 전 보여줄 카운트다운 시간입니다.">
+                <div className="grid grid-cols-4 gap-2">
+                  {[3, 5, 7, 10, 15].map(seconds => (
+                    <button
+                      key={seconds}
+                      type="button"
+                      onClick={() => handleUpdateEvent(event._id, { boothCountdownSeconds: seconds })}
+                      className={`min-h-11 rounded-xl border text-sm font-semibold transition-colors ${(event.boothCountdownSeconds ?? 7) === seconds ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'}`}
+                    >
+                      {seconds}초
+                    </button>
+                  ))}
+                </div>
+              </UIFormField>
+            </div>
           </UICard>
 
           {/* Recent Print Jobs */}

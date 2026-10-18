@@ -137,6 +137,8 @@ export interface Event {
   slug: string
   printerId?: string // References Printer._id
   availableLayouts?: FrameType[]
+  boothLayoutId?: string
+  boothCountdownSeconds?: number
   puzzleEnabled?: boolean
   price?: number
   authCodeRequired?: boolean

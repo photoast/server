@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createEvent, getAllEvents, createLayout } from '@/lib/models'
+import { createEvent, getAllEvents, createLayout, updateEvent } from '@/lib/models'
 import { checkAuth } from '@/lib/middleware'
 import { DEFAULT_LAYOUT_TEMPLATES } from '@/lib/defaultLayoutTemplates'
 
@@ -48,14 +48,16 @@ export async function POST(request: NextRequest) {
     const event = await createEvent({
       name,
       slug,
+      boothCountdownSeconds: 7,
       ...(printerId ? { printerId } : {}),
     })
 
     // 기본 레이아웃 템플릿 자동 생성
     const eventId = String(event._id)
+    let defaultBoothLayoutId: string | undefined
     for (let idx = 0; idx < DEFAULT_LAYOUT_TEMPLATES.length; idx++) {
       const template = DEFAULT_LAYOUT_TEMPLATES[idx]
-      await createLayout({
+      const layout = await createLayout({
         eventId,
         name: template.name,
         printSize: template.printSize,
@@ -67,6 +69,13 @@ export async function POST(request: NextRequest) {
         isPreset: true,
         order: idx,
       })
+      if (template.slots.length === 4 && !defaultBoothLayoutId) {
+        defaultBoothLayoutId = layout._id
+      }
+    }
+
+    if (defaultBoothLayoutId) {
+      await updateEvent(eventId, { boothLayoutId: defaultBoothLayoutId })
     }
 
     return NextResponse.json(event, { status: 201 })

@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
             authCode: normalizedAuthCode,
             layoutId,
             paymentTid,
-            paymentAmount: paymentTid ? event.price : undefined,
+            paymentAmount: paymentTid ? (layoutInfo?.price ?? event.price) : undefined,
             customerEmail,
           })
           jobIds.push(printJob._id?.toString() || '')
@@ -169,7 +169,7 @@ export async function POST(request: NextRequest) {
             authCode: normalizedAuthCode,
             layoutId,
             paymentTid,
-            paymentAmount: paymentTid ? event.price : undefined,
+            paymentAmount: paymentTid ? (layoutInfo?.price ?? event.price) : undefined,
             customerEmail,
           })
           jobIds.push(printJob._id?.toString() || '')
@@ -241,7 +241,7 @@ export async function POST(request: NextRequest) {
             authCode: normalizedAuthCode,
             layoutId,
             paymentTid,
-            paymentAmount: paymentTid ? event.price : undefined,
+            paymentAmount: paymentTid ? (layoutInfo?.price ?? event.price) : undefined,
             customerEmail,
           })
 
@@ -301,7 +301,7 @@ export async function POST(request: NextRequest) {
             authCode: normalizedAuthCode,
             layoutId,
             paymentTid,
-            paymentAmount: paymentTid ? event.price : undefined,
+            paymentAmount: paymentTid ? (layoutInfo?.price ?? event.price) : undefined,
             customerEmail,
           })
 

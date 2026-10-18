@@ -39,7 +39,7 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const { name, slug, printerId, availableLayouts, price, paymentMethods, backgroundColors, donation, logoUrl, contactPhone, authCodeRequired } = body
+    const { name, slug, printerId, availableLayouts, price, paymentMethods, backgroundColors, donation, logoUrl, contactPhone, authCodeRequired, boothLayoutId, boothCountdownSeconds } = body
 
     const updates: any = {}
     if (name) updates.name = name
@@ -64,6 +64,14 @@ export async function PATCH(
     if (contactPhone !== undefined) updates.contactPhone = contactPhone
     if (body.endedAt !== undefined) updates.endedAt = body.endedAt
     if (authCodeRequired !== undefined) updates.authCodeRequired = authCodeRequired
+    if (boothLayoutId !== undefined) updates.boothLayoutId = boothLayoutId || ''
+    if (boothCountdownSeconds !== undefined) {
+      const seconds = Number(boothCountdownSeconds)
+      if (!Number.isInteger(seconds) || seconds < 3 || seconds > 15) {
+        return NextResponse.json({ error: 'boothCountdownSeconds must be between 3 and 15' }, { status: 400 })
+      }
+      updates.boothCountdownSeconds = seconds
+    }
 
     const success = await updateEvent(params.id, updates)
 
