@@ -1,5 +1,6 @@
 'use client'
 import { useRef, useState } from 'react'
+import { encodeProposalPhotos } from '@/lib/proposalPhotos'
 import { drawWeddingFrame, WEDDING_STYLES, type WeddingOptions, type WeddingStyle } from '@/lib/weddingFrames'
 
 interface Props { options: WeddingOptions; photos: (HTMLImageElement | null)[]; ready: boolean }
@@ -60,13 +61,11 @@ export default function FrameStudioPublishing({ options, photos, ready }: Props)
       const items = []
       for (const id of order) {
         const style = WEDDING_STYLES.find(s => s.id === id)!
-        const settings = { ...options, style: id }, frame = document.createElement('canvas'), sample = document.createElement('canvas')
-        await drawWeddingFrame(frame, settings); await drawWeddingFrame(sample, settings, photos)
-        const thumb = document.createElement('canvas'); thumb.width = 240; thumb.height = 720
-        thumb.getContext('2d')!.drawImage(sample, 0, 0, 240, 720)
-        items.push({ id, name: style.name, options: settings, overlay: frame.toDataURL('image/png'), preview: thumb.toDataURL('image/jpeg', .8) })
+        const settings = { ...options, style: id }, frame = document.createElement('canvas')
+        await drawWeddingFrame(frame, settings)
+        items.push({ id, name: style.name, options: settings, overlay: frame.toDataURL('image/png') })
       }
-      const body = JSON.stringify({ title: title.trim() || `${options.names}님의 웨딩 프레임 제안`, items })
+      const body = JSON.stringify({ photos: encodeProposalPhotos(photos), title: title.trim() || `${options.names}님의 웨딩 프레임 제안`, items })
       if (new Blob([body]).size > 3500000) throw new Error('제안 파일이 커요. 디자인 수를 줄여 다시 만들어 주세요.')
       const data = await responseJson(await fetch('/api/frame-proposals', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }))
       setProposalUrl(`${window.location.origin}/frame-proposals/${data.id}`); setMessage('제안 링크를 만들었어요. 아래 링크를 공유해 주세요.')

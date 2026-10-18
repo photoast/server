@@ -14,19 +14,33 @@ export async function POST(request: NextRequest) {
   try { body = await request.json() } catch { return NextResponse.json({ error: '제안 내용을 확인해 주세요.' }, { status: 400 }) }
   if (typeof body.title !== 'string' || !body.title.trim() || body.title.length > 100 || !Array.isArray(body.items) || body.items.length < 1 || body.items.length > MAX_PROPOSAL_DESIGNS) return NextResponse.json({ error: `제목과 1~${MAX_PROPOSAL_DESIGNS}개의 디자인을 선택해 주세요.` }, { status: 400 })
   const items: ProposalItem[] = []
+  const photos: string[] = []
   try {
+    if (body.photos !== undefined) {
+      if (!Array.isArray(body.photos) || body.photos.length !== 3) throw new Error()
+      for (const photo of body.photos) {
+        if (typeof photo !== 'string' || photo.length > 700000 || !/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(photo)) throw new Error()
+        const meta = await sharp(Buffer.from(photo.split(',')[1], 'base64'), { limitInputPixels: 528 * 396 }).metadata()
+        if (meta.width !== 528 || meta.height !== 396 || meta.format !== 'jpeg') throw new Error()
+        photos.push(photo) // Already encoded once at the client. Never recompress.
+      }
+    }
     for (const item of body.items) {
       const style = WEDDING_STYLES.find(s => s.id === item.id)
       if (!style || items.some(s => s.id === item.id) || !item.options || typeof item.options.names !== 'string' || !item.options.names.trim() || item.options.names.length > 28 || typeof item.options.title !== 'string' || item.options.title.length > 45 || typeof item.options.date !== 'string' || !/^(|\d{4}-\d{2}-\d{2})$/.test(item.options.date) || !/^#[a-f0-9]{6}$/i.test(item.options.accent) || !['serif','sans'].includes(item.options.nameFont) || (item.options.palette !== undefined && !['concept','custom'].includes(item.options.palette))) throw new Error()
+      let preview: string | undefined
+      if (!photos.length) {
       if (typeof item.preview !== 'string' || item.preview.length > 160000 || !/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(item.preview)) throw new Error()
-      const preview = await sharp(Buffer.from(item.preview.split(',')[1], 'base64'), { limitInputPixels: 1080000 }).resize(240, 720, { fit: 'fill' }).jpeg({ quality: 82 }).toBuffer()
+      const previewBuffer = await sharp(Buffer.from(item.preview.split(',')[1], 'base64'), { limitInputPixels: 1080000 }).resize(240, 720, { fit: 'fill' }).jpeg({ quality: 82 }).toBuffer()
+      preview = `data:image/jpeg;base64,${previewBuffer.toString('base64')}`
+      }
       const o = item.options
       const options: WeddingOptions = { style: style.id, names: o.names, date: o.date, title: o.title, accent: o.accent, nameFont: o.nameFont, ...(o.palette ? { palette: o.palette } : {}) }
-      items.push({ id: style.id, name: style.name, options, overlay: await normalizeWeddingOverlay(item.overlay), preview: `data:image/jpeg;base64,${preview.toString('base64')}` })
+      items.push({ id: style.id, name: style.name, options, overlay: await normalizeWeddingOverlay(item.overlay), ...(preview ? { preview } : {}) })
     }
   } catch { return NextResponse.json({ error: '디자인 이미지와 입력 내용을 확인해 주세요.' }, { status: 400 }) }
   try {
-    const proposal: FrameProposal = { _id: randomBytes(18).toString('hex'), title: body.title.trim(), items, createdAt: new Date().toISOString() }
+    const proposal: FrameProposal = { _id: randomBytes(18).toString('hex'), title: body.title.trim(), items, ...(photos.length ? { photos } : {}), createdAt: new Date().toISOString() }
     const db = await getDb()
     await db.collection<FrameProposal>(PROPOSAL_COLLECTION).insertOne(proposal)
     return NextResponse.json({ id: proposal._id }, { status: 201 })

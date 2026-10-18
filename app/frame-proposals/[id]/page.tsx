@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
+import ProposalSample from '@/app/components/ProposalSample'
 import type { FrameProposal } from '@/lib/frameProposals'
 import '@/app/frame-studio/studio.css'
 import './proposal.css'
@@ -39,9 +40,9 @@ export default function ProposalPage() {
       {proposal.selection && <p className="proposal-saved">현재 저장된 선택: <strong>{proposal.items.find(item => item.id === proposal.selection?.itemId)?.name}</strong></p>}
       <div className="proposal-grid">{proposal.items.map((item, i) => <section id={`design-${item.id}`} key={item.id} className={`proposal-card ${chosen === item.id ? 'chosen' : ''}`}>
         <div className="proposal-card-title"><span>{String(i + 1).padStart(2, '0')}</span><h2>{item.name}</h2></div>
-        <div className="proposal-images"><figure><img src={item.preview} alt={`${item.name}에 샘플 사진을 넣은 모습`} /><figcaption>사진을 담은 모습</figcaption></figure><figure><div className="proposal-transparent"><img src={item.overlay} alt={`${item.name} 투명 프레임`} /></div><figcaption>프레임 · 사진 영역 투명</figcaption></figure></div>
+        <div className="proposal-images"><ProposalSample item={item} photos={proposal.photos} /><figure><div className="proposal-transparent"><img src={item.overlay} alt={`${item.name} 투명 프레임`} /></div><figcaption>프레임 · 사진 영역 투명</figcaption></figure></div>
         <button className="proposal-choose" aria-pressed={chosen === item.id} disabled={busy} onClick={() => { setChosen(item.id); setMessage('') }}>{chosen === item.id ? '✓ 고른 디자인' : '이 디자인 고르기'}</button>
-        <div className="proposal-downloads"><a href={item.overlay} download={`phototoast-${item.id}-frame.png`}>프레임 PNG ↓</a><a href={item.preview} download={`phototoast-${item.id}-sample.jpg`}>샘플 이미지 ↓</a></div>
+        <div className="proposal-downloads"><a href={item.overlay} download={`phototoast-${item.id}-frame.png`}>프레임 PNG ↓</a></div>
       </section>)}</div>
       <div className="proposal-selection"><div><span className="ws-eyebrow">YOUR CHOICE</span><h2>{selected?.name || '마음에 드는 디자인을 골라주세요'}</h2><p>링크를 가진 분들이 선택 결과를 함께 볼 수 있습니다. 다시 고른 뒤 저장하면 변경됩니다.</p></div><button className="proposal-save" disabled={!chosen || busy || chosen === proposal.selection?.itemId} onClick={() => void save()}>{busy ? '저장 중…' : chosen && chosen === proposal.selection?.itemId ? '선택 저장 완료' : '이 디자인으로 선택 저장'}</button><p role="status">{message}</p></div>
     </>}
