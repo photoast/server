@@ -87,7 +87,8 @@ export default function WeddingBoothPage() {
   const [authCode, setAuthCode] = useState('')
   const [customerEmail, setCustomerEmail] = useState('')
   const [needEmail, setNeedEmail] = useState(false)
-  const [quantity, setQuantity] = useState(1)
+  // The printer API counts sheets/jobs. A 2x6 sheet is cut into two strips.
+  const [printQuantity, setPrintQuantity] = useState(1)
   const [stageSize, setStageSize] = useState({ width: 0, height: 0 })
 
   useEffect(() => {
@@ -269,7 +270,7 @@ export default function WeddingBoothPage() {
           slug,
           layoutId: layout._id,
           imageUrl: previewUrl,
-          quantity,
+          quantity: printQuantity,
           ...(paymentTid ? { paymentTid } : {}),
           ...(authCode ? { authCode: authCode.trim().toUpperCase() } : {}),
           ...(customerEmail ? { customerEmail } : {}),
@@ -303,7 +304,7 @@ export default function WeddingBoothPage() {
         return
       }
     }
-    const price = (layout.price ?? event.price ?? 0) * quantity
+    const price = (layout.price ?? event.price ?? 0) * printQuantity
     if (price <= 0) return submitPrint()
     if (!customerEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) {
       setNeedEmail(true)
@@ -317,14 +318,14 @@ export default function WeddingBoothPage() {
     localStorage.setItem('pendingPrintUrl', previewUrl)
     localStorage.setItem('pendingCustomerEmail', customerEmail)
     localStorage.setItem('pendingLayoutId', layout._id)
-    localStorage.setItem('pendingBoothQuantity', String(quantity))
+    localStorage.setItem('pendingBoothQuantity', String(printQuantity))
     if (authCode) localStorage.setItem('pendingAuthCode', authCode)
     window.AUTHNICE.requestPay({
       clientId: NICEPAY_CLIENT_ID,
       method: 'card',
       orderId: `PRINT_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
       amount: price,
-      goodsName: `${layout.name} ${quantity}매`,
+      goodsName: `${layout.name} ${printQuantity * (layout.printSize === '2x6' ? 2 : 1)}장`,
       returnUrl: `${window.location.origin}/api/payment/nicepay-return`,
       mallReserved: window.location.pathname,
       fnError: result => setError(result.errorMsg || '결제를 완료하지 못했어요.'),
@@ -355,7 +356,7 @@ export default function WeddingBoothPage() {
       const savedImage = localStorage.getItem('pendingPrintUrl')
       if (savedImage) {
         setPreviewUrl(savedImage)
-        setQuantity(Math.max(1, Math.min(10, Number(localStorage.getItem('pendingBoothQuantity')) || 1)))
+        setPrintQuantity(Math.max(1, Math.min(10, Number(localStorage.getItem('pendingBoothQuantity')) || 1)))
         setAuthCode(localStorage.getItem('pendingAuthCode') || '')
         setCustomerEmail(localStorage.getItem('pendingCustomerEmail') || '')
       }
@@ -411,7 +412,7 @@ export default function WeddingBoothPage() {
     setAuthCode('')
     setCustomerEmail('')
     setNeedEmail(false)
-    setQuantity(1)
+    setPrintQuantity(1)
     setError('')
     setScreen('welcome')
   }
@@ -419,6 +420,8 @@ export default function WeddingBoothPage() {
   const ended = Boolean(event?.endedAt && new Date(event.endedAt).getTime() <= Date.now())
   const photoCount = layout ? getCaptureCount(layout) : 0
   const price = layout?.price ?? event?.price ?? 0
+  const photosPerPrint = layout?.printSize === '2x6' ? 2 : 1
+  const photoQuantity = printQuantity * photosPerPrint
   const activeSlot = layout?.slots[Math.min(photos.length, Math.max(0, photoCount - 1))]
   const activeRatio = activeSlot ? Math.round(activeSlot.width) / Math.round(activeSlot.height) : 4 / 3
   const cameraWidth = Math.max(0, Math.min(stageSize.width - 32, (stageSize.height - 32) * activeRatio))
@@ -445,9 +448,8 @@ export default function WeddingBoothPage() {
             {countdown !== null && <div className="booth-countdown" key={`${photos.length}-${countdown}`}>{countdown}</div>}
           </>}
           {screen === 'welcome' && <div className="booth-welcome-art"><div className="booth-art-frame"><div className="booth-art-spark">✳</div><div className="booth-art-placeholder"><span>♡</span></div><div className="booth-art-caption">THE WEDDING DAY<br /><small>FOUR LITTLE MEMORIES</small></div></div><span className="booth-art-stamp">KEEP<br />THIS<br />MOMENT</span></div>}
-          {screen === 'preview' && <div className="booth-print-preview"><img src={previewUrl} alt={`${layout?.name || '사진'} 인화 미리보기`} /></div>}
-          {(screen === 'composing' || screen === 'sending') && <div className="booth-message"><span className="booth-spinner"/><h2>{screen === 'composing' ? '사진을 예쁘게 담고 있어요' : '사진을 보내고 있어요'}</h2><p>잠시만 기다려 주세요.</p></div>}
-          {screen === 'done' && <div className="booth-message booth-complete"><span>♡</span><h2>오늘의 순간이 출력 중이에요</h2><p>사진을 챙기고 행복한 하루 보내세요.</p></div>}
+          {(screen === 'preview' || screen === 'sending' || screen === 'done') && previewUrl && <div className="booth-print-preview"><img src={previewUrl} alt={`${layout?.name || '사진'} ${screen === 'done' ? '인화 요청한 사진' : '인화 미리보기'}`} /></div>}
+          {(screen === 'composing' || (screen === 'sending' && !previewUrl)) && <div className="booth-message"><span className="booth-spinner"/><h2>{screen === 'composing' ? '사진을 예쁘게 담고 있어요' : '사진을 보내고 있어요'}</h2><p>잠시만 기다려 주세요.</p></div>}
         </section>
         <aside className="booth-controls">
           <div className="booth-kicker">A LITTLE KEEPSAKE</div>
@@ -475,21 +477,21 @@ export default function WeddingBoothPage() {
             <p className="booth-description">{layout?.name} 레이아웃으로 완성했어요. 인화하기 전에 사진을 확인해 주세요.</p>
             <div className="booth-quantity" role="group" aria-label="인화 매수 선택">
               <span>몇 장 인화할까요?</span>
-              <div><button type="button" aria-label="인화 매수 줄이기" disabled={quantity <= 1 || busy} onClick={() => setQuantity(value => value - 1)}>−</button><output aria-live="polite">{quantity}<small>매</small></output><button type="button" aria-label="인화 매수 늘리기" disabled={quantity >= 10 || busy} onClick={() => setQuantity(value => value + 1)}>+</button></div>
-              <small>인화지 기준 · 최대 10매</small>
+              <div><button type="button" aria-label={`인화 사진 ${photosPerPrint}장 줄이기`} disabled={printQuantity <= 1 || busy} onClick={() => setPrintQuantity(value => value - 1)}>−</button><output aria-live="polite">{photoQuantity}<small>장</small></output><button type="button" aria-label={`인화 사진 ${photosPerPrint}장 늘리기`} disabled={printQuantity >= 10 || busy} onClick={() => setPrintQuantity(value => value + 1)}>+</button></div>
+              <small>{photosPerPrint === 2 ? `2장씩 선택 · 최대 20장${price > 0 ? ` · 2장 ${price.toLocaleString()}원` : ''}` : '최대 10장'}</small>
             </div>
             {event.authCodeRequired && <input className="booth-input" value={authCode} onChange={e => { setAuthCode(e.target.value.toUpperCase()); setError('') }} placeholder="인증코드" maxLength={6} aria-label="인증코드" />}
             {(needEmail || price > 0) && <label className="booth-email-label">결제 안내 이메일<input className="booth-input" value={customerEmail} onChange={e => { setCustomerEmail(e.target.value); setError('') }} placeholder="example@email.com" type="email" autoCapitalize="none" autoCorrect="off" aria-label="결제 안내 이메일" /></label>}
             </div>
             <div className="booth-preview-actions">
-            <div className="booth-price">{price > 0 ? `총 ${(price * quantity).toLocaleString()}원 · ${quantity}매` : `${quantity}매 무료 인화`}</div>
-            <button className="booth-primary" onClick={handlePrintAction} disabled={busy}>{busy ? '처리 중이에요…' : price > 0 ? `${quantity}매 결제하고 인화하기` : `${quantity}매 인화하기`} <span aria-hidden="true">→</span></button>
+            <div className="booth-price">{price > 0 ? `총 ${(price * printQuantity).toLocaleString()}원 · ${photoQuantity}장` : `${photoQuantity}장 무료 인화`}</div>
+            <button className="booth-primary" onClick={handlePrintAction} disabled={busy}>{busy ? '처리 중이에요…' : price > 0 ? `${photoQuantity}장 결제하고 인화하기` : `${photoQuantity}장 인화하기`} <span aria-hidden="true">→</span></button>
             <button className="booth-text-button" onClick={() => { setPhotos([]); photosRef.current = []; setPreviewUrl(''); setError(''); void openCamera() }}>다시 촬영하기</button>
             </div>
           </>}
           {screen === 'composing' && <><h1>잠시만요,<br /><em>사진을 담고 있어요.</em></h1><p className="booth-description">관리자가 고른 레이아웃에 맞춰 사진을 합성하고 있어요.</p></>}
-          {screen === 'sending' && <><h1>잠시만요,<br /><em>곧 나와요.</em></h1><p className="booth-description">완성된 사진을 프린터로 보내고 있어요.</p></>}
-          {screen === 'done' && <><h1>고마워요.<br /><em>행복하세요!</em></h1><p className="booth-description">인화된 사진을 챙기고, 다음 분을 위해 첫 화면으로 돌아가 주세요.</p><button className="booth-primary" onClick={startAgain}>처음으로 <span>↺</span></button></>}
+          {screen === 'sending' && <><h1>잠시만요,<br /><em>사진을 보내고 있어요.</em></h1><p className="booth-description">사진 {photoQuantity}장을 인화할 수 있도록 프린터로 요청을 보내고 있어요.</p></>}
+          {screen === 'done' && <><div className="booth-done-badge" role="status">{event.isTestPrinter ? '테스트 요청 완료' : '인화 요청 완료'} · {photoQuantity}장</div><h1>오늘의 사진을<br /><em>챙겨 주세요.</em></h1><p className="booth-description">{event.isTestPrinter ? '실제 출력 없이 테스트 요청을 기록했어요.' : `왼쪽 사진 ${photoQuantity}장을 프린터로 보냈어요. 인화된 사진을 챙긴 뒤 다음 촬영을 시작해 주세요.`}</p><button className="booth-primary" onClick={startAgain}>다음 촬영 시작하기 <span aria-hidden="true">→</span></button></>}
           {error && <div className="booth-error" role="alert">{error}</div>}
           {event.isTestPrinter && <div className="booth-test-note">테스트 프린터가 설정된 이벤트예요. 실제 사진은 출력되지 않습니다.</div>}
         </aside>
