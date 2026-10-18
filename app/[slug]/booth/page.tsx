@@ -506,20 +506,23 @@ export default function WeddingBoothPage() {
       <div className="booth-layout">
         <section ref={stageRef} className={`booth-stage booth-stage-${screen}`}>
           {screen === 'shoot' && <>
-            <div className="booth-camera-window" style={{ width: cameraWidth || '100%', aspectRatio: activeRatio }}>
+            <div className={`booth-camera-window ${!busy ? 'is-ready-to-start' : ''}`} style={{ width: cameraWidth || '100%', aspectRatio: activeRatio }}>
               <video ref={videoRef} autoPlay muted playsInline className="booth-video" />
               <div className="booth-viewfinder"><span /><span /><span /><span /></div>
               <span className="booth-crop-label">인화되는 사진 영역</span>
               {!busy && <div className="booth-start-overlay">
+                <span className="booth-start-kicker">READY WHEN YOU ARE</span>
+                <h2>준비되셨나요?</h2>
                 <button type="button" className="booth-shutter-start" onClick={captureSequence} disabled={!cameraReady}>
-                  <strong>{cameraReady ? '촬영 시작' : '카메라 준비 중…'}</strong>
-                  <span>{cameraReady ? `누르면 ${event.boothCountdownSeconds ?? 7}초 뒤에 찍어요` : '카메라 권한을 허용해 주세요'}</span>
+                  <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M4 6.5h4l1.5-2h5l1.5 2h4v13H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+                  <strong>{cameraReady ? '촬영 시작' : '카메라 준비 중'}</strong>
+                  <span aria-hidden="true">↗</span>
                 </button>
-                <p>한 번만 누르면 {photoCount}장 자동 촬영</p>
+                <p>{cameraReady ? `${event.boothCountdownSeconds ?? 7}초 간격 · 총 ${photoCount}장 자동 촬영` : '카메라 권한을 허용해 주세요'}</p>
               </div>}
             </div>
             <div className="booth-live-label"><span /> {cameraReady ? '셀카 모드' : '카메라 준비 중'}</div>
-            <div className="booth-camera-instruction" aria-live="polite">{busy ? `${Math.min(photos.length + 1, photoCount)}번째 사진 · 카메라를 봐 주세요` : '모두 화면 안에 들어오도록 모여 주세요'}</div>
+            {busy && <div className="booth-camera-instruction" aria-live="polite">{Math.min(photos.length + 1, photoCount)}번째 사진 · 카메라를 봐 주세요</div>}
             <div className="booth-shot-progress">{Array.from({ length: photoCount }, (_, index) => <span key={index} className={index < photos.length ? 'is-shot' : ''}>{index + 1}</span>)}</div>
             {countdown !== null && <div className="booth-countdown" key={`${photos.length}-${countdown}`}>{countdown}</div>}
           </>}
@@ -541,14 +544,14 @@ export default function WeddingBoothPage() {
               <div className="booth-howto"><span>01</span><div><b>카메라 앞에 서기</b><small>화면에 얼굴이 잘 보이도록 모여 주세요.</small></div></div>
               <div className="booth-howto"><span>02</span><div><b>{photoCount}가지 포즈 남기기</b><small>컷마다 {event.boothCountdownSeconds ?? 7}초 카운트다운이 있어요.</small></div></div>
               <div className="booth-howto"><span>03</span><div><b>미리 보고 인화하기</b><small>{layout.name} · {layout.printSize}</small></div></div>
-              {ended ? <div className="booth-error">이 행사는 종료되어 촬영할 수 없어요.</div> : <button className="booth-primary" onClick={openCamera}>여기를 눌러 시작하기 <span aria-hidden="true">→</span></button>}
+              {ended ? <div className="booth-error">이 행사는 종료되어 촬영할 수 없어요.</div> : <button className="booth-primary" onClick={openCamera}>촬영 준비하기 <span aria-hidden="true">→</span></button>}
             </> : <>
               <p className="booth-description">아이패드 포토부스가 아직 설정되지 않았어요.<br />매장 관리자에게 레이아웃 선택을 요청해 주세요.</p>
               <div className="booth-error" role="status">관리자 페이지의 이벤트 설정에서 포토부스 레이아웃을 선택하면 촬영을 시작할 수 있어요.</div>
             </>}
           </>}
           {screen === 'shoot' && <>
-            <div className="booth-shoot-summary"><strong>{busy ? `${photos.length} / ${photoCount}장 촬영 완료` : '화면 가운데 ‘촬영 시작’을 눌러 주세요'}</strong><p>{busy ? '포즈를 바꿔 주세요. 다음 사진은 자동으로 찍어요.' : `누른 뒤 ${event.boothCountdownSeconds ?? 7}초마다 한 장씩 찍어요. 보이는 사진 영역 그대로 인화돼요.`}</p></div>
+            <div className="booth-shoot-summary"><strong>{busy ? `${photos.length} / ${photoCount}장 촬영 완료` : '편하게 자리 잡아주세요'}</strong><p>{busy ? '포즈를 바꿔 주세요. 다음 사진은 자동으로 찍어요.' : `누른 뒤 ${event.boothCountdownSeconds ?? 7}초마다 한 장씩 찍어요. 보이는 사진 영역 그대로 인화돼요.`}</p></div>
             <button className="booth-text-button" disabled={busy} onClick={() => { stopCamera(); setScreen('welcome') }}>처음으로</button>
           </>}
           {screen === 'preview' && <>

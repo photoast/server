@@ -300,3 +300,23 @@ body {
   .booth-camera-instruction { font-size: 15px; max-width: 90%; }
   .booth-live-label { top: auto; bottom: 60px; left: 15px; }
 }
+
+/* Quiet invitation typography and a deliberate camera-ready state. */
+@font-face{font-family:BoothMyeongjo;src:url('/fonts/wedding/NanumMyeongjo-Regular.ttf') format('truetype');font-display:swap;font-style:normal;font-weight:400}
+.booth-page{font-family:'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif;-webkit-font-smoothing:antialiased}
+.booth-controls h1{font-family:BoothMyeongjo,serif;line-height:1.42;letter-spacing:-.035em;word-break:keep-all}
+.booth-controls h1 em{font-style:normal}.booth-primary{font-family:inherit;font-weight:500;font-size:17px;letter-spacing:-.015em;border-radius:3px;background:#3e4c3b}.booth-primary:hover:not(:disabled){background:#51634d}.booth-primary span{font-weight:400;color:#e8e9dc}
+.booth-video{transition:filter .3s ease}.booth-camera-window.is-ready-to-start .booth-video{filter:blur(7px) brightness(.62)}
+.booth-camera-window.is-ready-to-start::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,#141b1420,#141b144d);pointer-events:none;z-index:0}
+.booth-camera-window.is-ready-to-start .booth-viewfinder,.booth-camera-window.is-ready-to-start .booth-crop-label{opacity:.3}
+.booth-start-overlay{width:min(380px,88%);color:#fffdf4;text-align:center}
+.booth-start-kicker{display:block;font-size:10px;font-weight:400;letter-spacing:.24em;color:#efeee0;margin-bottom:18px}
+.booth-start-overlay h2{font:400 clamp(26px,3.5vw,40px)/1.5 BoothMyeongjo,serif;letter-spacing:-.03em;margin:0 0 28px;word-break:keep-all;text-shadow:0 2px 15px #0002}
+.booth-shutter-start{width:min(285px,100%);min-height:66px;margin:0 auto;padding:16px 24px;display:flex;flex-direction:row;align-items:center;justify-content:center;gap:14px;border:1px solid #fffdf4;border-radius:50px;background:#fffdf4;color:#354330;box-shadow:0 5px 18px #00000012;font-family:inherit;transition:background .18s ease,transform .18s ease}
+.booth-shutter-start strong{font:500 20px/1.4 'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif;letter-spacing:-.02em}.booth-shutter-start span{font-size:22px;font-weight:400;margin-left:7px}.booth-shutter-start svg{flex-shrink:0}.booth-shutter-start:active:not(:disabled){background:#e7ebdf;transform:scale(.98)}.booth-shutter-start:hover:not(:disabled){background:#eef1e7}.booth-shutter-start:disabled{opacity:.6}
+.booth-start-overlay>p{display:block;padding:0;background:none;border-radius:0;margin:18px 0 0;color:#f4f1e8;font-size:14px;font-weight:400;letter-spacing:.01em;line-height:1.6}
+.booth-shoot-summary strong{font-size:18px;font-weight:500;letter-spacing:-.02em}.booth-shoot-summary p{font-size:14px;line-height:1.65}.booth-camera-instruction{font-family:inherit;font-weight:500;border-radius:30px;background:#1c261cc7;font-size:17px}.booth-screen-shoot .booth-countdown{font-family:BoothMyeongjo,serif;font-weight:400;background:#1c261cbd}.booth-screen-shoot .booth-stage{border-radius:5px}.booth-camera-window{outline:1px solid #e6e8d56b}
+@media(max-width:760px){.booth-start-overlay h2{font-size:27px;margin-bottom:20px}.booth-start-kicker{margin-bottom:12px;font-size:9px}.booth-shutter-start{min-height:58px;width:min(260px,100%);padding:12px 18px}.booth-shutter-start strong{font-size:18px}.booth-start-overlay>p{font-size:13px;margin-top:14px}.booth-shoot-summary strong{font-size:16px}.booth-camera-instruction{font-size:15px}}
+@media(prefers-reduced-motion:reduce){.booth-video,.booth-shutter-start{transition:none}}
+.booth-camera-window.is-ready-to-start .booth-crop-label{opacity:0}
+.booth-screen-shoot .booth-text-button{white-space:nowrap;min-height:48px;border-radius:3px;font-size:14px;padding:12px}
