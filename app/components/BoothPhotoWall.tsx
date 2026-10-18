@@ -7,6 +7,7 @@ type WallPhoto = { imageUrl: string }
 export default function BoothPhotoWall({ slug, fallback }: { slug: string; fallback: ReactNode }) {
   const [photos, setPhotos] = useState<WallPhoto[]>([])
   const [failed, setFailed] = useState<string[]>([])
+  const [samplesOnly, setSamplesOnly] = useState(false)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -32,6 +33,7 @@ export default function BoothPhotoWall({ slug, fallback }: { slug: string; fallb
         if (!controller.signal.aborted) {
           setPhotos(next)
           setFailed([])
+          setSamplesOnly(data.isSampleOnly === true)
         }
       } catch {
         // Retain the last wall (or the layout sample) when the network is unavailable.
@@ -52,14 +54,14 @@ export default function BoothPhotoWall({ slug, fallback }: { slug: string; fallb
   const visible = photos.filter(photo => !failed.includes(photo.imageUrl))
   if (!visible.length) return <>{fallback}</>
 
-  return <div className="booth-photo-wall" aria-label="이 결혼식에서 함께 남긴 사진들">
+  return <div className="booth-photo-wall" aria-label={samplesOnly ? '등록된 포토부스 샘플 미리보기' : '이 결혼식에서 함께 남긴 사진들'}>
     <div className={`booth-floating-photos booth-floating-count-${visible.length}`}>
       {visible.map((photo, index) => <div className="booth-floating-frame" key={photo.imageUrl}
         style={{ '--photo-index': index } as CSSProperties}>
-        <img src={photo.imageUrl} alt="프레임에 담긴 결혼식 기념 사진" decoding="async"
+        <img src={photo.imageUrl} alt={samplesOnly ? '프레임이 포함된 샘플 미리보기' : '프레임에 담긴 결혼식 기념 사진'} decoding="async"
           onError={() => setFailed(current => current.includes(photo.imageUrl) ? current : [...current, photo.imageUrl])} />
       </div>)}
     </div>
-    <div className="booth-photo-wall-caption"><span>OUR HAPPY MOMENTS</span><strong>오늘 함께 남긴 추억들</strong><p>이제 여러분의 사진도 남겨 주세요.</p></div>
+    <div className="booth-photo-wall-caption"><span>{samplesOnly ? 'FRAME PREVIEW' : 'OUR HAPPY MOMENTS'}</span><strong>{samplesOnly ? '이렇게 사진을 남겨요' : '오늘 함께 남긴 추억들'}</strong><p>{samplesOnly ? '샘플 미리보기 · 여러분의 사진으로 완성돼요.' : '이제 여러분의 사진도 남겨 주세요.'}</p></div>
   </div>
 }

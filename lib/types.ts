@@ -52,6 +52,10 @@ export interface FrameLayout {
   isPreset: boolean              // true = auto-created from default template
   order: number                  // display order (lower = first)
   price?: number                 // layout-specific price (overrides event.price)
+  testImageUrls?: Record<string, string>
+  testPreviewImageUrl?: string
+  previewImageUrls?: string[]
+  boothPreviewSource?: 'samples' | 'prints' | 'mixed'
   createdAt: string
   updatedAt: string
 }

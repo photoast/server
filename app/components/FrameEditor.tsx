@@ -5,6 +5,7 @@ import { Stage, Layer, Rect, Image as KonvaImage, Transformer, Text, Line, Circl
 import type Konva from 'konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { PhotoSlot, FrameLayout, FrameLayer } from '@/lib/types'
+import { uploadSampleImage, composeTestPreview } from '@/lib/boothSamples'
 import { detectColorRegions, floodFillErase, brushErase } from '@/lib/imageProcessing'
 import type { DetectedRegion } from '@/lib/imageProcessing'
 
@@ -48,7 +49,7 @@ interface DrawingRect {
 
 interface Props {
   layout: FrameLayout
-  onSave: (slots: PhotoSlot[], frameLayers: FrameLayer[], bgColor: string, bgCustomizable: boolean) => Promise<void>
+  onSave: (slots: PhotoSlot[], frameLayers: FrameLayer[], bgColor: string, bgCustomizable: boolean, samples: Pick<FrameLayout, 'testImageUrls' | 'testPreviewImageUrl'>) => Promise<void>
 }
 
 type LayerItem =
@@ -65,9 +66,35 @@ export default function FrameEditor({ layout, onSave }: Props) {
   const [testImages, setTestImages] = useState<Map<string, HTMLImageElement>>(new Map())
   const [uploadingFrame, setUploadingFrame] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [sampleError, setSampleError] = useState('')
+  const [testImagesLoading, setTestImagesLoading] = useState(true)
+  const [failedTestImages, setFailedTestImages] = useState<string[]>([])
+  const uploadedTestImages = useRef(new WeakMap<HTMLImageElement, string>())
+  const testPreviewCache = useRef<{ key: string; url: string } | null>(null)
   const [shiftHeld, setShiftHeld] = useState(false)
   const [bgColor, setBgColor] = useState(layout.backgroundColor || '#FFFFFF')
   const [bgCustomizable, setBgCustomizable] = useState(layout.backgroundColorCustomizable ?? true)
+
+  useEffect(() => {
+    let active = true
+    setTestImagesLoading(true)
+    const entries = Object.entries(layout.testImageUrls || {})
+    void Promise.all(entries.map(([id, url]) => new Promise<[string, HTMLImageElement] | null>(resolve => {
+      const image = new Image()
+      const timeout = window.setTimeout(() => resolve(null), 15000)
+      image.crossOrigin = 'anonymous'
+      image.onload = () => { window.clearTimeout(timeout); resolve([id, image]) }
+      image.onerror = () => { window.clearTimeout(timeout); resolve(null) }
+      image.src = url
+    }))).then(loaded => {
+      if (!active) return
+      setTestImages(new Map(loaded.filter((entry): entry is [string, HTMLImageElement] => entry !== null)))
+      setTestImagesLoading(false)
+      setFailedTestImages(entries.filter(([id]) => !loaded.some(entry => entry?.[0] === id)).map(([id]) => id))
+      if (loaded.some(entry => entry === null)) setSampleError('저장된 테스트 사진 일부를 불러오지 못했어요. 새로고침 후 다시 시도해 주세요.')
+    })
+    return () => { active = false }
+  }, [layout._id])
 
   // --- Undo / Redo ---
   type Snapshot = { slots: PhotoSlot[]; frameLayers: FrameLayer[] }
@@ -738,7 +765,31 @@ export default function FrameEditor({ layout, onSave }: Props) {
 
   const handleSave = async () => {
     setSaving(true)
-    try { await onSave(slots, frameLayers, bgColor, bgCustomizable) } finally { setSaving(false) }
+    setSampleError('')
+    try {
+      const testImageUrls: Record<string, string> = {}
+      for (const slot of slots) {
+        const image = testImages.get(slot.id)
+        if (!image) continue
+        let url = uploadedTestImages.current.get(image)
+        if (!url) {
+          url = image.src.startsWith('blob:') || image.src.startsWith('data:') ? await uploadSampleImage(image) : image.src
+          uploadedTestImages.current.set(image, url)
+        }
+        testImageUrls[slot.id] = url
+      }
+      const complete = slots.length > 0 && slots.every(slot => testImages.has(slot.id))
+      const key = JSON.stringify({ slots, frameLayers, bgColor, testImageUrls })
+      let testPreviewImageUrl = ''
+      if (complete) {
+        testPreviewImageUrl = testPreviewCache.current?.key === key ? testPreviewCache.current.url
+          : await composeTestPreview(layout.canvasWidth, layout.canvasHeight, bgColor, slots, frameLayers, testImages, frameImages)
+        testPreviewCache.current = { key, url: testPreviewImageUrl }
+      }
+      await onSave(slots, frameLayers, bgColor, bgCustomizable, { testImageUrls, testPreviewImageUrl })
+    } catch (err) {
+      setSampleError(err instanceof Error ? err.message : '저장하지 못했어요. 다시 시도해 주세요.')
+    } finally { setSaving(false) }
   }
 
   // --- Background Eraser Tool ---
@@ -1200,11 +1251,14 @@ export default function FrameEditor({ layout, onSave }: Props) {
           {showGrid ? '격자 끄기' : '# 격자'}
         </button>
 
-        <button onClick={handleSave} disabled={saving}
+        <button onClick={handleSave} disabled={saving || testImagesLoading || failedTestImages.some(id => slots.some(slot => slot.id === id) && !testImages.has(id))}
           className="px-4 py-1.5 text-xs rounded-xl font-semibold bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50">
           {saving ? '저장 중...' : '저장'}
         </button>
       </div>
+
+      <p className="text-sm text-gray-500">테스트 이미지도 함께 저장됩니다. 모든 사진 칸을 채우고 저장하면 프레임을 합친 포토부스 샘플이 자동으로 만들어집니다.</p>
+      {sampleError && <p role="alert" className="text-sm text-red-600">{sampleError}</p>}
 
       <div className="flex gap-4">
         {/* Canvas Editor */}

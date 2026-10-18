@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import type { FrameLayout, PhotoSlot, FrameLayer } from '@/lib/types'
 import { UIButton, UICard, UIStatusBanner } from '@/app/components/ui'
+import LayoutSamplesManager from '@/app/components/LayoutSamplesManager'
 
 const FrameEditor = dynamic(() => import('@/app/components/FrameEditor'), { ssr: false })
 
@@ -21,17 +22,17 @@ export default function LayoutEditPage() {
       .catch(() => setError('레이아웃을 찾을 수 없습니다'))
   }, [id])
 
-  const handleSave = async (slots: PhotoSlot[], frameLayers: FrameLayer[], bgColor: string, bgCustomizable: boolean) => {
+  const handleSave = async (slots: PhotoSlot[], frameLayers: FrameLayer[], bgColor: string, bgCustomizable: boolean, samples: Pick<FrameLayout, 'testImageUrls' | 'testPreviewImageUrl'>) => {
     const res = await fetch(`/api/layouts/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slots, frameLayers, backgroundColor: bgColor, backgroundColorCustomizable: bgCustomizable }),
+      body: JSON.stringify({ slots, frameLayers, backgroundColor: bgColor, backgroundColorCustomizable: bgCustomizable, ...samples }),
     })
     if (res.ok) {
       const updated = await res.json()
       setLayout(updated)
       alert('저장되었습니다!')
-    }
+    } else throw new Error('레이아웃을 저장하지 못했어요. 다시 시도해 주세요.')
   }
 
   if (error) {
@@ -83,6 +84,7 @@ export default function LayoutEditPage() {
           layout={layout}
           onSave={handleSave}
         />
+        <UICard><LayoutSamplesManager layout={layout} onChange={setLayout} /></UICard>
       </div>
     </div>
   )
