@@ -1,37 +1,35 @@
 # photoast 📸
 
-Web-based instant photo printing platform for events using Next.js and Epson Email Print.
+Web-based instant photo printing platform for events. Guests create and pay for custom photo prints in their mobile browser, then submit them to an event's configured printer.
 
 ## Features
 
 ### For Event Organizers (Admin)
 - Create and manage events
-- Upload event logos with customizable positioning
+- Configure printers, print sizes, and event-specific layouts
+- Create custom photo frames with layered artwork and photo slots
 - Generate QR codes for guest access
-- View print job history
-- Simple authentication system
+- Review print jobs and customer activity
+- Configure access codes, payment methods, and event pricing
+- Admin authentication
 
 ### For Guests
 - Scan QR code or use URL to access event
-- Multiple layout options:
-  - **Single Photo**: 1 photo with optional logo
-  - **Life Four-Cut (네컷)**: 4 photos in dual strips (cut-ready)
-  - **2×2 Grid**: 4 photos in grid layout
-- Photo crop editor with zoom/pan controls
-- Photo reordering for multi-photo layouts
-- 10 background color presets
-- Preview processed photo
-- Print instantly via email to Epson printer
+- Choose from event-provided layouts and custom frames
+- Upload, crop, rotate, and arrange photos for each layout
+- Customize background colors and preview the finished print
+- Pay with configured card or mobile payment methods
+- Track print request status and download the result
 
 ## Tech Stack
 
 - **Framework**: Next.js 14 (App Router)
 - **Language**: TypeScript
-- **Database**: In-memory (MongoDB support available)
+- **Database**: MongoDB
 - **Image Processing**: Sharp
 - **Styling**: Tailwind CSS
-- **Printing**: Epson Email Print (via nodemailer)
-- **Email**: SMTP (Gmail/Outlook/Custom)
+- **Printing**: Epson Connect API, email, printer polling, and test mode
+- **Payments**: NicePay
 
 ## Getting Started
 
