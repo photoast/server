@@ -95,6 +95,17 @@ export async function getPrintJobsByEventId(
   return { jobs, total }
 }
 
+// Sample unique completed compositions across the whole event, regardless of age.
+export async function getRandomBoothPhotos(eventId: string): Promise<{ imageUrl: string }[]> {
+  const db = await getDb()
+  return db.collection<PrintJob>(COLLECTIONS.printJobs).aggregate<{ imageUrl: string }>([
+    { $match: { eventId, status: { $in: ['PENDING', 'PRINTING', 'DONE'] }, refunded: { $ne: true }, imageUrl: { $type: 'string', $ne: '' } } },
+    { $group: { _id: '$imageUrl' } },
+    { $sample: { size: 6 } },
+    { $project: { _id: 0, imageUrl: '$_id' } },
+  ]).toArray()
+}
+
 export async function getAllPrintJobs(
   options?: { page?: number; limit?: number }
 ): Promise<{ jobs: PrintJob[]; total: number }> {
