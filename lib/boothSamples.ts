@@ -1,12 +1,12 @@
 import type { FrameLayer, PhotoSlot } from './types'
 
-export async function uploadSampleCanvas(canvas: HTMLCanvasElement): Promise<string> {
+export async function uploadSampleCanvas(canvas: HTMLCanvasElement, format: 'image/jpeg' | 'image/png' = 'image/jpeg'): Promise<string> {
   const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob(
     value => value ? resolve(value) : reject(new Error('사진을 준비하지 못했어요.')),
-    'image/jpeg', .88,
+    format, .88,
   ))
   const body = new FormData()
-  body.append('file', blob, 'booth-preview.jpg')
+  body.append('file', blob, format === 'image/png' ? 'booth-preview.png' : 'booth-preview.jpg')
   body.append('type', 'booth-preview')
   const response = await fetch('/api/upload', { method: 'POST', body })
   const data = await response.json()
@@ -43,9 +43,9 @@ export async function uploadPreviewFile(file: File): Promise<string> {
   } finally { URL.revokeObjectURL(url) }
 }
 
-export async function composeTestPreview(width: number, height: number, background: string,
-  slots: PhotoSlot[], layers: FrameLayer[], photos: Map<string, HTMLImageElement>, frames: Map<string, HTMLImageElement>): Promise<string> {
-  const scale = Math.min(1, 1600 / Math.max(width, height))
+export function renderLayoutPreviewCanvas(width: number, height: number, background: string,
+  slots: PhotoSlot[], layers: FrameLayer[], photos: Map<string, HTMLImageElement>, frames: Map<string, HTMLImageElement>, maxDimension?: number): HTMLCanvasElement {
+  const scale = maxDimension ? Math.min(1, maxDimension / Math.max(width, height)) : 1
   const canvas = document.createElement('canvas')
   canvas.width = Math.round(width * scale)
   canvas.height = Math.round(height * scale)
@@ -81,5 +81,10 @@ export async function composeTestPreview(width: number, height: number, backgrou
     }
     ctx.restore()
   }
-  return uploadSampleCanvas(canvas)
+  return canvas
+}
+
+export async function composeTestPreview(width: number, height: number, background: string,
+  slots: PhotoSlot[], layers: FrameLayer[], photos: Map<string, HTMLImageElement>, frames: Map<string, HTMLImageElement>): Promise<string> {
+  return uploadSampleCanvas(renderLayoutPreviewCanvas(width, height, background, slots, layers, photos, frames, 1600))
 }
