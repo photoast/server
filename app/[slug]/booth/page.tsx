@@ -61,6 +61,8 @@ type BoothLayout = {
   previewPhotoPool?: FrameLayout['previewPhotoPool']
 }
 
+const RETURN_TIMEOUT_SECONDS = 60
+
 type Screen = 'welcome' | 'shoot' | 'composing' | 'preview' | 'sending' | 'done'
 
 function getCaptureCount(layout: BoothLayout): number {
@@ -111,7 +113,7 @@ export default function WeddingBoothPage() {
   const [resultJobId, setResultJobId] = useState<string | null>(null)
   const [downloadQr, setDownloadQr] = useState('')
   const [qrError, setQrError] = useState('')
-  const [returnSeconds, setReturnSeconds] = useState(30)
+  const [returnSeconds, setReturnSeconds] = useState(RETURN_TIMEOUT_SECONDS)
   const [paymentOpen, setPaymentOpen] = useState(false)
 
   useEffect(() => {
@@ -493,7 +495,7 @@ export default function WeddingBoothPage() {
     stopCamera()
     setBusy(false)
     setCountdown(null)
-    setReturnSeconds(30)
+    setReturnSeconds(RETURN_TIMEOUT_SECONDS)
     setPaymentOpen(false)
     setPhotos([])
     photosRef.current = []
@@ -510,9 +512,9 @@ export default function WeddingBoothPage() {
   }, [stopCamera])
 
   useEffect(() => {
-    setReturnSeconds(30)
+    setReturnSeconds(RETURN_TIMEOUT_SECONDS)
     if ((screen !== 'preview' && screen !== 'done') || busy || paymentOpen) return
-    const deadline = Date.now() + 30_000
+    const deadline = Date.now() + RETURN_TIMEOUT_SECONDS * 1000
     const tick = () => {
       const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000))
       setReturnSeconds(remaining)
