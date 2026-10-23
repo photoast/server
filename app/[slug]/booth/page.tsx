@@ -63,7 +63,7 @@ type BoothLayout = {
 
 const RETURN_TIMEOUT_SECONDS = 60
 
-type Screen = 'welcome' | 'shoot' | 'composing' | 'preview' | 'sending' | 'done'
+type Screen = 'welcome' | 'shoot' | 'composing' | 'preview' | 'sending' | 'done' | 'compose-error'
 
 function getCaptureCount(layout: BoothLayout): number {
   const half = layout.slots.length / 2
@@ -91,6 +91,14 @@ export default function WeddingBoothPage() {
   const printActionRef = useRef(false)
   const previewDialogRef = useRef<HTMLDialogElement>(null)
 
+  const report = useCallback((action: string, detail = '') => {
+    void fetch('/api/booth/log', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug, action, detail: detail.slice(0, 250) }),
+      keepalive: true,
+    }).catch(() => { /* Reporting must never interrupt a guest session. */ })
+  }, [slug])
+
   const [event, setEvent] = useState<BoothEvent | null>(null)
   const [layout, setLayout] = useState<BoothLayout | null>(null)
   const [screen, setScreen] = useState<Screen>('welcome')
@@ -102,6 +110,7 @@ export default function WeddingBoothPage() {
   const [soundUnavailable, setSoundUnavailable] = useState(false)
   const [capturedFrame, setCapturedFrame] = useState<string | null>(null)
   const [countdown, setCountdown] = useState<number | null>(null)
+  const [lensPosition, setLensPosition] = useState('top')
   const [cameraReady, setCameraReady] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -227,22 +236,28 @@ export default function WeddingBoothPage() {
       const blob = await (await fetch(capturedPhotos[photoIndex])).blob()
       formData.append(`slot_${slot.id}_photo`, new File([blob], `booth-${photoIndex + 1}.jpg`, { type: 'image/jpeg' }))
     }))
-    const response = await fetch('/api/layouts/merge', { method: 'POST', body: formData })
+    const response = await fetch('/api/layouts/merge', { method: 'POST', body: formData, signal: AbortSignal.timeout(90000) })
+    if (!response.headers.get('content-type')?.includes('application/json')) throw new Error(`합성 서버 응답 오류 HTTP ${response.status}`)
     const data = await response.json()
     if (!response.ok || !data.url) throw new Error(data.error || '사진을 합성하지 못했어요.')
     return data.url as string
   }
 
   const finishCapture = async () => {
+    setError('')
+    report('compose-start')
     stopCamera()
     setBusy(true)
     setScreen('composing')
     try {
       setPreviewUrl(await composePhotos(photosRef.current))
+      report('compose-success')
       setScreen('preview')
     } catch (err) {
-      setError(err instanceof Error ? err.message : '미리보기를 만들지 못했어요.')
-      setScreen('welcome')
+      const detail = err instanceof Error ? err.message : 'Unknown error'
+      report('compose-error', detail)
+      setError(/load failed|failed to fetch|network|abort/i.test(detail) ? '인터넷 연결이 끊겼거나 서버에 연결하지 못했어요. 촬영한 사진은 그대로 있으니 연결을 확인하고 다시 시도해 주세요.' : `사진을 완성하지 못했어요. 촬영한 사진은 그대로 있어요. (${detail})`)
+      setScreen('compose-error')
     } finally {
       setBusy(false)
     }
@@ -530,6 +545,22 @@ export default function WeddingBoothPage() {
     }
   }, [screen, busy, paymentOpen, startAgain])
 
+  useEffect(() => {
+    if (error && screen !== 'compose-error') report('error', `${screen}: ${error}`)
+  }, [error, screen, report])
+
+  useEffect(() => {
+    if (screen === 'shoot' || screen === 'done' || screen === 'sending') report(screen)
+  }, [screen, report])
+
+  useEffect(() => {
+    const offline = () => report('offline')
+    const online = () => report('online')
+    window.addEventListener('offline', offline)
+    window.addEventListener('online', online)
+    return () => { window.removeEventListener('offline', offline); window.removeEventListener('online', online) }
+  }, [report])
+
   const ended = Boolean(event?.endedAt && new Date(event.endedAt).getTime() <= Date.now())
   const photoCount = layout ? getCaptureCount(layout) : 0
   const price = layout?.price ?? event?.price ?? 0
@@ -574,6 +605,7 @@ export default function WeddingBoothPage() {
               </div>}
             </div>
             <button className="booth-sound-toggle" onClick={toggleSound} aria-pressed={soundEnabled} aria-label={soundEnabled ? '촬영 소리 끄기' : '촬영 소리 켜기'}>{soundEnabled ? '소리 켜짐' : '소리 꺼짐'}</button>
+            <div className={`booth-lens-guide lens-${lensPosition}`} role="note">{lensPosition === 'left' ? '←' : lensPosition === 'right' ? '→' : '↑'} 카메라 렌즈를 봐 주세요</div>
             <div className="booth-live-label"><span /> {cameraReady ? '셀카 모드' : '카메라 준비 중'}</div>
             {busy && !capturedFrame && <div className="booth-camera-instruction" aria-live="polite">{Math.min(photos.length + 1, photoCount)}번째 사진 · 카메라를 봐 주세요</div>}
             <div className="booth-shot-progress">{Array.from({ length: photoCount }, (_, index) => <span key={index} className={index < photos.length ? 'is-shot' : busy && index === photos.length ? 'is-active' : ''}>{index < photos.length ? '✓' : index + 1}</span>)}</div>
@@ -606,9 +638,15 @@ export default function WeddingBoothPage() {
             </>}
           </>}
           {screen === 'shoot' && <>
-            <div className="booth-shoot-summary"><strong>{capturedFrame ? `${photos.length} / ${photoCount}장 촬영 완료` : busy ? `${Math.min(photos.length + 1, photoCount)}번째 사진 준비 중` : '편하게 자리 잡아주세요'}</strong><p>{capturedFrame ? (photos.length >= photoCount ? '잠시 후 완성 사진을 보여드릴게요.' : '다음 포즈를 준비해 주세요.') : busy ? '카운트다운이 끝나면 사진이 찍혀요.' : `컷마다 ${captureSeconds}초 동안 포즈를 준비해 주세요. 화면의 사진 영역 그대로 인화돼요.`}</p>{soundEnabled && soundUnavailable && <small>소리를 재생할 수 없어 화면으로 촬영을 안내합니다.</small>}</div>
+            <div className="booth-shoot-summary">{!busy && <label>카메라 위치 <select aria-label="카메라 렌즈 위치" value={lensPosition} onChange={e => setLensPosition(e.target.value)}><option value="top">위쪽</option><option value="left">왼쪽</option><option value="right">오른쪽</option></select></label>}<strong>{capturedFrame ? `${photos.length} / ${photoCount}장 촬영 완료` : busy ? `${Math.min(photos.length + 1, photoCount)}번째 사진 준비 중` : '편하게 자리 잡아주세요'}</strong><p>{capturedFrame ? (photos.length >= photoCount ? '잠시 후 완성 사진을 보여드릴게요.' : '다음 포즈를 준비해 주세요.') : busy ? '카운트다운이 끝나면 사진이 찍혀요.' : `컷마다 ${captureSeconds}초 동안 포즈를 준비해 주세요. 화면의 사진 영역 그대로 인화돼요.`}</p>{soundEnabled && soundUnavailable && <small>소리를 재생할 수 없어 화면으로 촬영을 안내합니다.</small>}</div>
             <div className="booth-contact-sheet" aria-label={`${photos.length} / ${photoCount}컷 촬영 완료`}>{Array.from({ length: photoCount }, (_, index) => <div key={index} className={`booth-contact-shot ${photos[index] ? 'is-captured' : busy && index === photos.length ? 'is-next' : ''}`}>{photos[index] ? <img src={photos[index]} alt={`${index + 1}번째 촬영 사진`} /> : <span>{String(index + 1).padStart(2, '0')}</span>}</div>)}</div>
             <button className="booth-text-button booth-home-action" disabled={busy} onClick={startAgain}>처음으로</button>
+          </>}
+          {screen === 'compose-error' && <>
+            <h1>촬영한 사진은<br /><em>그대로 있어요.</em></h1>
+            <p>인터넷 연결을 확인한 뒤 다시 시도해 주세요. 새로고침하면 사진이 사라질 수 있어요.</p>
+            <button className="booth-primary" disabled={busy} onClick={finishCapture}>사진 완성 다시 시도</button>
+            <button className="booth-text-button" onClick={startAgain}>사진 지우고 처음으로</button>
           </>}
           {screen === 'preview' && <>
             <div className="booth-preview-fields">
