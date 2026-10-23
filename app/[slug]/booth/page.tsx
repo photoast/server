@@ -89,6 +89,7 @@ export default function WeddingBoothPage() {
   const photosRef = useRef<string[]>([])
   const processedPayment = useRef(false)
   const printActionRef = useRef(false)
+  const previewDialogRef = useRef<HTMLDialogElement>(null)
 
   const [event, setEvent] = useState<BoothEvent | null>(null)
   const [layout, setLayout] = useState<BoothLayout | null>(null)
@@ -493,6 +494,7 @@ export default function WeddingBoothPage() {
 
   const startAgain = useCallback(() => {
     stopCamera()
+    previewDialogRef.current?.close()
     setBusy(false)
     setCountdown(null)
     setReturnSeconds(RETURN_TIMEOUT_SECONDS)
@@ -535,6 +537,8 @@ export default function WeddingBoothPage() {
   const photoQuantity = printQuantity * photosPerPrint
   const activeSlot = layout?.slots[Math.min(photos.length, Math.max(0, photoCount - 1))]
   const activeRatio = activeSlot ? Math.round(activeSlot.width) / Math.round(activeSlot.height) : 4 / 3
+  const captureSeconds = Math.max(3, Math.min(15, event?.boothCountdownSeconds ?? 7))
+  const journeyStep = screen === 'welcome' ? 0 : screen === 'shoot' || screen === 'composing' ? 1 : screen === 'preview' ? 2 : 3
   const cameraWidth = Math.max(0, Math.min(stageSize.width - 32, (stageSize.height - 32) * activeRatio))
   if (!event) return <main className="booth-page"><div className="booth-loading">{error || '웨딩 포토부스를 준비하고 있어요…'}</div></main>
 
@@ -545,6 +549,7 @@ export default function WeddingBoothPage() {
         <div className="booth-brand"><span className="booth-brand-mark">♡</span><span>PHOTO TOAST <i>WEDDING EDITION</i></span></div>
         <span className="booth-event-name">{event.name}</span>
       </header>
+      <nav className="booth-journey" aria-label="포토부스 진행 단계"><ol>{['시작', '촬영', '사진 확인', '인화 · 저장'].map((label, index) => <li key={label} className={index === journeyStep ? 'is-current' : index < journeyStep ? 'is-complete' : ''} aria-current={index === journeyStep ? 'step' : undefined}><span aria-hidden="true">{index < journeyStep ? '✓' : String(index + 1).padStart(2, '0')}</span>{label}</li>)}</ol></nav>
       <div className="booth-layout">
         <section ref={stageRef} className={`booth-stage booth-stage-${screen}`}>
           {screen === 'shoot' && <>
@@ -559,19 +564,19 @@ export default function WeddingBoothPage() {
               <span className="booth-crop-label">인화되는 사진 영역</span>
               {!busy && <div className="booth-start-overlay">
                 <span className="booth-start-kicker">READY WHEN YOU ARE</span>
-                <h2>준비되셨나요?</h2>
+                <h2>함께 모여 주세요.</h2>
                 <button type="button" className="booth-shutter-start" onClick={captureSequence} disabled={!cameraReady}>
                   <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M4 6.5h4l1.5-2h5l1.5 2h4v13H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
                   <strong>{cameraReady ? '촬영 시작' : '카메라 준비 중'}</strong>
                   <span aria-hidden="true">↗</span>
                 </button>
-                <p>{cameraReady ? `${event.boothCountdownSeconds ?? 7}초 간격 · 총 ${photoCount}장 자동 촬영` : '카메라 권한을 허용해 주세요'}</p>
+                <p>{cameraReady ? `컷마다 ${captureSeconds}초 카운트다운 · 총 ${photoCount}컷` : '카메라 권한을 허용해 주세요'}</p>
               </div>}
             </div>
             <button className="booth-sound-toggle" onClick={toggleSound} aria-pressed={soundEnabled} aria-label={soundEnabled ? '촬영 소리 끄기' : '촬영 소리 켜기'}>{soundEnabled ? '소리 켜짐' : '소리 꺼짐'}</button>
             <div className="booth-live-label"><span /> {cameraReady ? '셀카 모드' : '카메라 준비 중'}</div>
             {busy && !capturedFrame && <div className="booth-camera-instruction" aria-live="polite">{Math.min(photos.length + 1, photoCount)}번째 사진 · 카메라를 봐 주세요</div>}
-            <div className="booth-shot-progress">{Array.from({ length: photoCount }, (_, index) => <span key={index} className={index < photos.length ? 'is-shot' : ''}>{index + 1}</span>)}</div>
+            <div className="booth-shot-progress">{Array.from({ length: photoCount }, (_, index) => <span key={index} className={index < photos.length ? 'is-shot' : busy && index === photos.length ? 'is-active' : ''}>{index < photos.length ? '✓' : index + 1}</span>)}</div>
             {countdown !== null && <div className="booth-countdown" key={`${photos.length}-${countdown}`}>{countdown}</div>}
           </>}
           {screen === 'welcome' && (layout ? <BoothPhotoWall
@@ -582,6 +587,8 @@ export default function WeddingBoothPage() {
             initialSamplesOnly={layout.boothPreviewSource !== 'mixed' && layout.boothPreviewSource !== 'prints'}
           /> : <div className="booth-message"><h2>촬영 프레임 준비 중</h2><p>관리자가 프레임을 선택하면 여기에 보여요.</p></div>)}
           {(screen === 'preview' || screen === 'sending' || screen === 'done') && previewUrl && <div className="booth-print-preview"><img src={previewUrl} alt={`${layout?.name || '사진'} ${screen === 'done' ? '인화 요청한 사진' : '인화 미리보기'}`} /></div>}
+          {screen === 'preview' && previewUrl && <button type="button" className="booth-enlarge" onClick={() => previewDialogRef.current?.showModal()}>사진 크게 보기 <span aria-hidden="true">↗</span></button>}
+          {screen === 'sending' && previewUrl && <div className="booth-sending-overlay" role="status"><span className="booth-spinner"/><strong>인화 요청을 보내고 있어요</strong><p>잠시만 기다려 주세요.</p></div>}
           {(screen === 'composing' || (screen === 'sending' && !previewUrl)) && <div className="booth-message"><span className="booth-spinner"/><h2>{screen === 'composing' ? '사진을 예쁘게 담고 있어요' : '사진을 보내고 있어요'}</h2><p>잠시만 기다려 주세요.</p></div>}
         </section>
         <aside className="booth-controls">
@@ -589,24 +596,24 @@ export default function WeddingBoothPage() {
           {screen === 'welcome' && <>
             <h1>오늘의 축하를<br /><em>사진에 담아요.</em></h1>
             {layout ? <>
-              <p className="booth-description">카메라를 보고 포즈를 취해 주세요.<br />{event.boothCountdownSeconds ?? 7}초 뒤, {photoCount}장의 사진을 차례로 찍어요.</p>
-              <div className="booth-howto"><span>01</span><div><b>카메라 앞에 서기</b><small>화면에 얼굴이 잘 보이도록 모여 주세요.</small></div></div>
-              <div className="booth-howto"><span>02</span><div><b>{photoCount}가지 포즈 남기기</b><small>컷마다 {event.boothCountdownSeconds ?? 7}초 카운트다운이 있어요.</small></div></div>
-              <div className="booth-howto"><span>03</span><div><b>미리 보고 인화하기</b><small>{layout.name} · {layout.printSize}</small></div></div>
-              {ended ? <div className="booth-error">이 행사는 종료되어 촬영할 수 없어요.</div> : <button className="booth-primary" onClick={openCamera}>촬영 준비하기 <span aria-hidden="true">→</span></button>}
+              <p className="booth-description">소중한 사람들과 함께 서 주세요.<br />포즈만 준비하면, 사진은 저희가 담을게요.</p>
+              <div className="booth-session-facts"><span><b>{photoCount}컷</b> 자동 촬영</span><span><b>{captureSeconds}초</b> 포즈 준비</span><span><b>{price > 0 ? `${price.toLocaleString()}원` : '무료'}</b> {price > 0 ? `${photosPerPrint}장 기준` : '인화'}</span></div>
+              <p className="booth-start-note">촬영 전에 화면을 보며 자리를 맞출 수 있어요.</p>
+              {ended ? <div className="booth-error">이 행사는 종료되어 촬영할 수 없어요.</div> : <button className="booth-primary" onClick={openCamera}>사진 찍으러 가기 <span aria-hidden="true">→</span></button>}
             </> : <>
               <p className="booth-description">아이패드 포토부스가 아직 설정되지 않았어요.<br />매장 관리자에게 레이아웃 선택을 요청해 주세요.</p>
               <div className="booth-error" role="status">관리자 페이지의 이벤트 설정에서 포토부스 레이아웃을 선택하면 촬영을 시작할 수 있어요.</div>
             </>}
           </>}
           {screen === 'shoot' && <>
-            <div className="booth-shoot-summary"><strong>{capturedFrame ? `${photos.length} / ${photoCount}장 촬영 완료` : busy ? `${Math.min(photos.length + 1, photoCount)}번째 사진 준비 중` : '편하게 자리 잡아주세요'}</strong><p>{capturedFrame ? (photos.length >= photoCount ? '잠시 후 완성 사진을 보여드릴게요.' : '다음 포즈를 준비해 주세요.') : busy ? '카운트다운이 끝나면 사진이 찍혀요.' : `누른 뒤 ${event.boothCountdownSeconds ?? 7}초마다 한 장씩 찍어요. 보이는 사진 영역 그대로 인화돼요.`}</p>{soundEnabled && soundUnavailable && <small>소리를 재생할 수 없어 화면으로 촬영을 안내합니다.</small>}</div>
-            <button className="booth-text-button" disabled={busy} onClick={() => { stopCamera(); setScreen('welcome') }}>처음으로</button>
+            <div className="booth-shoot-summary"><strong>{capturedFrame ? `${photos.length} / ${photoCount}장 촬영 완료` : busy ? `${Math.min(photos.length + 1, photoCount)}번째 사진 준비 중` : '편하게 자리 잡아주세요'}</strong><p>{capturedFrame ? (photos.length >= photoCount ? '잠시 후 완성 사진을 보여드릴게요.' : '다음 포즈를 준비해 주세요.') : busy ? '카운트다운이 끝나면 사진이 찍혀요.' : `컷마다 ${captureSeconds}초 동안 포즈를 준비해 주세요. 화면의 사진 영역 그대로 인화돼요.`}</p>{soundEnabled && soundUnavailable && <small>소리를 재생할 수 없어 화면으로 촬영을 안내합니다.</small>}</div>
+            <div className="booth-contact-sheet" aria-label={`${photos.length} / ${photoCount}컷 촬영 완료`}>{Array.from({ length: photoCount }, (_, index) => <div key={index} className={`booth-contact-shot ${photos[index] ? 'is-captured' : busy && index === photos.length ? 'is-next' : ''}`}>{photos[index] ? <img src={photos[index]} alt={`${index + 1}번째 촬영 사진`} /> : <span>{String(index + 1).padStart(2, '0')}</span>}</div>)}</div>
+            <button className="booth-text-button booth-home-action" disabled={busy} onClick={startAgain}>처음으로</button>
           </>}
           {screen === 'preview' && <>
             <div className="booth-preview-fields">
-            <h1>우리의 오늘을<br /><em>간직해요.</em></h1>
-            <p className="booth-description">{layout?.name} 레이아웃으로 완성했어요. 인화하기 전에 사진을 확인해 주세요.</p>
+            <h1>마음에 드시나요?<br /><em>사진을 확인해 주세요.</em></h1>
+            <p className="booth-description">얼굴과 표정을 확인해 주세요. 마음에 들면 아래 버튼을 눌러 인화할 수 있어요.</p>
             <div className="booth-quantity" role="group" aria-label="인화 매수 선택">
               <span>몇 장 인화할까요?</span>
               <div><button type="button" aria-label={`인화 사진 ${photosPerPrint}장 줄이기`} disabled={printQuantity <= 1 || busy} onClick={() => setPrintQuantity(value => value - 1)}>−</button><output aria-live="polite">{photoQuantity}<small>장</small></output><button type="button" aria-label={`인화 사진 ${photosPerPrint}장 늘리기`} disabled={printQuantity >= 10 || busy} onClick={() => setPrintQuantity(value => value + 1)}>+</button></div>
@@ -617,17 +624,17 @@ export default function WeddingBoothPage() {
             </div>
             <div className="booth-preview-actions">
             <div className="booth-price">{price > 0 ? `총 ${(price * printQuantity).toLocaleString()}원 · ${photoQuantity}장` : `${photoQuantity}장 무료 인화`}</div>
-            <button className="booth-primary" onClick={handlePrintAction} disabled={busy || paymentOpen}>{paymentOpen ? '결제를 진행해 주세요…' : busy ? '처리 중이에요…' : price > 0 ? `${photoQuantity}장 결제하고 인화하기` : `${photoQuantity}장 인화하기`} <span aria-hidden="true">→</span></button>
+            <button className="booth-primary" onClick={handlePrintAction} disabled={busy || paymentOpen}>{paymentOpen ? '결제를 진행해 주세요…' : busy ? '처리 중이에요…' : price > 0 ? `${photoQuantity}장 결제하고 인화하기` : `이 사진으로 ${photoQuantity}장 인화하기`} <span aria-hidden="true">→</span></button>
             <button className="booth-text-button" disabled={busy || paymentOpen} onClick={() => { setPhotos([]); photosRef.current = []; setPreviewUrl(''); setError(''); void openCamera() }}>다시 촬영하기</button>
             <p className="booth-return-notice">{paymentOpen ? '결제 중에는 첫 화면으로 돌아가지 않아요.' : busy ? '인화 요청을 처리하고 있어요.' : `${returnSeconds}초 후 첫 화면으로 돌아가요.`}</p>
             </div>
           </>}
-          {screen === 'composing' && <><h1>잠시만요,<br /><em>사진을 담고 있어요.</em></h1><p className="booth-description">관리자가 고른 레이아웃에 맞춰 사진을 합성하고 있어요.</p></>}
+          {screen === 'composing' && <><h1>잠시만요,<br /><em>사진을 담고 있어요.</em></h1><p className="booth-description">촬영한 사진을 프레임에 담고 있어요. 곧 완성된 사진을 보여드릴게요.</p></>}
           {screen === 'sending' && <><h1>잠시만요,<br /><em>사진을 보내고 있어요.</em></h1><p className="booth-description">사진 {photoQuantity}장을 인화할 수 있도록 프린터로 요청을 보내고 있어요.</p></>}
           {screen === 'done' && <>
             <div className="booth-done-details">
               <div className="booth-done-badge" role="status">{event.isTestPrinter ? '테스트 요청 완료' : '인화 요청 완료'} · {photoQuantity}장</div>
-              <h1>오늘의 사진을<br /><em>챙겨 주세요.</em></h1>
+              <h1>사진 속 오늘을<br /><em>오래 간직하세요.</em></h1>
               <p className="booth-description">{event.isTestPrinter ? '실제 출력 없이 테스트 요청을 기록했어요.' : `사진 ${photoQuantity}장을 프린터로 보냈어요. 휴대폰에도 저장해 보세요.`}</p>
               {resultJobId ? <div className="booth-download-card">
                 <div className="booth-download-qr">{downloadQr ? <img src={downloadQr} alt="휴대폰으로 사진 저장 페이지를 여는 QR 코드" width="160" height="160" /> : <span role="status">{qrError ? 'QR 준비 실패' : 'QR 준비 중…'}</span>}</div>
@@ -635,12 +642,13 @@ export default function WeddingBoothPage() {
                 {qrError && <p className="booth-qr-error" role="alert">{qrError}</p>}
               </div> : <p className="booth-description">사진 저장 링크를 준비하지 못했어요. 현장 관리자에게 알려 주세요.</p>}
             </div>
-            <div className="booth-done-actions"><button className="booth-primary" onClick={startAgain}>다시 촬영하기</button><p className="booth-return-notice">{returnSeconds}초 후 첫 화면으로 돌아가요. QR을 먼저 스캔해 주세요.</p></div>
+            <div className="booth-done-actions"><button className="booth-primary" onClick={startAgain}>완료 · 다음 손님 <span aria-hidden="true">→</span></button><p className="booth-return-notice">{returnSeconds}초 후 첫 화면으로 돌아가요. QR을 먼저 스캔해 주세요.</p></div>
           </>}
           {error && <div className="booth-error" role="alert">{error}</div>}
           {event.isTestPrinter && <div className="booth-test-note">테스트 프린터가 설정된 이벤트예요. 실제 사진은 출력되지 않습니다.</div>}
         </aside>
       </div>
+      {screen === 'preview' && <dialog ref={previewDialogRef} className="booth-preview-dialog" aria-label="완성 사진 확대 보기" onClick={e => { if (e.target === e.currentTarget) e.currentTarget.close() }}><button type="button" autoFocus className="booth-dialog-close" onClick={() => previewDialogRef.current?.close()}>닫기 <span aria-hidden="true">×</span></button><img src={previewUrl} alt="인화할 완성 사진 확대"/><p>확인 후 닫고 인화 매수를 선택해 주세요.</p></dialog>}
       <footer className="booth-footer"><span>MADE FOR YOUR FOREVER</span><span>PHOTO TOAST · WEDDING EDITION</span></footer>
     </main>
   )
