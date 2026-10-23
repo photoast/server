@@ -390,7 +390,7 @@ body {
 .booth-enlarge { font-family: inherit; font-size: 15px; font-weight: 500; line-height: 1.4; }
 @media (max-width: 760px) { .booth-capture-confirm { bottom: 62px; } }
 
-.booth-lens-guide { position:absolute; top:12px; left:50%; transform:translateX(-50%); z-index:15; padding:10px 18px; border-radius:999px; background:rgba(35,43,33,.9); color:white; font-size:16px; font-weight:600; white-space:nowrap; pointer-events:none; }
-@media(max-width:600px) { .booth-lens-guide { top:8px; font-size:13px; padding:8px 12px; } }
+.booth-lens-guide { position:absolute; top:12px; left:50%; transform:translateX(-50%); z-index:15; padding:6px 10px; border-radius:999px; background:rgba(35,43,33,.85); color:white; font-size:12px; font-weight:600; white-space:nowrap; pointer-events:none; }
+@media(max-width:600px) { .booth-lens-guide { top:8px; font-size:11px; padding:5px 8px; } }
 .booth-lens-guide.lens-left { left:12px; top:50%; transform:translateY(-50%); }
 .booth-lens-guide.lens-right { left:auto; right:12px; top:50%; transform:translateY(-50%); }

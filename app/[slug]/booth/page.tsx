@@ -605,7 +605,7 @@ export default function WeddingBoothPage() {
               </div>}
             </div>
             <button className="booth-sound-toggle" onClick={toggleSound} aria-pressed={soundEnabled} aria-label={soundEnabled ? '촬영 소리 끄기' : '촬영 소리 켜기'}>{soundEnabled ? '소리 켜짐' : '소리 꺼짐'}</button>
-            <div className={`booth-lens-guide lens-${lensPosition}`} role="note">{lensPosition === 'left' ? '←' : lensPosition === 'right' ? '→' : '↑'} 카메라 렌즈를 봐 주세요</div>
+            <div className={`booth-lens-guide lens-${lensPosition}`} role="note">{lensPosition === 'left' ? '←' : lensPosition === 'right' ? '→' : '↑'} 렌즈</div>
             <div className="booth-live-label"><span /> {cameraReady ? '셀카 모드' : '카메라 준비 중'}</div>
             {busy && !capturedFrame && <div className="booth-camera-instruction" aria-live="polite">{Math.min(photos.length + 1, photoCount)}번째 사진 · 카메라를 봐 주세요</div>}
             <div className="booth-shot-progress">{Array.from({ length: photoCount }, (_, index) => <span key={index} className={index < photos.length ? 'is-shot' : busy && index === photos.length ? 'is-active' : ''}>{index < photos.length ? '✓' : index + 1}</span>)}</div>

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import sharp from 'sharp'
+import { checkAuth } from '@/lib/middleware'
+import { findPrintJobById, findEventById } from '@/lib/models'
 import { findEventBySlug, findPrinterById, createPrintJob, updatePrinter, createErrorLog, verifyAndUseAuthCode, linkAuthCodeToPrintJob, getLayoutById } from '@/lib/models'
 import { printImage } from '@/lib/printer'
 import { printViaEpsonApi } from '@/lib/epson-api'
@@ -7,6 +9,8 @@ import { applyPrinterCorrection } from '@/lib/image-correction'
 import { uploadToBlob, readImageBuffer } from '@/lib/blob'
 import { DeviceInfo } from '@/lib/types'
 import { sendCustomerEmail, sendAdminNotification } from '@/lib/customer-email'
+
+const recentReprints = new Map<string, number>()
 
 // Extract IP address from request
 function getClientIp(request: NextRequest): string {
@@ -27,7 +31,32 @@ function getClientIp(request: NextRequest): string {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { slug, imageUrl, deviceInfo: clientDeviceInfo, quantity = 1, authCode, paymentTid, customerEmail, layoutId } = body
+    let { slug, imageUrl, deviceInfo: clientDeviceInfo, quantity = 1, authCode, paymentTid, customerEmail, layoutId } = body
+    let reprintPrinterId: string | undefined
+    const isReprint = Boolean(body.reprintJobId)
+    if (isReprint) {
+      if (!checkAuth(request)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      if (typeof body.reprintJobId !== 'string' || !/^[a-f0-9]{24}$/i.test(body.reprintJobId)) return NextResponse.json({ error: '잘못된 인쇄 기록입니다.' }, { status: 400 })
+      const original = await findPrintJobById(body.reprintJobId)
+      if (!original) return NextResponse.json({ error: '인쇄 기록을 찾을 수 없어요.' }, { status: 404 })
+      if (original.status === 'PENDING' || original.status === 'PRINTING') return NextResponse.json({ error: '아직 처리 중인 인쇄입니다. 완료 또는 실패 상태를 확인해 주세요.' }, { status: 409 })
+      const now = Date.now()
+      recentReprints.forEach((time, key) => { if (now - time > 60000) recentReprints.delete(key) })
+      if (recentReprints.has(body.reprintJobId)) return NextResponse.json({ error: '방금 재출력한 사진입니다. 인쇄 기록을 확인하고 1분 뒤 다시 시도해 주세요.' }, { status: 409 })
+      recentReprints.set(body.reprintJobId, now)
+      const originalEvent = await findEventById(original.eventId)
+      if (!originalEvent) return NextResponse.json({ error: '이벤트를 찾을 수 없어요.' }, { status: 404 })
+      // Use the saved original, never the already-corrected/duplicated printed image.
+      slug = originalEvent.slug
+      imageUrl = original.imageUrl
+      layoutId = original.layoutId
+      reprintPrinterId = original.printerId
+      quantity = 1
+      authCode = undefined
+      paymentTid = undefined
+      customerEmail = undefined
+      clientDeviceInfo = undefined
+    }
 
     if (!slug || !imageUrl) {
       return NextResponse.json(
@@ -46,7 +75,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify auth code if required
-    if (event.authCodeRequired) {
+    if (event.authCodeRequired && !isReprint) {
       if (!authCode) {
         return NextResponse.json({ error: '인증코드가 필요합니다' }, { status: 403 })
       }
@@ -57,7 +86,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Resolve printer from event
-    const printer = event.printerId ? await findPrinterById(event.printerId) : null
+    const targetPrinterId = isReprint ? reprintPrinterId : event.printerId
+    const printer = targetPrinterId ? await findPrinterById(targetPrinterId) : null
     if (!printer) {
       return NextResponse.json(
         { error: '이벤트에 프린터가 설정되지 않았습니다' },
@@ -110,6 +140,7 @@ export async function POST(request: NextRequest) {
             deviceInfo,
             authCode: normalizedAuthCode,
             layoutId,
+            reprintOfJobId: isReprint ? body.reprintJobId : undefined,
             paymentTid,
             paymentAmount: paymentTid ? (layoutInfo?.price ?? event.price) : undefined,
             customerEmail,
@@ -168,6 +199,7 @@ export async function POST(request: NextRequest) {
             deviceInfo,
             authCode: normalizedAuthCode,
             layoutId,
+            reprintOfJobId: isReprint ? body.reprintJobId : undefined,
             paymentTid,
             paymentAmount: paymentTid ? (layoutInfo?.price ?? event.price) : undefined,
             customerEmail,
@@ -240,6 +272,7 @@ export async function POST(request: NextRequest) {
             errorMessage: result.error,
             authCode: normalizedAuthCode,
             layoutId,
+            reprintOfJobId: isReprint ? body.reprintJobId : undefined,
             paymentTid,
             paymentAmount: paymentTid ? (layoutInfo?.price ?? event.price) : undefined,
             customerEmail,
@@ -300,6 +333,7 @@ export async function POST(request: NextRequest) {
             errorMessage: result.error,
             authCode: normalizedAuthCode,
             layoutId,
+            reprintOfJobId: isReprint ? body.reprintJobId : undefined,
             paymentTid,
             paymentAmount: paymentTid ? (layoutInfo?.price ?? event.price) : undefined,
             customerEmail,

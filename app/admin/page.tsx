@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, Suspense } from 'react'
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import QRCode from 'qrcode'
@@ -94,6 +94,7 @@ interface DeviceInfo {
 }
 
 interface PrintJob {
+  reprintOfJobId?: string
   _id: string
   orderNumber?: number
   eventId: string
@@ -150,6 +151,8 @@ function AdminPageInner() {
   const [qrPromoShowDonation, setQrPromoShowDonation] = useState(false)
 
   // Print history
+  const reprintLock = useRef(false)
+  const [reprintingJobId, setReprintingJobId] = useState<string | null>(null)
   const [showPrintHistory, setShowPrintHistory] = useState(false)
   const [printJobs, setPrintJobs] = useState<PrintJob[]>([])
   const [printJobsTotal, setPrintJobsTotal] = useState(0)
@@ -873,6 +876,28 @@ function AdminPageInner() {
         eventId: event._id,
         eventName: event.name,
       })
+    }
+  }
+
+  const reprintPhoto = async (job: PrintJob) => {
+    if (reprintLock.current || !selectedEventForHistory) return
+    if (!confirm(`이 사진을 기존 프린터(${job.printerName || '연결된 프린터'})로 1회 재출력할까요?\n2×6 레이아웃은 한 용지에서 두 장이 나옵니다. 추가 결제·인증코드는 사용하지 않습니다.`)) return
+    reprintLock.current = true
+    setReprintingJobId(job._id!)
+    try {
+      const res = await fetch('/api/print', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reprintJobId: job._id }),
+      })
+      const data = await res.json()
+      if (!res.ok || data.success === false) throw new Error(data.error || '재출력 요청에 실패했어요.')
+      alert(data.test ? '테스트 프린터: 기록만 생성했으며 실제 출력은 하지 않았습니다.' : '재출력을 요청했습니다. 새 인쇄 기록에서 진행 상태를 확인해 주세요.')
+      await fetchPrintHistory(selectedEventForHistory, 1)
+    } catch (err) {
+      alert(`${err instanceof Error ? err.message : '재출력 요청 오류'}\n연결 오류라면 중복 인쇄를 막기 위해 인쇄 기록부터 확인해 주세요.`)
+    } finally {
+      reprintLock.current = false
+      setReprintingJobId(null)
     }
   }
 
@@ -2042,6 +2067,8 @@ function AdminPageInner() {
                           <option value="DONE">완료</option>
                           <option value="FAILED">실패</option>
                         </select>
+                        <button type="button" disabled={Boolean(reprintingJobId) || job.status === 'PENDING' || job.status === 'PRINTING'} onClick={() => reprintPhoto(job)} className="min-h-[44px] px-3 rounded-lg border border-gray-300 bg-white text-sm font-semibold disabled:opacity-40">{reprintingJobId === job._id ? '재출력 요청 중…' : '재출력'}</button>
+                        {job.reprintOfJobId && <span className="text-xs text-gray-500">재출력 기록</span>}
                         {job.orderNumber != null && (
                           <span className="text-xs font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">#{job.orderNumber}</span>
                         )}
