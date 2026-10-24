@@ -2,7 +2,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { KeepsakeData, KeepsakePhoto, shuffleKeepsake } from '@/lib/keepsake'
 import { renderRandomBoothPreviews } from '@/lib/renderRandomBoothPreviews'
+import dynamic from 'next/dynamic'
 import s from './keepsake.module.css'
+const KeepsakeGifMaker = dynamic(() => import('@/app/components/KeepsakeGifMaker'), { ssr: false })
 const Heart = () => <svg viewBox="0 0 60 48" width="48" height="40" fill="none" aria-hidden="true"><path d="M30 43C20 35 4 25 5 13C6 0 23 0 30 11C37 0 54 0 55 13C56 25 40 35 30 43Z" stroke="currentColor" strokeWidth="1.2" /></svg>
 export default function KeepsakePage({ params }: { params: { token: string } }) {
   const [data, setData] = useState<KeepsakeData | null>(null), [photos, setPhotos] = useState<KeepsakePhoto[]>([]), [error, setError] = useState(''), [busy, setBusy] = useState(false), [selected, setSelected] = useState<KeepsakePhoto | null>(null), [saving, setSaving] = useState(false), [notice, setNotice] = useState('')
@@ -82,7 +84,7 @@ export default function KeepsakePage({ params }: { params: { token: string } }) 
       </section>
       <section ref={gallery} id="memories" className={s.memories}>
         <div className={s.sectionTitle}><span>01 / THE MEMORIES</span><Heart /><h2>그날의 우리,<br />그리고 소중한 사람들</h2><p>한 장마다 담긴 축하와 웃음.<br />사진을 누르면 크게 보고 간직할 수 있어요.</p></div>
-        {photos.length > 0 ? <><div className={s.tools}><span>서로 다른 추억 {data.total}장</span><button onClick={() => setPhotos(shuffleKeepsake(photos))}>다시 섞어보기 ↻</button></div><div className={s.grid}>{photos.map((photo, i) => <button key={photo.id} className={s.photo} onClick={() => open(photo)} aria-label={`${i + 1}번째 추억 크게 보기`}><img src={photo.url} alt={`${i + 1}번째 웨딩 포토스트립`} loading="lazy" /><span>{String(i + 1).padStart(2, '0')} <i>with love</i></span></button>)}</div></> : <div className={s.empty}><Heart /><p>첫 번째 추억을 기다리고 있어요.</p><p>촬영한 사진이 준비되면 여기에 모여요.</p><button disabled={busy} onClick={() => void load()}>새 사진 확인하기</button></div>}
+        {photos.length > 0 ? <><div className={s.tools}><span>서로 다른 추억 {data.total}장</span><KeepsakeGifMaker photos={photos} hasMore={data.hasMore} loading={busy} onLoadMore={async () => { if (!await load(data.page + 1)) throw new Error('사진 불러오기 실패') }} /><button onClick={() => setPhotos(shuffleKeepsake(photos))}>다시 섞어보기 ↻</button></div><div className={s.grid}>{photos.map((photo, i) => <button key={photo.id} className={s.photo} onClick={() => open(photo)} aria-label={`${i + 1}번째 추억 크게 보기`}><img src={photo.url} alt={`${i + 1}번째 웨딩 포토스트립`} loading="lazy" /><span>{String(i + 1).padStart(2, '0')} <i>with love</i></span></button>)}</div></> : <div className={s.empty}><Heart /><p>첫 번째 추억을 기다리고 있어요.</p><p>촬영한 사진이 준비되면 여기에 모여요.</p><button disabled={busy} onClick={() => void load()}>새 사진 확인하기</button></div>}
         {error && <p role="alert" className={s.error}>{error}<button disabled={busy} onClick={() => void load(data.page + 1)}>다시 시도</button></p>}
         {data.hasMore && <button className={s.more} disabled={busy} onClick={() => void load(data.page + 1)}>{busy ? '추억을 불러오는 중…' : '다음 추억도 펼쳐보기 ↓'}</button>}
       </section>

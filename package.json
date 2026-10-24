@@ -16,6 +16,7 @@
     "@vercel/blob": "^2.3.0",
     "bcryptjs": "^2.4.3",
     "dotenv": "^17.3.1",
+    "gifenc": "1.0.3",
     "heic-convert": "^2.1.0",
     "heic2any": "^0.0.4",
     "html2canvas": "^1.4.1",
