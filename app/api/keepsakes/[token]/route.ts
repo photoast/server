@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getDb, COLLECTIONS } from '@/lib/mongodb'
 import { findEventById, getLayoutById } from '@/lib/models'
 import { KEEPSAKES, Keepsake, keepsakeHeaders } from '@/lib/keepsake'
+import { getRandomPreviewConfig } from '@/lib/boothRandomPreviews'
 export const dynamic = 'force-dynamic'
 export async function GET(request: NextRequest, { params }: { params: { token: string } }) {
   const reply = (data: unknown, status = 200) => NextResponse.json(data, { status, headers: keepsakeHeaders })
@@ -25,6 +26,6 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
       { $facet: { photos: [{ $skip: (page - 1) * size }, { $limit: size }], count: [{ $count: 'total' }] } },
     ]).toArray()
     const total = result?.count[0]?.total || 0
-    return reply({ title: album.title, date: album.date, cover, photos: (result?.photos || []).map((p: { id: unknown; _id: string }) => ({ id: String(p.id), url: p._id })), total, page, hasMore: page * size < total })
+    return reply({ title: album.title, date: album.date, cover, randomPreview: layout ? getRandomPreviewConfig({ ...layout, boothPreviewSource: 'samples' }) : null, photos: (result?.photos || []).map((p: { id: unknown; _id: string }) => ({ id: String(p.id), url: p._id })), total, page, hasMore: page * size < total })
   } catch { return reply({ error: '사진을 불러오지 못했어요. 잠시 뒤 다시 열어 주세요.' }, 503) }
 }

@@ -1,7 +1,8 @@
+import type { RandomPreviewConfig } from './boothRandomPreviews'
 export const KEEPSAKES = 'weddingKeepsakes'
 export type Keepsake = { _id: string; eventId: string; title: string; date: string; createdAt: Date }
 export type KeepsakePhoto = { id: string; url: string }
-export type KeepsakeData = { title: string; date: string; cover: string[]; photos: KeepsakePhoto[]; total: number; page: number; hasMore: boolean }
+export type KeepsakeData = { title: string; date: string; cover: string[]; randomPreview?: RandomPreviewConfig | null; photos: KeepsakePhoto[]; total: number; page: number; hasMore: boolean }
 export const keepsakeHeaders = { 'Cache-Control': 'private, no-store', 'X-Robots-Tag': 'noindex, nofollow', 'Referrer-Policy': 'no-referrer' }
 export function shuffleKeepsake<T>(items: T[]): T[] {
   const result = [...items]

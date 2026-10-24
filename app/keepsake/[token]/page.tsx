@@ -1,10 +1,13 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { KeepsakeData, KeepsakePhoto, shuffleKeepsake } from '@/lib/keepsake'
+import { renderRandomBoothPreviews } from '@/lib/renderRandomBoothPreviews'
 import s from './keepsake.module.css'
 const Heart = () => <svg viewBox="0 0 60 48" width="48" height="40" fill="none" aria-hidden="true"><path d="M30 43C20 35 4 25 5 13C6 0 23 0 30 11C37 0 54 0 55 13C56 25 40 35 30 43Z" stroke="currentColor" strokeWidth="1.2" /></svg>
 export default function KeepsakePage({ params }: { params: { token: string } }) {
   const [data, setData] = useState<KeepsakeData | null>(null), [photos, setPhotos] = useState<KeepsakePhoto[]>([]), [error, setError] = useState(''), [busy, setBusy] = useState(false), [selected, setSelected] = useState<KeepsakePhoto | null>(null), [saving, setSaving] = useState(false), [notice, setNotice] = useState('')
+  const [sampleCovers, setSampleCovers] = useState<string[]>([]), [zoom, setZoom] = useState(1)
+  const touchStart = useRef<{ x: number; y: number } | null>(null), viewer = useRef<HTMLDivElement>(null)
   const dialog = useRef<HTMLDialogElement>(null), gallery = useRef<HTMLElement>(null), lock = useRef(false)
   const load = async (page = 1) => {
     if (lock.current) return
@@ -14,12 +17,37 @@ export default function KeepsakePage({ params }: { params: { token: string } }) 
       const next: KeepsakeData & { error?: string } = await res.json()
       if (!res.ok) throw new Error(next.error)
       setData(next)
-      setPhotos(previous => shuffleKeepsake(page === 1 ? next.photos : Array.from(new Map([...previous, ...next.photos].map(p => [p.url, p])).values())))
+      const batch = shuffleKeepsake(next.photos)
+      setPhotos(previous => page === 1 ? batch : Array.from(new Map([...previous, ...batch].map(p => [p.url, p])).values()))
+      return batch[0]
     } catch (e) { setError(e instanceof Error ? e.message : '앨범을 열지 못했어요.') }
     finally { setBusy(false); lock.current = false }
   }
   useEffect(() => { void load() }, [params.token]) // eslint-disable-line react-hooks/exhaustive-deps
-  const open = (photo: KeepsakePhoto) => { setSelected(photo); setNotice(''); dialog.current?.showModal() }
+  const coverKey = JSON.stringify({ cover: data?.cover || [], randomPreview: data?.randomPreview || null })
+  useEffect(() => {
+    const sample: Pick<KeepsakeData, 'cover' | 'randomPreview'> = JSON.parse(coverKey)
+    const controller = new AbortController()
+    setSampleCovers(sample.cover)
+    if (sample.randomPreview) {
+      void renderRandomBoothPreviews(sample.randomPreview, 3, controller.signal)
+        .then(images => { if (!controller.signal.aborted && images.length) setSampleCovers([...images, ...sample.cover].slice(0, 3)) })
+        .catch(() => { /* Retain registered completed samples; never substitute guest history. */ })
+    }
+    return () => controller.abort()
+  }, [coverKey])
+  const move = async (direction: number) => {
+    if (!selected || saving || busy) return
+    const index = photos.findIndex(p => p.id === selected.id)
+    const next = photos[index + direction]
+    if (next) { setSelected(next); setZoom(1); setNotice(''); viewer.current?.scrollTo(0, 0) }
+    else if (direction > 0 && data?.hasMore) {
+      const first = await load(data.page + 1)
+      if (first) { setSelected(first); setZoom(1); setNotice(''); viewer.current?.scrollTo(0, 0) }
+      else setNotice('다음 사진을 불러오지 못했어요. 연결을 확인하고 다시 눌러 주세요.')
+    }
+  }
+  const open = (photo: KeepsakePhoto) => { setSelected(photo); setZoom(1); setNotice(''); dialog.current?.showModal() }
   const save = async () => {
     if (!selected || saving) return
     setSaving(true); setNotice('')
@@ -32,7 +60,8 @@ export default function KeepsakePage({ params }: { params: { token: string } }) 
     } catch (e) { if (!(e instanceof Error && e.name === 'AbortError')) setNotice('사진을 길게 눌러 저장하거나 원본을 열어 주세요.') }
     finally { setSaving(false) }
   }
-  const covers = data?.cover.length ? data.cover : photos.slice(0, 3).map(p => p.url)
+  const covers = sampleCovers
+  const selectedIndex = selected ? photos.findIndex(p => p.id === selected.id) : -1
   return <main className={s.page}>
     <header className={s.header}><span>A DAY TO REMEMBER</span></header>
     {!data ? <section className={s.loading}><Heart /><h1>{error ? '아직 앨범을 열지 못했어요' : '소중한 순간을 펼치는 중'}</h1><p role={error ? 'alert' : 'status'}>{error || '잠시만 기다려 주세요.'}</p>{error && <button onClick={() => void load()} disabled={busy}>다시 열어보기</button>}</section> : <>
@@ -57,9 +86,11 @@ export default function KeepsakePage({ params }: { params: { token: string } }) 
       </section>
       <footer className={s.footer}><Heart /><p className={s.script}>Thank you for being with us</p><p>함께한 마음이 오래도록 남기를.</p><span>WITH LOVE, ALWAYS</span></footer>
     </>}
-    <dialog ref={dialog} className={s.dialog} onClose={() => setSelected(null)} onClick={e => { if (e.target === e.currentTarget) dialog.current?.close() }}>
-      <div className={s.dialogBar}><span>오늘의 소중한 한 장</span><button autoFocus onClick={() => dialog.current?.close()} aria-label="사진 닫기">닫기 ×</button></div>
-      {selected && <><img className={s.fullPhoto} src={selected.url} alt="크게 보는 웨딩 사진" /><div className={s.saveBar}><button disabled={saving} onClick={save}>{saving ? '사진 준비 중…' : '사진 간직하기 ↓'}</button><a href={selected.url} target="_blank" rel="noreferrer">원본 열기 ↗</a><p role="status">{notice || '아이폰에서는 공유 메뉴에서 ‘이미지 저장’을 선택해 주세요.'}</p></div></>}
+    <dialog ref={dialog} aria-label="웨딩 사진 앨범" className={s.dialog} onClose={() => { setSelected(null); setZoom(1) }} onKeyDown={e => { if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); void move(e.key === 'ArrowRight' ? 1 : -1) } }} onClick={e => { if (e.target === e.currentTarget) dialog.current?.close() }}>
+      <div className={s.dialogBar}><span aria-live="polite">{selectedIndex + 1} / {data?.total || photos.length}</span><button autoFocus onClick={() => dialog.current?.close()} aria-label="사진 닫기">닫기 ×</button></div>
+      {selected && <><div ref={viewer} className={`${s.viewer} ${zoom > 1 ? s.zoomed : ''}`} onDoubleClick={() => setZoom(value => value === 1 ? 2 : 1)} onTouchStart={e => { touchStart.current = e.touches.length === 1 && zoom === 1 ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null }} onTouchMove={e => { if (e.touches.length !== 1) touchStart.current = null }} onTouchEnd={e => { const start = touchStart.current; touchStart.current = null; if (!start || zoom !== 1 || !e.changedTouches.length) return; const dx = e.changedTouches[0].clientX - start.x, dy = e.changedTouches[0].clientY - start.y; if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.4) void move(dx < 0 ? 1 : -1) }}>
+        <img className={s.fullPhoto} style={zoom > 1 ? { height: 'auto', maxWidth: 'none', width: '200%', maxHeight: 'none' } : undefined} src={selected.url} alt="크게 보는 웨딩 사진" />
+      </div><div className={s.carouselControls}><button aria-label="이전 사진" disabled={selectedIndex <= 0 || saving || busy} onClick={() => void move(-1)}>← 이전</button><button aria-label={zoom > 1 ? '사진 축소' : '사진 확대'} onClick={() => setZoom(value => value === 1 ? 2 : 1)}>{zoom > 1 ? '원래 크기 ⤡' : '확대 ⤢'}</button><button aria-label="다음 사진" disabled={saving || busy || (selectedIndex === photos.length - 1 && !data?.hasMore)} onClick={() => void move(1)}>{busy ? '불러오는 중…' : '다음 →'}</button></div><div className={s.saveBar}><button disabled={saving} onClick={save}>{saving ? '사진 준비 중…' : '사진 간직하기 ↓'}</button><a href={selected.url} target="_blank" rel="noreferrer">원본 열기 ↗</a><p role="status">{notice || '아이폰에서는 공유 메뉴에서 ‘이미지 저장’을 선택해 주세요.'}</p></div></>}
     </dialog>
   </main>
 }

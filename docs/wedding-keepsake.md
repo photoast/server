@@ -17,11 +17,11 @@ Three directions (fit / clarity / distinction / feasibility / accessibility / re
 ## Data ledger and behavior
 
 - Title and optional date are supplied by the operator. No guessed wedding date or names are stored.
-- Cover uses up to three distinct registered completed previews from the event's current booth layout; if absent, loaded photos provide the cover.
+- Cover uses the booth's registered photo pool via the same `getRandomPreviewConfig` / `renderRandomBoothPreviews` functions as the welcome screen. It generates three framed compositions when the pool is sufficient. Registered completed previews supply the fallback; guest history is never used for the cover. Sample-only configuration is deliberate even if the booth wall is configured to mix guest prints.
 - Gallery reads only the token's event AND its currently configured booth layout ID. Events without a booth layout return no gallery photos. Grouping by original `imageUrl` collapses repeated print/reprint jobs. This does not detect independently uploaded identical image files at different URLs.
 - All registered completed preview URLs are excluded from the guest gallery, even if printed. Failed/refunded jobs are excluded. Test-printer captures in DONE are included because they may contain real guest photos.
 - Count is the Mongo aggregation's distinct-photo count, not print quantity or attendee count.
-- Pages load 48 distinct photos at a time; each loaded set is shuffled locally. Reshuffle operates on the loaded photos, without duplicating them. Original images retain their resolution and frame.
+- Pages load 48 distinct photos at a time; each fetched batch is shuffled locally, then appended without changing the existing order for carousel navigation. Reshuffle operates on the loaded photos, without duplicating them. Original images retain their resolution and frame.
 - Operator-only generation and retrieval reuse the existing admin authentication. A 192-bit bearer link allows read-only access without guest login. Link possession grants photo access; the UI explains this. No-index, no-referrer and no-store responses reduce accidental indexing/caching; the link is not a password.
 - The public payload includes title/date/cover/photo IDs and URLs/count/pagination only. No email, auth code, payment or device metadata is returned. There is no payment or printing action in the public album.
 - Photo saving uses Web Share with a file when supported, otherwise file download. Failed cross-origin fetches show a long-press/open-original fallback. This is an album, not an offline archive; hosting must remain available.
@@ -35,3 +35,12 @@ Local Playwright browser QA uses the supplied wedding strip as a deterministic i
 Post-render revision: the first mobile render placed the opening action below the tall paper arrangement. Moved the single opening action below the couple's names/date, so it appears in the first viewport. Re-rendered both sizes and verified interaction again. Adjusted section body text to 16px.
 
 Local lacks production Mongo configuration: live album creation, real event content and production deployment must be verified in the configured environment. Existing guest photo URLs remain subject to the host's storage lifecycle.
+
+
+## Carousel update
+
+The image dialog supports explicit previous/next buttons, left/right keys, horizontal one-finger swipes and a current/total counter. Boundaries disable the unavailable direction. Advancing past the last loaded image fetches the next page, retaining the current photo on failure. Zoom/double-click toggles a scrollable 2× image; swipe navigation is suspended while zoomed or during multi-touch so it does not conflict with panning/pinch. Native browser pinch support is not disabled, but iOS hardware pinch behavior remains unverified. Save applies to the selected image.
+
+Browser QA at 390x844 (touch enabled) and 1280x900 verified three data-URL covers from the registered pool renderer, no guest fallback with a missing pool, button/key/swipe navigation, page-boundary loading, disabled first/last controls, zoom and Escape. Test uses the supplied frame as a fixture and mocked requests, not production records. Screenshots in task outputs: keepsake-pool-cover.png, keepsake-carousel-mobile.png, keepsake-carousel-desktop.png, keepsake-carousel-zoom.png.
+
+Post-render review of the carousel checked fit, controls and image aspect ratio. Added explicit dialog naming and inline next-page failure feedback; stabilized cover inputs so paging through memories does not regenerate the cover arrangement.
