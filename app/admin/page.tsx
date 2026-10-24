@@ -7,6 +7,7 @@ import QRCode from 'qrcode'
 import { logClientError } from '@/lib/errorLogger'
 import type { FrameLayout } from '@/lib/types'
 import LayoutSamplesManager from '@/app/components/LayoutSamplesManager'
+import KeepsakeLink from '@/app/components/KeepsakeLink'
 import { UIButton, UICard, UIFormField, UITextInput, UIStatusBanner, UIBadge, UISectionHeading } from '@/app/components/ui'
 
 type PrintMethod = 'email' | 'polling' | 'epson_api' | 'test'
@@ -1833,6 +1834,8 @@ function AdminPageInner() {
               </div>
             </div>
           </UICard>
+
+          <KeepsakeLink key={event._id} eventId={event._id} eventName={event.name} />
 
           {/* Recent Print Jobs */}
           <UICard>
