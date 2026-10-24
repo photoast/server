@@ -33,6 +33,25 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     let { slug, imageUrl, deviceInfo: clientDeviceInfo, quantity = 1, authCode, paymentTid, customerEmail, layoutId } = body
+    const isSample = Boolean(body.sampleLayoutId)
+    if (isSample) {
+      if (!checkAuth(request)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      if (body.reprintJobId || typeof body.sampleLayoutId !== 'string' || !/^[a-f0-9]{24}$/i.test(body.sampleLayoutId)) return NextResponse.json({ error: '잘못된 레이아웃입니다.' }, { status: 400 })
+      const sampleLayout = await getLayoutById(body.sampleLayoutId)
+      if (!sampleLayout) return NextResponse.json({ error: '레이아웃이 없습니다.' }, { status: 404 })
+      const allowed = [sampleLayout.testPreviewImageUrl, ...(sampleLayout.previewImageUrls || [])].filter(Boolean)
+      if (typeof body.sampleImageUrl !== 'string' || !allowed.includes(body.sampleImageUrl)) return NextResponse.json({ error: '등록된 완성 미리보기만 출력할 수 있습니다.' }, { status: 400 })
+      const sampleEvent = await findEventById(sampleLayout.eventId)
+      if (!sampleEvent) return NextResponse.json({ error: '이벤트가 없습니다.' }, { status: 404 })
+      slug = sampleEvent.slug
+      imageUrl = body.sampleImageUrl
+      layoutId = body.sampleLayoutId
+      quantity = 1
+      authCode = undefined
+      paymentTid = undefined
+      customerEmail = undefined
+      clientDeviceInfo = undefined
+    }
     const isReprint = Boolean(body.reprintJobId)
     if (isReprint) {
       if (!checkAuth(request)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -73,7 +92,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify auth code if required
-    if (event.authCodeRequired && !isReprint) {
+    if (event.authCodeRequired && !isReprint && !isSample) {
       if (!authCode) {
         return NextResponse.json({ error: '인증코드가 필요합니다' }, { status: 403 })
       }

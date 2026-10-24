@@ -1,12 +1,14 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import type { FrameLayout } from '@/lib/types'
 import LayoutPhotoPool from './LayoutPhotoPool'
 import LayoutPreviewComposer from './LayoutPreviewComposer'
 import { uploadPreviewFile } from '@/lib/boothSamples'
 
 export default function LayoutSamplesManager({ layout, onChange }: { layout: FrameLayout; onChange?: (layout: FrameLayout) => void }) {
+  const printLock = useRef(false)
+  const [printing, setPrinting] = useState(false)
   const [current, setCurrent] = useState(layout)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -29,11 +31,28 @@ export default function LayoutSamplesManager({ layout, onChange }: { layout: Fra
     catch (err) { setError(err instanceof Error ? err.message : '저장하지 못했어요.') }
     finally { setBusy(false) }
   }
+  const printSample = async (url: string) => {
+    if (printLock.current || busy) return
+    if (!confirm(`이 완성 미리보기를 현재 행사 프린터로 1회 출력할까요?${current.printSize === '2x6' ? '\n2×6 사진 2매가 나옵니다.' : ''}\n추가 결제·인증코드는 사용하지 않습니다.`)) return
+    printLock.current = true
+    setPrinting(true); setError(''); setStatus('')
+    try {
+      const res = await fetch('/api/print', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sampleLayoutId: current._id, sampleImageUrl: url }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.success) throw new Error(data.error || '출력을 요청하지 못했습니다.')
+      setStatus(data.test ? '테스트 프린터입니다. 실제 출력 없이 기록만 저장했어요.' : '출력을 요청했어요. 인쇄 기록에서 진행 상태를 확인해 주세요.')
+    } catch (err) {
+      setError(`${err instanceof Error ? err.message : '출력 요청 오류'} 연결 오류라면 재시도 전에 인쇄 기록을 확인해 주세요.`)
+    } finally { printLock.current = false; setPrinting(false) }
+  }
   const urls = current.previewImageUrls || []
 
   return <section className="space-y-4">
     <div><h3 className="text-base font-semibold text-gray-900">포토부스 미리보기 갤러리</h3>
-      <p className="mt-1 text-sm text-gray-500">{layout.name} 전용입니다. 사진을 넣어 이 레이아웃의 프레임으로 합성한 뒤, 인쇄 없이 여러 장 등록하세요.</p></div>
+      <p className="mt-1 text-sm text-gray-500">{layout.name} 전용입니다. 사진을 넣어 이 레이아웃의 프레임으로 합성한 뒤, 여러 장 등록하고, 완성 미리보기를 바로 인화할 수 있어요.</p></div>
     <label className="block text-sm font-medium text-gray-700">첫 화면에 보여줄 사진
       <select value={current.boothPreviewSource || 'samples'} disabled={busy}
         onChange={e => void update({ boothPreviewSource: e.target.value as FrameLayout['boothPreviewSource'] })}
@@ -84,11 +103,13 @@ export default function LayoutSamplesManager({ layout, onChange }: { layout: Fra
       {current.testPreviewImageUrl && <div className="rounded-xl border border-gray-200 p-2">
         <img src={current.testPreviewImageUrl} alt="슬롯별 테스트 사진으로 만든 완성 샘플" className="h-44 w-full bg-gray-100 object-contain" />
         <p className="mt-2 text-xs text-gray-500">편집기 테스트 샘플 · 저장 시 갱신</p>
-        <button type="button" disabled={busy} onClick={() => void update({ testPreviewImageUrl: '' })} className="min-h-11 text-sm text-red-600">미리보기에서 제거</button>
+        <button type="button" disabled={busy || printing} onClick={() => void printSample(current.testPreviewImageUrl!)} className="min-h-11 mr-3 text-sm font-semibold text-blue-700">{printing ? '출력 요청 중…' : '이 미리보기 인화'}</button>
+        <button type="button" disabled={busy || printing} onClick={() => void update({ testPreviewImageUrl: '' })} className="min-h-11 text-sm text-red-600">미리보기에서 제거</button>
       </div>}
       {urls.map((url, index) => <div key={url} className="rounded-xl border border-gray-200 p-2">
         <img src={url} alt={`등록한 완성 미리보기 ${index + 1}`} className="h-44 w-full bg-gray-100 object-contain" />
-        <button type="button" disabled={busy} onClick={() => void update({ previewImageUrls: urls.filter(item => item !== url) })} className="min-h-11 text-sm text-red-600">미리보기 삭제</button>
+        <button type="button" disabled={busy || printing} onClick={() => void printSample(url)} className="min-h-11 mr-3 text-sm font-semibold text-blue-700">{printing ? '출력 요청 중…' : '이 미리보기 인화'}</button>
+        <button type="button" disabled={busy || printing} onClick={() => void update({ previewImageUrls: urls.filter(item => item !== url) })} className="min-h-11 text-sm text-red-600">미리보기 삭제</button>
       </div>)}
     </div> : <p className="rounded-xl bg-gray-50 p-4 text-sm text-gray-500">{current.previewPhotoPool?.length ? '랜덤 사진이 등록되어 있어요. 첫 화면에서 자동 합성합니다. 완성 미리보기도 추가할 수 있어요.' : '등록된 미리보기가 없어요. 랜덤 사진을 추가하거나, 각 칸에 사진을 넣어 완성본을 등록해 주세요.'}</p>}
     {status && <p role="status" className="text-sm text-green-700">{status}</p>}
