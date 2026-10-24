@@ -881,7 +881,7 @@ function AdminPageInner() {
 
   const reprintPhoto = async (job: PrintJob) => {
     if (reprintLock.current || !selectedEventForHistory) return
-    if (!confirm(`이 사진을 기존 프린터(${job.printerName || '연결된 프린터'})로 1회 재출력할까요?\n2×6 레이아웃은 한 용지에서 두 장이 나옵니다. 추가 결제·인증코드는 사용하지 않습니다.`)) return
+    if (!confirm(`이 사진을 현재 행사에 설정된 프린터로 1회 재출력할까요?\n2×6 레이아웃은 한 용지에서 두 장이 나옵니다. 추가 결제·인증코드는 사용하지 않습니다.`)) return
     reprintLock.current = true
     setReprintingJobId(job._id!)
     try {

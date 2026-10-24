@@ -32,7 +32,6 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     let { slug, imageUrl, deviceInfo: clientDeviceInfo, quantity = 1, authCode, paymentTid, customerEmail, layoutId } = body
-    let reprintPrinterId: string | undefined
     const isReprint = Boolean(body.reprintJobId)
     if (isReprint) {
       if (!checkAuth(request)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -50,7 +49,6 @@ export async function POST(request: NextRequest) {
       slug = originalEvent.slug
       imageUrl = original.imageUrl
       layoutId = original.layoutId
-      reprintPrinterId = original.printerId
       quantity = 1
       authCode = undefined
       paymentTid = undefined
@@ -86,7 +84,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Resolve printer from event
-    const targetPrinterId = isReprint ? reprintPrinterId : event.printerId
+    // Reprints follow the current event configuration, including jobs originally tested.
+    const targetPrinterId = event.printerId
     const printer = targetPrinterId ? await findPrinterById(targetPrinterId) : null
     if (!printer) {
       return NextResponse.json(
