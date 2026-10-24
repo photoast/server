@@ -7,6 +7,7 @@ const Heart = () => <svg viewBox="0 0 60 48" width="48" height="40" fill="none" 
 export default function KeepsakePage({ params }: { params: { token: string } }) {
   const [data, setData] = useState<KeepsakeData | null>(null), [photos, setPhotos] = useState<KeepsakePhoto[]>([]), [error, setError] = useState(''), [busy, setBusy] = useState(false), [selected, setSelected] = useState<KeepsakePhoto | null>(null), [saving, setSaving] = useState(false), [notice, setNotice] = useState('')
   const [sampleCovers, setSampleCovers] = useState<string[]>([]), [zoom, setZoom] = useState(1)
+  const photoMenu = useRef<HTMLDetailsElement>(null)
   const touchStart = useRef<{ x: number; y: number } | null>(null), viewer = useRef<HTMLDivElement>(null)
   const dialog = useRef<HTMLDialogElement>(null), gallery = useRef<HTMLElement>(null), lock = useRef(false)
   const load = async (page = 1) => {
@@ -38,6 +39,7 @@ export default function KeepsakePage({ params }: { params: { token: string } }) 
   }, [coverKey])
   const move = async (direction: number) => {
     if (!selected || saving || busy) return
+    if (photoMenu.current) photoMenu.current.open = false
     const index = photos.findIndex(p => p.id === selected.id)
     const next = photos[index + direction]
     if (next) { setSelected(next); setZoom(1); setNotice(''); viewer.current?.scrollTo(0, 0) }
@@ -47,7 +49,7 @@ export default function KeepsakePage({ params }: { params: { token: string } }) 
       else setNotice('다음 사진을 불러오지 못했어요. 연결을 확인하고 다시 눌러 주세요.')
     }
   }
-  const open = (photo: KeepsakePhoto) => { setSelected(photo); setZoom(1); setNotice(''); dialog.current?.showModal() }
+  const open = (photo: KeepsakePhoto) => { if (photoMenu.current) photoMenu.current.open = false; setSelected(photo); setZoom(1); setNotice(''); dialog.current?.showModal() }
   const save = async () => {
     if (!selected || saving) return
     setSaving(true); setNotice('')
@@ -87,10 +89,16 @@ export default function KeepsakePage({ params }: { params: { token: string } }) 
       <footer className={s.footer}><Heart /><p className={s.script}>Thank you for being with us</p><p>함께한 마음이 오래도록 남기를.</p><span>WITH LOVE, ALWAYS</span></footer>
     </>}
     <dialog ref={dialog} aria-label="웨딩 사진 앨범" className={s.dialog} onClose={() => { setSelected(null); setZoom(1) }} onKeyDown={e => { if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); void move(e.key === 'ArrowRight' ? 1 : -1) } }} onClick={e => { if (e.target === e.currentTarget) dialog.current?.close() }}>
-      <div className={s.dialogBar}><span aria-live="polite">{selectedIndex + 1} / {data?.total || photos.length}</span><button autoFocus onClick={() => dialog.current?.close()} aria-label="사진 닫기">닫기 ×</button></div>
-      {selected && <><div ref={viewer} className={`${s.viewer} ${zoom > 1 ? s.zoomed : ''}`} onDoubleClick={() => setZoom(value => value === 1 ? 2 : 1)} onTouchStart={e => { touchStart.current = e.touches.length === 1 && zoom === 1 ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null }} onTouchMove={e => { if (e.touches.length !== 1) touchStart.current = null }} onTouchEnd={e => { const start = touchStart.current; touchStart.current = null; if (!start || zoom !== 1 || !e.changedTouches.length) return; const dx = e.changedTouches[0].clientX - start.x, dy = e.changedTouches[0].clientY - start.y; if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.4) void move(dx < 0 ? 1 : -1) }}>
+      <div className={s.dialogBar}><span className={s.dialogCounter} aria-live="polite">{selectedIndex + 1} <span>/ {data?.total || photos.length}</span></span><div className={s.viewerActions}>
+        <button className={s.iconButton} aria-label={zoom > 1 ? '사진 축소' : '사진 확대'} onClick={() => setZoom(value => value === 1 ? 2 : 1)}><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><circle cx="10" cy="10" r="6.5"/><path d="m15 15 5 5M7 10h6"/>{zoom === 1 && <path d="M10 7v6"/>}</svg></button>
+        <details ref={photoMenu} className={s.photoMenu}><summary aria-label="사진 메뉴">···</summary><div className={s.menuPanel}>{selected && <a href={selected.url} target="_blank" rel="noreferrer">원본 열기 ↗</a>}<p>사진을 두 번 누르면 확대돼요.<br />아이폰에서는 저장 후 공유 메뉴에서 ‘이미지 저장’을 선택해 주세요.</p></div></details>
+        <button className={s.iconButton} autoFocus onClick={() => dialog.current?.close()} aria-label="사진 닫기"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+      </div></div>
+      {selected && <><div className={s.photoStage}><div ref={viewer} className={`${s.viewer} ${zoom > 1 ? s.zoomed : ''}`} onDoubleClick={() => setZoom(value => value === 1 ? 2 : 1)} onTouchStart={e => { touchStart.current = e.touches.length === 1 && zoom === 1 ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null }} onTouchMove={e => { if (e.touches.length !== 1) touchStart.current = null }} onTouchEnd={e => { const start = touchStart.current; touchStart.current = null; if (!start || zoom !== 1 || !e.changedTouches.length) return; const dx = e.changedTouches[0].clientX - start.x, dy = e.changedTouches[0].clientY - start.y; if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.4) void move(dx < 0 ? 1 : -1) }}>
         <img className={s.fullPhoto} style={zoom > 1 ? { height: 'auto', maxWidth: 'none', width: '200%', maxHeight: 'none' } : undefined} src={selected.url} alt="크게 보는 웨딩 사진" />
-      </div><div className={s.carouselControls}><button aria-label="이전 사진" disabled={selectedIndex <= 0 || saving || busy} onClick={() => void move(-1)}>← 이전</button><button aria-label={zoom > 1 ? '사진 축소' : '사진 확대'} onClick={() => setZoom(value => value === 1 ? 2 : 1)}>{zoom > 1 ? '원래 크기 ⤡' : '확대 ⤢'}</button><button aria-label="다음 사진" disabled={saving || busy || (selectedIndex === photos.length - 1 && !data?.hasMore)} onClick={() => void move(1)}>{busy ? '불러오는 중…' : '다음 →'}</button></div><div className={s.saveBar}><button disabled={saving} onClick={save}>{saving ? '사진 준비 중…' : '사진 간직하기 ↓'}</button><a href={selected.url} target="_blank" rel="noreferrer">원본 열기 ↗</a><p role="status">{notice || '아이폰에서는 공유 메뉴에서 ‘이미지 저장’을 선택해 주세요.'}</p></div></>}
+      </div><button className={`${s.sideArrow} ${s.previous}`} aria-label="이전 사진" disabled={selectedIndex <= 0 || saving || busy} onClick={() => void move(-1)}><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="m15 5-7 7 7 7"/></svg></button><button className={`${s.sideArrow} ${s.next}`} aria-label="다음 사진" disabled={saving || busy || (selectedIndex === photos.length - 1 && !data?.hasMore)} onClick={() => void move(1)}><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></button></div>
+      <div className={s.compactSave}><button disabled={saving} onClick={save}><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M5 16v4h14v-4"/></svg>{saving ? '사진 준비 중…' : '사진 저장'}</button>{notice && <p role="status">{notice}</p>}</div></>}
+
     </dialog>
   </main>
 }
