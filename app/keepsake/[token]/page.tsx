@@ -34,7 +34,7 @@ export default function KeepsakePage({ params }: { params: { token: string } }) 
   }
   const covers = data?.cover.length ? data.cover : photos.slice(0, 3).map(p => p.url)
   return <main className={s.page}>
-    <header className={s.header}><a href="#" aria-label="앨범 처음으로">PhotoToast <span>keepsakes</span></a><span>A DAY TO REMEMBER</span></header>
+    <header className={s.header}><span>A DAY TO REMEMBER</span></header>
     {!data ? <section className={s.loading}><Heart /><h1>{error ? '아직 앨범을 열지 못했어요' : '소중한 순간을 펼치는 중'}</h1><p role={error ? 'alert' : 'status'}>{error || '잠시만 기다려 주세요.'}</p>{error && <button onClick={() => void load()} disabled={busy}>다시 열어보기</button>}</section> : <>
       <section className={s.cover}>
         <p className={s.eyebrow}>FOR THE TWO OF YOU</p>
@@ -55,7 +55,7 @@ export default function KeepsakePage({ params }: { params: { token: string } }) 
         {error && <p role="alert" className={s.error}>{error}<button disabled={busy} onClick={() => void load(data.page + 1)}>다시 시도</button></p>}
         {data.hasMore && <button className={s.more} disabled={busy} onClick={() => void load(data.page + 1)}>{busy ? '추억을 불러오는 중…' : '다음 추억도 펼쳐보기 ↓'}</button>}
       </section>
-      <footer className={s.footer}><Heart /><p className={s.script}>Thank you for being with us</p><p>함께한 마음이 오래도록 남기를.</p><span>MADE WITH LOVE · PHOTOTOAST</span></footer>
+      <footer className={s.footer}><Heart /><p className={s.script}>Thank you for being with us</p><p>함께한 마음이 오래도록 남기를.</p><span>WITH LOVE, ALWAYS</span></footer>
     </>}
     <dialog ref={dialog} className={s.dialog} onClose={() => setSelected(null)} onClick={e => { if (e.target === e.currentTarget) dialog.current?.close() }}>
       <div className={s.dialogBar}><span>오늘의 소중한 한 장</span><button autoFocus onClick={() => dialog.current?.close()} aria-label="사진 닫기">닫기 ×</button></div>

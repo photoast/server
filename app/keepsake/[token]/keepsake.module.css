@@ -6,3 +6,5 @@
 
 /* Keep the gift-opening action visible before the tall photo arrangement. */
 .cover>.open{margin-top:24px;background:transparent;border-bottom:1px solid #a8af9b;padding:8px 4px;min-height:44px;color:var(--ink);font-size:14px;gap:24px}.sectionTitle p{font-size:16px}
+
+.header{justify-content:center}
