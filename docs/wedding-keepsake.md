@@ -44,3 +44,12 @@ The image dialog supports explicit previous/next buttons, left/right keys, horiz
 Browser QA at 390x844 (touch enabled) and 1280x900 verified three data-URL covers from the registered pool renderer, no guest fallback with a missing pool, button/key/swipe navigation, page-boundary loading, disabled first/last controls, zoom and Escape. Test uses the supplied frame as a fixture and mocked requests, not production records. Screenshots in task outputs: keepsake-pool-cover.png, keepsake-carousel-mobile.png, keepsake-carousel-desktop.png, keepsake-carousel-zoom.png.
 
 Post-render review of the carousel checked fit, controls and image aspect ratio. Added explicit dialog naming and inline next-page failure feedback; stabilized cover inputs so paging through memories does not regenerate the cover arrangement.
+
+
+## Social sharing
+
+The album layout generates server metadata from the stored title/date: canonical URL, Open Graph website/title/description/locale and 1200×630 image, plus Twitter large-image card. URLs are absolute and use the incoming host/proxy protocol with configured origin fallback. No service brand name, siteName or logo is inserted. Missing/invalid albums get generic nonpersonal metadata.
+
+`/api/keepsakes/[token]/og` requires a valid album token and existing event. It renders ivory/sage Korean serif and local script fonts via `next/og`, with the registered booth sample pool composited through Sharp on the server (social bots do not execute canvas). Completed registered previews are the fallback; no guest history is read. If no samples load, the card remains text-only. Original slot grouping, z-order, rotation and opacity are respected at thumbnail resolution. Common heart emoji in a couple title is displayed as a middle-dot separator; other emoji are omitted from the thumbnail to avoid remote emoji/font requests. Metadata preserves the original title.
+
+The image URL includes a content hash of title/date/layout inputs to invalidate thumbnail URLs on edits. Third-party messaging services can still retain an already-sent card in their own caches. Local mock tests verify metadata/absolute URLs, missing album, no brand, 1200×630 PNG rendering, Korean text, pool asset reuse and image fallback. The generated card and text-only fallback were visually reviewed; production and real Kakao crawler access remain unverified.
