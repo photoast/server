@@ -151,6 +151,8 @@ function AdminPageInner() {
   const [qrPromoShowDonation, setQrPromoShowDonation] = useState(false)
 
   // Print history
+  const deleteJobLock = useRef(false)
+  const [deletingJobId, setDeletingJobId] = useState<string | null>(null)
   const reprintLock = useRef(false)
   const [reprintingJobId, setReprintingJobId] = useState<string | null>(null)
   const [showPrintHistory, setShowPrintHistory] = useState(false)
@@ -879,8 +881,28 @@ function AdminPageInner() {
     }
   }
 
+  const deletePrintHistory = async (job: PrintJob) => {
+    if (deleteJobLock.current || reprintLock.current || !selectedEventForHistory) return
+    if (!confirm('이 인쇄 기록을 삭제할까요? 되돌릴 수 없으며 이 기록의 사진 저장 링크도 사용할 수 없게 됩니다. 이미 출력한 사진은 취소되지 않습니다.')) return
+    deleteJobLock.current = true
+    setDeletingJobId(job._id)
+    try {
+      const res = await fetch(`/api/print-jobs/job/${job._id}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || '삭제 실패')
+      setRecentPrintJobs(prev => prev.filter(item => item._id !== job._id))
+      setRecentPrintJobsTotal(prev => Math.max(0, prev - 1))
+      await fetchPrintHistory(selectedEventForHistory, 1)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '삭제하지 못했습니다.')
+    } finally {
+      deleteJobLock.current = false
+      setDeletingJobId(null)
+    }
+  }
+
   const reprintPhoto = async (job: PrintJob) => {
-    if (reprintLock.current || !selectedEventForHistory) return
+    if (reprintLock.current || deleteJobLock.current || !selectedEventForHistory) return
     if (!confirm(`이 사진을 현재 행사에 설정된 프린터로 1회 재출력할까요?\n2×6 레이아웃은 한 용지에서 두 장이 나옵니다. 추가 결제·인증코드는 사용하지 않습니다.`)) return
     reprintLock.current = true
     setReprintingJobId(job._id!)
@@ -2067,7 +2089,8 @@ function AdminPageInner() {
                           <option value="DONE">완료</option>
                           <option value="FAILED">실패</option>
                         </select>
-                        <button type="button" disabled={Boolean(reprintingJobId) || job.status === 'PENDING' || job.status === 'PRINTING'} onClick={() => reprintPhoto(job)} className="min-h-[44px] px-3 rounded-lg border border-gray-300 bg-white text-sm font-semibold disabled:opacity-40">{reprintingJobId === job._id ? '재출력 요청 중…' : '재출력'}</button>
+                        <button type="button" disabled={Boolean(reprintingJobId || deletingJobId) || job.status === 'PENDING' || job.status === 'PRINTING'} onClick={() => reprintPhoto(job)} className="min-h-[44px] px-3 rounded-lg border border-gray-300 bg-white text-sm font-semibold disabled:opacity-40">{reprintingJobId === job._id ? '재출력 요청 중…' : '재출력'}</button>
+                        <button type="button" disabled={Boolean(reprintingJobId || deletingJobId) || job.status === 'PENDING' || job.status === 'PRINTING'} onClick={() => deletePrintHistory(job)} className="min-h-[44px] px-3 rounded-lg border border-red-200 bg-white text-sm text-red-600 disabled:opacity-40">{deletingJobId === job._id ? '삭제 중…' : '삭제'}</button>
                         {job.reprintOfJobId && <span className="text-xs text-gray-500">재출력 기록</span>}
                         {job.orderNumber != null && (
                           <span className="text-xs font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">#{job.orderNumber}</span>

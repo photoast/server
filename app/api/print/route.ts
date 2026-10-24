@@ -10,7 +10,7 @@ import { uploadToBlob, readImageBuffer } from '@/lib/blob'
 import { DeviceInfo } from '@/lib/types'
 import { sendCustomerEmail, sendAdminNotification } from '@/lib/customer-email'
 
-const recentReprints = new Map<string, number>()
+const activeReprints = new Set<string>()
 
 // Extract IP address from request
 function getClientIp(request: NextRequest): string {
@@ -29,6 +29,7 @@ function getClientIp(request: NextRequest): string {
 }
 
 export async function POST(request: NextRequest) {
+  let lockedReprintId: string | undefined
   try {
     const body = await request.json()
     let { slug, imageUrl, deviceInfo: clientDeviceInfo, quantity = 1, authCode, paymentTid, customerEmail, layoutId } = body
@@ -39,10 +40,9 @@ export async function POST(request: NextRequest) {
       const original = await findPrintJobById(body.reprintJobId)
       if (!original) return NextResponse.json({ error: '인쇄 기록을 찾을 수 없어요.' }, { status: 404 })
       if (original.status === 'PENDING' || original.status === 'PRINTING') return NextResponse.json({ error: '아직 처리 중인 인쇄입니다. 완료 또는 실패 상태를 확인해 주세요.' }, { status: 409 })
-      const now = Date.now()
-      recentReprints.forEach((time, key) => { if (now - time > 60000) recentReprints.delete(key) })
-      if (recentReprints.has(body.reprintJobId)) return NextResponse.json({ error: '방금 재출력한 사진입니다. 인쇄 기록을 확인하고 1분 뒤 다시 시도해 주세요.' }, { status: 409 })
-      recentReprints.set(body.reprintJobId, now)
+      if (activeReprints.has(body.reprintJobId)) return NextResponse.json({ error: '재출력 요청을 전송 중입니다. 잠시 기다려 주세요.' }, { status: 409 })
+      lockedReprintId = body.reprintJobId
+      activeReprints.add(lockedReprintId!)
       const originalEvent = await findEventById(original.eventId)
       if (!originalEvent) return NextResponse.json({ error: '이벤트를 찾을 수 없어요.' }, { status: 404 })
       // Use the saved original, never the already-corrected/duplicated printed image.
@@ -419,5 +419,7 @@ export async function POST(request: NextRequest) {
       { error: 'Failed to process print request' },
       { status: 500 }
     )
+  } finally {
+    if (lockedReprintId) activeReprints.delete(lockedReprintId)
   }
 }

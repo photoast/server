@@ -545,3 +545,12 @@ export async function getPageViewLogs(slug: string, page = 1, limit = 30) {
     totalPages: Math.ceil(total / limit),
   }
 }
+
+// Delete only settled records. Shared image files remain available to other jobs.
+export async function deleteSettledPrintJob(jobId: string): Promise<boolean> {
+  const db = await getDb()
+  const result = await db.collection(COLLECTIONS.printJobs).deleteOne({
+    _id: new ObjectId(jobId), status: { $in: ['DONE', 'FAILED'] },
+  })
+  return result.deletedCount === 1
+}

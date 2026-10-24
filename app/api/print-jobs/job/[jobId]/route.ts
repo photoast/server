@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { findPrintJobById, updatePrintJobStatus } from '@/lib/models'
+import { findPrintJobById, updatePrintJobStatus, deleteSettledPrintJob } from '@/lib/models'
 import { checkAuth } from '@/lib/middleware'
 
 // GET: 공개 — 단일 인쇄 결과 조회
@@ -61,5 +61,19 @@ export async function PATCH(
     return NextResponse.json({ success: true, jobId: params.jobId, status })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to update job' }, { status: 500 })
+  }
+}
+
+// DELETE: admin only; never remove a queued/printing job from the spooler.
+export async function DELETE(request: NextRequest, { params }: { params: { jobId: string } }) {
+  if (!checkAuth(request)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!/^[a-f0-9]{24}$/i.test(params.jobId)) return NextResponse.json({ error: '잘못된 기록 ID입니다.' }, { status: 400 })
+  try {
+    const job = await findPrintJobById(params.jobId)
+    if (!job) return NextResponse.json({ error: '기록이 없습니다.' }, { status: 404 })
+    if (!await deleteSettledPrintJob(params.jobId)) return NextResponse.json({ error: '대기·인쇄 중인 기록은 삭제할 수 없습니다.' }, { status: 409 })
+    return NextResponse.json({ success: true })
+  } catch {
+    return NextResponse.json({ error: '기록을 삭제하지 못했습니다.' }, { status: 500 })
   }
 }
