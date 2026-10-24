@@ -23,7 +23,7 @@ export default function KeepsakeLink({ eventId, eventName }: { eventId: string; 
   }
   return <section className="rounded-xl border border-stone-200 bg-stone-50 p-4 space-y-3">
     <h3 className="font-semibold">신랑·신부에게 보내는 선물 앨범</h3>
-    <p className="text-sm text-gray-600">미리보기로 표지를 꾸미고, 촬영 사진은 중복 없이 모아 보여줘요. 링크를 가진 분은 사진을 보고 저장할 수 있습니다.</p>
+    <p className="text-sm text-gray-600">미리보기로 표지를 꾸미고, 현재 부스 프레임으로 찍은 사진만 중복 없이 모아 보여줘요. 링크를 가진 분은 사진을 보고 저장할 수 있습니다.</p>
     <label className="block text-sm">표지 이름<input className="block mt-1 border rounded-lg p-3 w-full" maxLength={80} value={title} onChange={e => setTitle(e.target.value)} placeholder="신랑 · 신부" /></label>
     <label className="block text-sm">결혼 날짜 (선택)<input className="block mt-1 border rounded-lg p-3" type="date" value={date} onChange={e => setDate(e.target.value)} /></label>
     <button type="button" disabled={busy || !title.trim()} onClick={create} className="min-h-11 px-4 bg-stone-800 text-white rounded-lg disabled:opacity-40">{busy ? '준비 중…' : url ? '표지 정보 저장' : '선물 앨범 링크 만들기'}</button>

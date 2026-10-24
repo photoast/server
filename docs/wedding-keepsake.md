@@ -18,7 +18,7 @@ Three directions (fit / clarity / distinction / feasibility / accessibility / re
 
 - Title and optional date are supplied by the operator. No guessed wedding date or names are stored.
 - Cover uses up to three distinct registered completed previews from the event's current booth layout; if absent, loaded photos provide the cover.
-- Gallery reads only the token's event. Grouping by original `imageUrl` collapses repeated print/reprint jobs. This does not detect independently uploaded identical image files at different URLs.
+- Gallery reads only the token's event AND its currently configured booth layout ID. Events without a booth layout return no gallery photos. Grouping by original `imageUrl` collapses repeated print/reprint jobs. This does not detect independently uploaded identical image files at different URLs.
 - All registered completed preview URLs are excluded from the guest gallery, even if printed. Failed/refunded jobs are excluded. Test-printer captures in DONE are included because they may contain real guest photos.
 - Count is the Mongo aggregation's distinct-photo count, not print quantity or attendee count.
 - Pages load 48 distinct photos at a time; each loaded set is shuffled locally. Reshuffle operates on the loaded photos, without duplicating them. Original images retain their resolution and frame.

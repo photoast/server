@@ -18,7 +18,7 @@ export async function GET(request: NextRequest, { params }: { params: { token: s
     const page = Math.max(1, Math.min(10000, Math.floor(Number(request.nextUrl.searchParams.get('page'))) || 1))
     const size = 48
     const [result] = await db.collection(COLLECTIONS.printJobs).aggregate([
-      { $match: { eventId: album.eventId, refunded: { $ne: true }, status: { $in: ['DONE', 'PENDING', 'PRINTING'] }, imageUrl: { $type: 'string', $nin: ['', ...samples] } } },
+      { $match: { eventId: album.eventId, layoutId: event.boothLayoutId || '__no_booth_layout__', refunded: { $ne: true }, status: { $in: ['DONE', 'PENDING', 'PRINTING'] }, imageUrl: { $type: 'string', $nin: ['', ...samples] } } },
       { $sort: { createdAt: 1, _id: 1 } },
       { $group: { _id: '$imageUrl', id: { $first: '$_id' }, capturedAt: { $first: '$createdAt' } } },
       { $sort: { capturedAt: 1, _id: 1 } },
