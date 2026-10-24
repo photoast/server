@@ -21,13 +21,13 @@ export default function KeepsakeLink({ eventId, eventName }: { eventId: string; 
     } catch (e) { setMessage(e instanceof Error ? e.message : '링크 생성 실패') }
     finally { setBusy(false) }
   }
-  return <section className="rounded-xl border border-stone-200 bg-stone-50 p-4 space-y-3">
+  return <section className="rounded-xl border border-stone-200 bg-stone-50 text-stone-900 [color-scheme:light] p-4 space-y-3">
     <h3 className="font-semibold">신랑·신부에게 보내는 선물 앨범</h3>
     <p className="text-sm text-gray-600">미리보기로 표지를 꾸미고, 현재 부스 프레임으로 찍은 사진만 중복 없이 모아 보여줘요. 링크를 가진 분은 사진을 보고 저장할 수 있습니다.</p>
-    <label className="block text-sm">표지 이름<input className="block mt-1 border rounded-lg p-3 w-full" maxLength={80} value={title} onChange={e => setTitle(e.target.value)} placeholder="신랑 · 신부" /></label>
-    <label className="block text-sm">결혼 날짜 (선택)<input className="block mt-1 border rounded-lg p-3" type="date" value={date} onChange={e => setDate(e.target.value)} /></label>
+    <label className="block text-sm">표지 이름<input className="block mt-1 border border-stone-300 rounded-lg p-3 w-full bg-white text-stone-900 placeholder:text-stone-500" maxLength={80} value={title} onChange={e => setTitle(e.target.value)} placeholder="신랑 · 신부" /></label>
+    <label className="block text-sm">결혼 날짜 (선택)<input className="block mt-1 border border-stone-300 rounded-lg p-3 max-w-full bg-white text-stone-900" type="date" value={date} onChange={e => setDate(e.target.value)} /></label>
     <button type="button" disabled={busy || !title.trim()} onClick={create} className="min-h-11 px-4 bg-stone-800 text-white rounded-lg disabled:opacity-40">{busy ? '준비 중…' : url ? '표지 정보 저장' : '선물 앨범 링크 만들기'}</button>
-    {url && <div className="space-y-2"><input aria-label="선물 앨범 공유 링크" className="w-full border p-3 rounded-lg text-sm" readOnly value={url} onFocus={e => e.target.select()} /><div className="flex gap-4"><a className="min-h-11 inline-flex items-center underline" href={url} target="_blank" rel="noreferrer">앨범 열어보기 ↗</a><button className="min-h-11 underline" onClick={async () => { try { await navigator.clipboard.writeText(url); setMessage('링크를 복사했어요.') } catch { setMessage('위 링크를 길게 눌러 복사해 주세요.') } }}>링크 복사</button></div></div>}
+    {url && <div className="space-y-2"><input aria-label="선물 앨범 공유 링크" className="w-full border border-stone-300 p-3 rounded-lg text-sm bg-white text-stone-900" readOnly value={url} onFocus={e => e.target.select()} /><div className="flex gap-4"><a className="min-h-11 inline-flex items-center underline text-stone-800" href={url} target="_blank" rel="noreferrer">앨범 열어보기 ↗</a><button className="min-h-11 underline text-stone-800" onClick={async () => { try { await navigator.clipboard.writeText(url); setMessage('링크를 복사했어요.') } catch { setMessage('위 링크를 길게 눌러 복사해 주세요.') } }}>링크 복사</button></div></div>}
     {message && <p role="status" className="text-sm">{message}</p>}
   </section>
 }
