@@ -1,9 +1,9 @@
 {
   "schemaVersion": 2,
-  "serviceName": "Missed Connections",
+  "serviceName": "MISSED · Missed Connections",
   "status": "CONCEPT",
   "targetUser": "만 19세 이상 모바일 체험 사용자",
-  "valueProposition": "열두 질문과 네 장으로 발견하는 나의 대화 방식",
+  "valueProposition": "취향과 사진 무드가 어울릴 다음 만남을 상상하는 네 컷 체험",
   "demoScenario": {
     "inputs": {
       "sample": true,
@@ -11,7 +11,9 @@
     },
     "processingSteps": [
       "샘플 응답 읽기",
-      "4컷 프레임 합성"
+      "공개 범위·희망 기간·사진 무드·알림 방식 선택",
+      "봉투 열기",
+      "본인 네 컷 프레임 합성"
     ],
     "result": {
       "label": "새로움에 마음을 여는 사람"
@@ -23,33 +25,26 @@
     "landing": "index.html"
   },
   "screenshots": [
-    "screenshots/landing.jpg",
-    "screenshots/input.jpg",
-    "screenshots/loading.jpg",
-    "screenshots/reveal.jpg",
-    "screenshots/result.jpg",
-    "screenshots/waitlist.jpg",
-    "screenshots/enlarged.jpg",
-    "screenshots/desktop.jpg"
+    "screenshots/night-booth/landing-mobile.jpg",
+    "screenshots/night-booth/preferences.jpg",
+    "screenshots/night-booth/envelope.jpg",
+    "screenshots/night-booth/note.jpg",
+    "screenshots/night-booth/strip.jpg",
+    "screenshots/night-booth/ticket.jpg",
+    "screenshots/night-booth/landing-desktop.jpg"
   ],
   "disclosures": [
     "CONCEPT · 실제 매칭 없음",
     "지역·가격은 로컬 체험이며 실제 접수/좌석 예약이 아님",
     "샘플은 직접 만든 인물 그래픽",
-    "사진 메모리·응답 sessionStorage 2시간, 서버 전송 없음"
+    "사진 메모리·응답 sessionStorage 2시간, 서버 전송 없음",
+    "사진 무드는 직접 선택, 얼굴 평가 없음",
+    "알림 희망은 로컬 체험이며 실제 신청/발송 아님"
   ],
   "evidence": [
     {
       "label": "Nanum Myeongjo / OFL",
       "url": "https://fonts.google.com/specimen/Nanum+Myeongjo"
-    },
-    {
-      "label": "가입 없는 무료 임시 터널 조건",
-      "url": "https://localhost.run/docs/forever-free"
-    },
-    {
-      "label": "Vercel 태그 배포는 별도 workflow 필요",
-      "url": "https://vercel.com/kb/guide/can-you-deploy-based-on-tags-releases-on-vercel"
     }
   ],
   "dataHandling": "LOCAL_ONLY",
@@ -59,16 +54,20 @@
       "height": 844
     },
     {
+      "width": 320,
+      "height": 740
+    },
+    {
       "width": 1440,
       "height": 900
     }
   ],
   "knownGaps": [
     "실제 iPhone/iPad Safari 카메라·HEIC·공유 sheet 추가 검증 필요",
-    "Vercel 계정 인증으로 요금제 확인 불가. branch 자동 배포는 수행하지 않고 태그로 코드 보관",
-    "임시 HTTPS 링크는 로컬 서버·SSH가 실행되는 동안 유효하며 도메인 수명/속도 제한 있음",
-    "별도 landing 패키지 생략: 동일 index 첫 화면으로 통합",
-    "실제 매칭·신청 저장·광고 분석·인화 미구현"
+    "실제 매칭·접수 저장·광고 분석·인화 미구현",
+    "얼굴 자동 분석 없음. 사진 무드는 직접 선택",
+    "이름·번호 수집/공개 및 알림톡 발송 없음. 앱 미출시",
+    "1년은 희망 기간 컨셉이며 실제 출시 전 갱신·재동의 검증 필요"
   ],
   "conceptDecision": {
     "candidates": [
@@ -132,38 +131,38 @@
   },
   "promotionBrief": {
     "platform": "INSTAGRAM_REELS",
-    "heroMoment": "흑백 네 컷과 본인 대화 성향이 담긴 한 장",
+    "heroMoment": "검정·라임의 다음 프레임에서 봉투를 열고 내 연결노트를 확인하는 순간",
     "hooks": [
-      "말을 걸지 못한 순간이 있나요?",
-      "우리는 어떤 대화를 나눴을까?",
-      "내 대화의 온도는 어떤 모습일까?"
+      "누가 나올까?",
+      "내 옆의 다음 장면은?",
+      "취향도, 사진의 무드도. 나와 어울릴 누군가."
     ],
-    "firstFrame": "어쩌면, 우리가 만났어야 할 이유.",
-    "soundOffMessage": "12개의 질문, 네 장의 나. 실제 매칭 없는 체험판.",
+    "firstFrame": "누가 나올까?",
+    "soundOffMessage": "취향과 네 컷, 내가 고르는 연결의 조건. 실제 매칭 없는 체험판.",
     "saveReason": "직접 찍은 사진과 대화 성향을 함께 간직한다",
     "shareReason": "친구에게 본인의 대화 방식을 보여준다",
-    "commentKeyword": "우연",
-    "commentCTA": "이런 오프라인 경험에 관심 있다면 우연이라고 남겨주세요.",
+    "commentKeyword": "미스드",
+    "commentCTA": "이런 오프라인 경험에 관심 있다면 미스드라고 남겨주세요.",
     "coverLines": [
-      "우연의 네 컷",
-      "우리는 어떤 대화를 나눌까",
-      "낯선 만남의 시작"
+      "누가 나올까?",
+      "내 옆의 다음 장면",
+      "어쩌면, 우리가"
     ],
     "demoSequence": [
-      "핵심 카피",
+      "누가 나올까?",
       "성인 확인",
-      "샘플 체험 선택",
-      "성향 확인",
-      "포토스트립",
-      "로컬 저장"
+      "12문항 또는 샘플",
+      "네 컷 촬영·크롭",
+      "공개 범위·기간·무드·알림 희망",
+      "봉투 열기",
+      "포토스트립 저장",
+      "로컬 체험 티켓"
     ],
     "disclosure": "CONCEPT · 실제 매칭·신청 접수 없음"
   },
   "preview": {
-    "url": "https://f8e0c5a56e5829.lhr.life",
-    "type": "anonymous-free-temporary-tunnel",
-    "scope": "prototype directory only",
-    "billing": "계정·카드·유료 자원 생성 없음. 무료 속도/수명 제한",
+    "url": "https://phototoast.kro.kr/missed-connections/index.html",
+    "type": "existing-vercel-production",
     "checkedAt": "2026-10-30"
   },
   "validation": [
@@ -173,6 +172,11 @@
     "성인 미확인 차단·새로고침 사진 유실 안내·빠른 샘플 경로",
     "PNG 600x1800·파일 다운로드·확대·desktop overflow 없음",
     "Next dev /missed-connections 307→static 200",
-    "외부 HTTPS에서 샘플 성향→PNG·fresh page console error 없음"
-  ]
+    "외부 HTTPS에서 샘플 성향→PNG·fresh page console error 없음",
+    "36개 설정 조합 및 비정상 enum/앱 선택 거부 테스트 PASS",
+    "촬영→설정→봉투→연결노트→PNG→티켓 브라우저 확인",
+    "설정 복원·사진 유실 가드·공개 범위/기간 변경 반영",
+    "320px 가로 넘침 없음·390px CTA 노출·1440px 렌더·console error 없음"
+  ],
+  "designReview": "../../../docs/missed-connections/DESIGN_REVIEW.md"
 }

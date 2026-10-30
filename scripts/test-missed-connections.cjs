@@ -45,5 +45,18 @@ async function testLateCamera() {
  assert.equal(renders,0)
  assert.equal(cameraContext.stream,null)
 }
+
+const settingsContext={};vm.createContext(settingsContext)
+vm.runInContext(extract('const connectionChoices=', 'const sampleAnswers='),settingsContext)
+for(const scope of ['name','phone'])for(const duration of ['week','month','year'])for(const mood of ['calm','bright','free'])for(const notification of ['none','alimtalk']){
+ const selected={scope,duration,mood,notification}
+ assert.deepEqual(JSON.parse(JSON.stringify(settingsContext.normalizeConnectionPreferences(selected))),selected)
+}
+assert.equal(settingsContext.normalizeConnectionPreferences(null),null)
+assert.equal(settingsContext.normalizeConnectionPreferences({scope:'phone',duration:'forever',mood:'bright',notification:'alimtalk'}),null)
+assert.equal(settingsContext.normalizeConnectionPreferences({scope:'name',duration:'week',mood:'bright',notification:'app'}),null)
+const privateInput={scope:'phone',duration:'month',mood:'calm',notification:'alimtalk',phone:'NOT_A_REAL_NUMBER',name:'TEST_ONLY'}
+assert.deepEqual(Object.keys(settingsContext.normalizeConnectionPreferences(privateInput)).sort(),['duration','mood','notification','scope'])
+
 assert(!/\b(fetch|XMLHttpRequest|sendBeacon)\s*\(/.test(source),'local prototype must not transmit photos or responses')
-testLateCamera().then(()=>console.log('PASS: profile/reverse items, pixel grayscale, crop boundaries, late camera cleanup, local-only network boundary')).catch(err=>{console.error(err);process.exitCode=1})
+testLateCamera().then(()=>console.log('PASS: 36 preference combinations, rejected app/invalid options, no contact retention, profile/reverse items, grayscale, crop, late camera cleanup, local-only boundary')).catch(err=>{console.error(err);process.exitCode=1})
