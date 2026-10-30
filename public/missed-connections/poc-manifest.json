@@ -25,13 +25,11 @@
     "landing": "index.html"
   },
   "screenshots": [
-    "screenshots/night-booth/landing-mobile.jpg",
-    "screenshots/night-booth/preferences.jpg",
-    "screenshots/night-booth/envelope.jpg",
-    "screenshots/night-booth/note.jpg",
-    "screenshots/night-booth/strip.jpg",
-    "screenshots/night-booth/ticket.jpg",
-    "screenshots/night-booth/landing-desktop.jpg"
+    "screenshots/correspondence/landing-mobile.jpg",
+    "screenshots/correspondence/preferences.jpg",
+    "screenshots/correspondence/envelope.jpg",
+    "screenshots/correspondence/strip.jpg",
+    "screenshots/correspondence/landing-desktop.jpg"
   ],
   "disclosures": [
     "CONCEPT · 실제 매칭 없음",
@@ -131,7 +129,7 @@
   },
   "promotionBrief": {
     "platform": "INSTAGRAM_REELS",
-    "heroMoment": "검정·라임의 다음 프레임에서 봉투를 열고 내 연결노트를 확인하는 순간",
+    "heroMoment": "종이 봉투와 우편 소인, 흑백 네 컷으로 만나는 나의 연결노트",
     "hooks": [
       "누가 나올까?",
       "내 옆의 다음 장면은?",
@@ -178,5 +176,6 @@
     "설정 복원·사진 유실 가드·공개 범위/기간 변경 반영",
     "320px 가로 넘침 없음·390px CTA 노출·1440px 렌더·console error 없음"
   ],
-  "designReview": "../../../docs/missed-connections/DESIGN_REVIEW.md"
+  "designReview": "../../../docs/missed-connections/DESIGN_REVIEW.md",
+  "visualDirection": "Correspondence Booth · 종이/우편 소인/흑백 아날로그"
 }

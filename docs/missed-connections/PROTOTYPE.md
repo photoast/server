@@ -8,7 +8,7 @@
 
 Landing → 성인 확인 → 12문항(또는 표시된 샘플 응답) → 촬영/파일 선택 → 네 컷 구도 편집 → 연결 조건 → 봉투 열기·본인 연결노트 → 600×1800 PNG 저장/공유 → 지역·가격 체험 티켓.
 
-디자이너 의견에 따른 최신 기준은 [DESIGN_REVIEW.md](DESIGN_REVIEW.md). 검정/라임 Night Booth, MISSED·미스드 표기, ‘누가 나올까?’를 사용한다. 공개 범위는 이름만/번호도, 기간은 1주일/한 달/1년, 사진 무드는 직접 선택, 알림은 직접 확인/알림톡 희망이다. 앱은 미출시로 비활성이다. 번호 공개는 실제 서비스에서 쌍방 호감과 별도 교환 동의가 필요하다.
+디자이너 의견에 따른 최신 기준은 [DESIGN_REVIEW.md](DESIGN_REVIEW.md). 바랜 종이/붉은 우편 소인의 Correspondence Booth, MISSED·미스드 표기, ‘누가 나올까?’를 사용한다. 공개 범위는 이름만/번호도, 기간은 1주일/한 달/1년, 사진 무드는 직접 선택, 알림은 직접 확인/알림톡 희망이다. 앱은 미출시로 비활성이다. 번호 공개는 실제 서비스에서 쌍방 호감과 별도 교환 동의가 필요하다.
 
 ## 데이터 경계
 
@@ -20,6 +20,6 @@ Landing → 성인 확인 → 12문항(또는 표시된 샘플 응답) → 촬�
 
 `node --check public/missed-connections/assets/app.js`, `node scripts/test-missed-connections.cjs` 통과. 테스트는 36가지 설정 조합, 잘못된 enum/앱 선택 거부, 추가 연락처 필드 미보관, 기존 성향·역문항·흑백·crop·늦게 도착한 카메라 stream 정리를 포함한다.
 
-브라우저390×844에서 샘플 사진→설정→봉투→결과→PNG→티켓, 설정 재선택·복원·사진 유실 안내를 확인했다. 320×740 가로 넘침 없음, 1440×900 데스크톱 렌더 확인. 기록은 `public/missed-connections/screenshots/night-booth/`와 manifest를 참고한다. 실제 iOS Safari 카메라 권한·HEIC·공유 sheet는 실기기 추가 검증이 필요하다.
+브라우저390×844에서 샘플 사진→설정→봉투→결과→PNG→티켓, 설정 재선택·복원·사진 유실 안내를 확인했다. 320×740 가로 넘침 없음, 1440×900 데스크톱 렌더 확인. 기록은 `public/missed-connections/screenshots/correspondence/`와 manifest를 참고한다. 실제 iOS Safari 카메라 권한·HEIC·공유 sheet는 실기기 추가 검증이 필요하다.
 
 로컬 확인은 기존 dev 경로 `/missed-connections/index.html`, 또는 public/missed-connections를 로컬 정적 서버로 제공한다. 카메라는 HTTPS/localhost에서만 사용한다.
