@@ -1,0 +1,178 @@
+{
+  "schemaVersion": 2,
+  "serviceName": "Missed Connections",
+  "status": "CONCEPT",
+  "targetUser": "만 19세 이상 모바일 체험 사용자",
+  "valueProposition": "열두 질문과 네 장으로 발견하는 나의 대화 방식",
+  "demoScenario": {
+    "inputs": {
+      "sample": true,
+      "answers": "미리 정해진 샘플 응답"
+    },
+    "processingSteps": [
+      "샘플 응답 읽기",
+      "4컷 프레임 합성"
+    ],
+    "result": {
+      "label": "새로움에 마음을 여는 사람"
+    },
+    "explanation": "샘플 응답 기반 본인 성향이며 실제 매칭은 없음"
+  },
+  "routes": {
+    "prototype": "index.html",
+    "landing": "index.html"
+  },
+  "screenshots": [
+    "screenshots/landing.jpg",
+    "screenshots/input.jpg",
+    "screenshots/loading.jpg",
+    "screenshots/reveal.jpg",
+    "screenshots/result.jpg",
+    "screenshots/waitlist.jpg",
+    "screenshots/enlarged.jpg",
+    "screenshots/desktop.jpg"
+  ],
+  "disclosures": [
+    "CONCEPT · 실제 매칭 없음",
+    "지역·가격은 로컬 체험이며 실제 접수/좌석 예약이 아님",
+    "샘플은 직접 만든 인물 그래픽",
+    "사진 메모리·응답 sessionStorage 2시간, 서버 전송 없음"
+  ],
+  "evidence": [
+    {
+      "label": "Nanum Myeongjo / OFL",
+      "url": "https://fonts.google.com/specimen/Nanum+Myeongjo"
+    },
+    {
+      "label": "가입 없는 무료 임시 터널 조건",
+      "url": "https://localhost.run/docs/forever-free"
+    },
+    {
+      "label": "Vercel 태그 배포는 별도 workflow 필요",
+      "url": "https://vercel.com/kb/guide/can-you-deploy-based-on-tags-releases-on-vercel"
+    }
+  ],
+  "dataHandling": "LOCAL_ONLY",
+  "testedViewports": [
+    {
+      "width": 390,
+      "height": 844
+    },
+    {
+      "width": 1440,
+      "height": 900
+    }
+  ],
+  "knownGaps": [
+    "실제 iPhone/iPad Safari 카메라·HEIC·공유 sheet 추가 검증 필요",
+    "Vercel 계정 인증으로 요금제 확인 불가. branch 자동 배포는 수행하지 않고 태그로 코드 보관",
+    "임시 HTTPS 링크는 로컬 서버·SSH가 실행되는 동안 유효하며 도메인 수명/속도 제한 있음",
+    "별도 landing 패키지 생략: 동일 index 첫 화면으로 통합",
+    "실제 매칭·신청 저장·광고 분석·인화 미구현"
+  ],
+  "conceptDecision": {
+    "candidates": [
+      {
+        "name": "나의 대화가 담긴 네 컷",
+        "targetUser": "오프라인 만남에 관심 있는 한국 성인",
+        "problem": "첫 대화의 부담",
+        "promise": "성향을 사진으로 간직하기",
+        "mechanism": "성향 질문과 로컬 네 컷 생성",
+        "heroResult": "나의 대화가 담긴 네 컷",
+        "hook": "우리의 대화는 어떤 모습일까",
+        "scores": {
+          "thumbStop": 88,
+          "demoability": 93,
+          "personalization": 90,
+          "shareability": 91,
+          "conversionIntent": 80,
+          "credibility": 96
+        },
+        "total": 88.9
+      },
+      {
+        "name": "행사 매칭 미리보기",
+        "targetUser": "오프라인 만남에 관심 있는 한국 성인",
+        "problem": "첫 대화의 부담",
+        "promise": "성향을 사진으로 간직하기",
+        "mechanism": "성향 질문과 로컬 네 컷 생성",
+        "heroResult": "행사 매칭 미리보기",
+        "hook": "우리의 대화는 어떤 모습일까",
+        "scores": {
+          "thumbStop": 85,
+          "demoability": 72,
+          "personalization": 80,
+          "shareability": 79,
+          "conversionIntent": 88,
+          "credibility": 65
+        },
+        "total": 79.3
+      },
+      {
+        "name": "성향 티켓 만들기",
+        "targetUser": "오프라인 만남에 관심 있는 한국 성인",
+        "problem": "첫 대화의 부담",
+        "promise": "성향을 사진으로 간직하기",
+        "mechanism": "성향 질문과 로컬 네 컷 생성",
+        "heroResult": "성향 티켓 만들기",
+        "hook": "우리의 대화는 어떤 모습일까",
+        "scores": {
+          "thumbStop": 75,
+          "demoability": 92,
+          "personalization": 85,
+          "shareability": 77,
+          "conversionIntent": 70,
+          "credibility": 95
+        },
+        "total": 81.2
+      }
+    ],
+    "selected": "나의 대화가 담긴 네 컷",
+    "rationale": "사용자가 요청한 한 사이클을 유지하면서 실제 상대 없이도 사진 저장까지 완결된다."
+  },
+  "promotionBrief": {
+    "platform": "INSTAGRAM_REELS",
+    "heroMoment": "흑백 네 컷과 본인 대화 성향이 담긴 한 장",
+    "hooks": [
+      "말을 걸지 못한 순간이 있나요?",
+      "우리는 어떤 대화를 나눴을까?",
+      "내 대화의 온도는 어떤 모습일까?"
+    ],
+    "firstFrame": "어쩌면, 우리가 만났어야 할 이유.",
+    "soundOffMessage": "12개의 질문, 네 장의 나. 실제 매칭 없는 체험판.",
+    "saveReason": "직접 찍은 사진과 대화 성향을 함께 간직한다",
+    "shareReason": "친구에게 본인의 대화 방식을 보여준다",
+    "commentKeyword": "우연",
+    "commentCTA": "이런 오프라인 경험에 관심 있다면 우연이라고 남겨주세요.",
+    "coverLines": [
+      "우연의 네 컷",
+      "우리는 어떤 대화를 나눌까",
+      "낯선 만남의 시작"
+    ],
+    "demoSequence": [
+      "핵심 카피",
+      "성인 확인",
+      "샘플 체험 선택",
+      "성향 확인",
+      "포토스트립",
+      "로컬 저장"
+    ],
+    "disclosure": "CONCEPT · 실제 매칭·신청 접수 없음"
+  },
+  "preview": {
+    "url": "https://f8e0c5a56e5829.lhr.life",
+    "type": "anonymous-free-temporary-tunnel",
+    "scope": "prototype directory only",
+    "billing": "계정·카드·유료 자원 생성 없음. 무료 속도/수명 제한",
+    "checkedAt": "2026-10-30"
+  },
+  "validation": [
+    "node --check assets/app.js",
+    "node scripts/test-missed-connections.cjs: PASS",
+    "12문항→로컬 파일 선택→크롭→결과→PNG 저장→티켓 완료",
+    "성인 미확인 차단·새로고침 사진 유실 안내·빠른 샘플 경로",
+    "PNG 600x1800·파일 다운로드·확대·desktop overflow 없음",
+    "Next dev /missed-connections 307→static 200",
+    "외부 HTTPS에서 샘플 성향→PNG·fresh page console error 없음"
+  ]
+}

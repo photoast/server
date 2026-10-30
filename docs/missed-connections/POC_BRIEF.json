@@ -1,0 +1,110 @@
+{
+  "serviceName": "Missed Connections",
+  "status": "CONCEPT",
+  "targetUser": "만 19세 이상 모바일 체험 사용자",
+  "problem": "낯선 사람과 대화를 시작하기 어렵다",
+  "valueProposition": "열두 질문과 네 장으로 발견하는 나의 대화 방식",
+  "primaryAction": "나의 네 컷 만들기",
+  "demoScenario": {
+    "inputs": {
+      "sample": true,
+      "answers": "미리 정해진 샘플 응답"
+    },
+    "processingSteps": [
+      "샘플 응답 읽기",
+      "4컷 프레임 합성"
+    ],
+    "result": {
+      "label": "새로움에 마음을 여는 사람"
+    },
+    "explanation": "샘플 응답 기반 본인 성향이며 실제 매칭은 없음"
+  },
+  "conceptDecision": {
+    "candidates": [
+      {
+        "name": "나의 대화가 담긴 네 컷",
+        "targetUser": "오프라인 만남에 관심 있는 한국 성인",
+        "problem": "첫 대화의 부담",
+        "promise": "성향을 사진으로 간직하기",
+        "mechanism": "성향 질문과 로컬 네 컷 생성",
+        "heroResult": "나의 대화가 담긴 네 컷",
+        "hook": "우리의 대화는 어떤 모습일까",
+        "scores": {
+          "thumbStop": 88,
+          "demoability": 93,
+          "personalization": 90,
+          "shareability": 91,
+          "conversionIntent": 80,
+          "credibility": 96
+        },
+        "total": 88.9
+      },
+      {
+        "name": "행사 매칭 미리보기",
+        "targetUser": "오프라인 만남에 관심 있는 한국 성인",
+        "problem": "첫 대화의 부담",
+        "promise": "성향을 사진으로 간직하기",
+        "mechanism": "성향 질문과 로컬 네 컷 생성",
+        "heroResult": "행사 매칭 미리보기",
+        "hook": "우리의 대화는 어떤 모습일까",
+        "scores": {
+          "thumbStop": 85,
+          "demoability": 72,
+          "personalization": 80,
+          "shareability": 79,
+          "conversionIntent": 88,
+          "credibility": 65
+        },
+        "total": 79.3
+      },
+      {
+        "name": "성향 티켓 만들기",
+        "targetUser": "오프라인 만남에 관심 있는 한국 성인",
+        "problem": "첫 대화의 부담",
+        "promise": "성향을 사진으로 간직하기",
+        "mechanism": "성향 질문과 로컬 네 컷 생성",
+        "heroResult": "성향 티켓 만들기",
+        "hook": "우리의 대화는 어떤 모습일까",
+        "scores": {
+          "thumbStop": 75,
+          "demoability": 92,
+          "personalization": 85,
+          "shareability": 77,
+          "conversionIntent": 70,
+          "credibility": 95
+        },
+        "total": 81.2
+      }
+    ],
+    "selected": "나의 대화가 담긴 네 컷",
+    "rationale": "사용자가 요청한 한 사이클을 유지하면서 실제 상대 없이도 사진 저장까지 완결된다."
+  },
+  "promotion": {
+    "heroMoment": "흑백 네 컷과 본인 대화 성향이 담긴 한 장",
+    "hooks": [
+      "말을 걸지 못한 순간이 있나요?",
+      "우리는 어떤 대화를 나눴을까?",
+      "내 대화의 온도는 어떤 모습일까?"
+    ],
+    "firstFrame": "어쩌면, 우리가 만났어야 할 이유.",
+    "soundOffMessage": "12개의 질문, 네 장의 나. 실제 매칭 없는 체험판.",
+    "saveReason": "직접 찍은 사진과 대화 성향을 함께 간직한다",
+    "shareReason": "친구에게 본인의 대화 방식을 보여준다",
+    "commentKeyword": "우연",
+    "commentCTA": "이런 오프라인 경험에 관심 있다면 우연이라고 남겨주세요.",
+    "coverLines": [
+      "우연의 네 컷",
+      "우리는 어떤 대화를 나눌까",
+      "낯선 만남의 시작"
+    ],
+    "demoSequence": [
+      "핵심 카피",
+      "성인 확인",
+      "샘플 체험 선택",
+      "성향 확인",
+      "포토스트립",
+      "로컬 저장"
+    ],
+    "disclosure": "CONCEPT · 실제 매칭·신청 접수 없음"
+  }
+}
