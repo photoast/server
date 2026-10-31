@@ -25,10 +25,10 @@
     "landing": "index.html"
   },
   "screenshots": [
-    "screenshots/street-cinema/landing-mobile.jpg",
-    "screenshots/street-cinema/reveal.jpg",
-    "screenshots/street-cinema/strip.jpg",
-    "screenshots/street-cinema/landing-desktop.jpg"
+    "screenshots/velvet-post/landing-mobile.jpg",
+    "screenshots/velvet-post/mailbox.jpg",
+    "screenshots/velvet-post/extract.jpg",
+    "screenshots/velvet-post/landing-desktop.jpg"
   ],
   "disclosures": [
     "CONCEPT · 실제 매칭 없음",
@@ -179,5 +179,5 @@
     "320px 가로 넘침 없음·1440px 데스크톱 확인"
   ],
   "designReview": "../../../docs/missed-connections/DESIGN_REVIEW.md",
-  "visualDirection": "Street Cinema · 뉴욕 스트리트 부스와 두 스트립"
+  "visualDirection": "Velvet Post / lemon, red velvet, upholstered bench, mailbox"
 }
