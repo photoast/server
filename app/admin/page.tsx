@@ -153,6 +153,7 @@ function AdminPageInner() {
   const [qrTextDraft, setQrTextDraft] = useState<QrPromoText>({})
   const [qrTextSaving, setQrTextSaving] = useState(false)
   const [qrTextError, setQrTextError] = useState('')
+  const [qrPosterPage, setQrPosterPage] = useState<'combined' | 'qr' | 'guide'>('combined')
   const [qrPromoShowUrl, setQrPromoShowUrl] = useState(true)
   const [qrPromoShowDonation, setQrPromoShowDonation] = useState(false)
 
@@ -591,7 +592,7 @@ function AdminPageInner() {
     await generate4x6PromotionalImage(qr, event, showUrl, showDonation)
   }
 
-  const generate4x6PromotionalImage = async (qrDataUrl: string, event: Event, showUrl: boolean, showDonation: boolean) => {
+  const generate4x6PromotionalImage = async (qrDataUrl: string, event: Event, showUrl: boolean, showDonation: boolean, page = qrPosterPage) => {
     setGeneratingPromo(true)
 
     try {
@@ -639,6 +640,66 @@ function AdminPageInner() {
         ctx.closePath()
       }
 
+      // Separate 4×6 cards keep instructions legible at actual print size.
+      if (page !== 'combined') {
+        await document.fonts.ready
+        ctx.fillStyle = '#FFFFFF'
+        ctx.fillRect(0, 0, W, H)
+        ctx.fillStyle = '#111111'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        const wrapped = (text: string, x: number, top: number, size: number, width: number, lineHeight: number) => {
+          // Fit long custom copy into two lines without clipping or squeezing glyphs.
+          let fittedSize = size
+          const lineCount = () => {
+            ctx.font = `700 ${fittedSize}px ${font}`
+            let count = 1, current = ''
+            for (const char of text) {
+              if (current && ctx.measureText(current + char).width > width) { count++; current = char }
+              else current += char
+            }
+            return count
+          }
+          while (lineCount() > 2 && fittedSize > 12) fittedSize -= 2
+          lineHeight = Math.min(lineHeight, fittedSize * 1.3)
+          ctx.font = `700 ${fittedSize}px ${font}`
+          let line = '', row = 0
+          for (const char of text) {
+            if (ctx.measureText(line + char).width > width && line) {
+              ctx.fillText(line, x, top + row * lineHeight)
+              line = char
+              row++
+            } else line += char
+          }
+          if (line) ctx.fillText(line, x, top + row * lineHeight)
+          return top + (row + 1) * lineHeight
+        }
+        wrapped(copy.title, W / 2, 110, 58, 1020, 70)
+        if (page === 'qr') {
+          wrapped('사진을 인쇄해 드려요', W / 2, 300, 84, 1020, 100)
+          wrapped(copy.scan, W / 2, 470, 56, 1000, 72)
+          ctx.drawImage(qrImage, 220, 650, 760, 760)
+          if (showUrl) wrapped(copy.url, W / 2, 1470, 36, 1000, 46)
+          wrapped(copy.contact || '도움이 필요하시면 카운터에 말씀해 주세요', W / 2, 1580, 48, 1000, 64)
+        } else {
+          wrapped('이렇게 이용하세요', W / 2, 270, 84, 1020, 100)
+          const steps = [copy.step1, copy.step2, copy.step3]
+          const details = [copy.detail1, copy.detail2, copy.detail3]
+          steps.forEach((step, i) => {
+            ctx.textAlign = 'left'
+            ctx.fillStyle = '#111111'
+            const top = 440 + i * 350
+            ctx.font = `800 70px ${font}`
+            ctx.fillText(String(i + 1).padStart(2, '0'), 85, top)
+            const end = wrapped(step, 220, top, 64, 880, 82)
+            ctx.fillStyle = '#333333'
+            wrapped(details[i], 220, end + 20, 42, 880, 58)
+          })
+          ctx.textAlign = 'center'
+          ctx.fillStyle = '#111111'
+          wrapped(copy.contact, W / 2, 1580, 48, 1000, 64)
+        }
+      } else {
       // ── Background: clean white
       ctx.fillStyle = '#FFFFFF'
       ctx.fillRect(0, 0, W, H)
@@ -810,6 +871,8 @@ function AdminPageInner() {
       ctx.fillStyle = '#111111'
       ctx.fillRect(0, H - 6, W, 6)
 
+      }
+
       const blob = await new Promise<Blob>((resolve, reject) => {
         canvas.toBlob((b) => {
           if (b) resolve(b)
@@ -834,7 +897,7 @@ function AdminPageInner() {
     if (!promotionalImageUrl || !selectedEvent) return
     const link = document.createElement('a')
     link.href = promotionalImageUrl
-    link.download = `${selectedEvent.slug}-promotional-4x6.jpg`
+    link.download = `${selectedEvent.slug}-${qrPosterPage}-4x6.jpg`
     link.click()
   }
 
@@ -1978,6 +2041,19 @@ function AdminPageInner() {
       }}>
         <div className="bg-white text-gray-900 rounded-xl p-4 sm:p-6 max-w-2xl w-full max-h-[calc(100dvh-24px)] overflow-y-auto overscroll-contain" onClick={(e) => e.stopPropagation()}>
           <h3 className="text-2xl font-bold mb-4 text-center">{selectedEvent.name} - QR 홍보 이미지</h3>
+          <div className="mb-4 rounded-xl border border-gray-300 p-4">
+            <p className="mb-2 font-semibold">나눠 인쇄하면 글씨가 더 크게 보여요</p>
+            <p className="mb-3 text-sm text-gray-600">① QR 안내판과 ② 이용 방법을 각각 선택해 한 장씩 인쇄한 뒤, 나란히 놓아 주세요. 두 장 모두 4×6 크기입니다.</p>
+            <select aria-label="인쇄할 안내판" value={qrPosterPage} disabled={generatingPromo} className="w-full rounded-lg border border-gray-300 bg-white p-3 text-gray-900" onChange={e => {
+              const page = e.target.value as 'combined' | 'qr' | 'guide'
+              setQrPosterPage(page)
+              generate4x6PromotionalImage(qrCodeUrl, selectedEvent, qrPromoShowUrl, qrPromoShowDonation, page)
+            }}>
+              <option value="combined">한 장에 모두 보기</option>
+              <option value="qr">① QR 안내판 — 큰 QR과 접속 안내</option>
+              <option value="guide">② 이용 방법 — 큰 글씨로 단계별 설명</option>
+            </select>
+          </div>
           {/* Options */}
           <div className="flex flex-wrap gap-4 mb-4 justify-center">
             <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
@@ -2016,7 +2092,7 @@ function AdminPageInner() {
               <label className="text-sm">이용 안내 글씨 크기 <select className="rounded-lg border border-gray-300 bg-white p-2" value={qrTextDraft.textSize ?? 'large'} onChange={e => setQrTextDraft(d => ({ ...d, textSize: e.target.value }))}>
                 <option value="normal">기본</option><option value="large">크게</option><option value="extraLarge">아주 크게</option>
               </select></label>
-              <button className="rounded-lg border border-gray-300 px-3 py-2 text-sm" onClick={() => setQrTextDraft(d => ({ ...d, textSize: 'large', badge: '무료 포토 서비스', scan: '휴대폰 카메라로 QR을 스캔하세요', step1: '마음에 드는 프레임을 선택하세요', detail1: 'QR 접속 후 원하시는 사진 프레임을 골라 주세요.', step2: '사진을 올리고 위치를 맞춰 주세요', detail2: '휴대폰 사진을 선택하고 확대·이동해 편집하세요.', step3: '인쇄는 카운터에 문의해 주세요', detail3: '화면을 직원에게 보여 주시면 인쇄를 안내해 드립니다.', contact: '무료 이용 · 도움이 필요하시면 카운터에 말씀해 주세요' }))}>무료 이용·카운터 안내 문구 넣기</button>
+              <button className="rounded-lg border border-gray-300 px-3 py-2 text-sm" onClick={() => setQrTextDraft(d => ({ ...d, textSize: 'large', badge: '무료 포토 서비스', scan: '휴대폰 카메라로 아래 QR을 비춰 주세요', step1: 'QR을 비추고 화면의 주소를 누르세요', detail1: '휴대폰의 카메라를 켜세요. QR에 비추면 나오는 주소를 누르세요.', step2: '사진과 테두리를 골라 주세요', detail2: '휴대폰에 있는 사진을 올리세요. 사진을 손가락으로 움직여 맞춰 주세요.', step3: '카운터에 화면을 보여 주세요', detail3: '사진을 다 고르셨으면 직원에게 말씀해 주세요. 인쇄를 안내해 드려요.', contact: '무료 이용 · 도움이 필요하시면 카운터에 말씀해 주세요' }))}>무료 이용·카운터 안내 문구 넣기</button>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="text-sm">제목<input maxLength={160} className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-2 text-gray-900" value={qrTextDraft.title ?? (selectedEvent.name)} onChange={e => setQrTextDraft(d => ({ ...d, title: e.target.value }))} /></label>
