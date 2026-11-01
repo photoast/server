@@ -161,6 +161,7 @@ export interface Event {
   paymentMethods?: ('card' | 'kakaopay' | 'naverpay')[]
   backgroundColors?: string[]
   logoUrl?: string
+  qrPromoText?: import('./qrPromo').QrPromoText
   contactPhone?: string
   donation?: {
     enabled: boolean

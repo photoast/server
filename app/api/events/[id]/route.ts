@@ -1,3 +1,4 @@
+import { QR_PROMO_DEFAULTS } from '@/lib/qrPromo'
 import { NextRequest, NextResponse } from 'next/server'
 import { findEventById, findEventBySlug, updateEvent, deleteEvent } from '@/lib/models'
 import { checkAuth } from '@/lib/middleware'
@@ -42,6 +43,14 @@ export async function PATCH(
     const { name, slug, printerId, availableLayouts, price, paymentMethods, backgroundColors, donation, logoUrl, contactPhone, authCodeRequired, boothLayoutId, boothCountdownSeconds, boothSampleImageUrl } = body
 
     const updates: any = {}
+    if (body.qrPromoText !== undefined) {
+      const value = body.qrPromoText
+      if (!value || typeof value !== 'object' || Array.isArray(value) ||
+          Object.entries(value).some(([key, text]) => !Object.prototype.hasOwnProperty.call(QR_PROMO_DEFAULTS, key) || typeof text !== 'string' || text.length > 160 || /[\r\n]/.test(text))) {
+        return NextResponse.json({ error: 'QR 문구는 항목별 한 줄, 160자 이하로 입력해 주세요.' }, { status: 400 })
+      }
+      updates.qrPromoText = value
+    }
     if (name) updates.name = name
     if (slug !== undefined) {
       const sanitized = slug.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import QRCode from 'qrcode'
+import { QR_PROMO_DEFAULTS, type QrPromoText } from '@/lib/qrPromo'
 import { logClientError } from '@/lib/errorLogger'
 import type { FrameLayout } from '@/lib/types'
 import LayoutSamplesManager from '@/app/components/LayoutSamplesManager'
@@ -57,6 +58,7 @@ interface Event {
   paymentMethods?: ('card' | 'kakaopay' | 'naverpay')[]
   backgroundColors?: string[]
   logoUrl?: string
+  qrPromoText?: QrPromoText
   contactPhone?: string
   donation?: {
     enabled: boolean
@@ -148,6 +150,9 @@ function AdminPageInner() {
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null)
   const [promotionalImageUrl, setPromotionalImageUrl] = useState<string | null>(null)
   const [generatingPromo, setGeneratingPromo] = useState(false)
+  const [qrTextDraft, setQrTextDraft] = useState<QrPromoText>({})
+  const [qrTextSaving, setQrTextSaving] = useState(false)
+  const [qrTextError, setQrTextError] = useState('')
   const [qrPromoShowUrl, setQrPromoShowUrl] = useState(true)
   const [qrPromoShowDonation, setQrPromoShowDonation] = useState(false)
 
@@ -579,6 +584,8 @@ function AdminPageInner() {
     const qr = await QRCode.toDataURL(url, { width: 800, margin: 1, errorCorrectionLevel: 'H' })
     setQrCodeUrl(qr)
     setSelectedEvent(event)
+    setQrTextDraft(event.qrPromoText || {})
+    setQrTextError('')
 
     // Generate 4x6 promotional image (1200x1800px)
     await generate4x6PromotionalImage(qr, event, showUrl, showDonation)
@@ -610,6 +617,12 @@ function AdminPageInner() {
       ])
       if (!qrImage) throw new Error('QR 이미지 로드 실패')
 
+      const copy = { ...QR_PROMO_DEFAULTS, title: event.name, url: `${window.location.host}/${event.slug}`,
+        donation: `후원계좌  ${event.donation?.bank || ''} ${event.donation?.account || ''}${event.donation?.holder ? ` (${event.donation.holder})` : ''}`,
+        contact: event.contactPhone ? `문의 ${event.contactPhone}` : '', ...event.qrPromoText }
+      const drawText = (text: string, x: number, y: number, maxWidth = 1000) => {
+        ctx.fillText(text, x, y, maxWidth)
+      }
       const font = '"Pretendard Variable", Pretendard, -apple-system, "Noto Sans KR", sans-serif'
 
       const roundRect = (x: number, y: number, w: number, h: number, r: number) => {
@@ -642,32 +655,32 @@ function AdminPageInner() {
       ctx.font = `700 88px ${font}`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
-      ctx.fillText(event.name, W / 2, y)
+      drawText(copy.title, W / 2, y)
 
       // ── Subtitle
       y += 80
       ctx.fillStyle = '#666666'
       ctx.font = `500 42px ${font}`
-      ctx.fillText('특별한 순간을 사진으로 남기세요', W / 2, y)
+      drawText(copy.subtitle, W / 2, y)
 
       // ── Badge
       y += 72
       const badgeH = 64
-      const badgeText = '즉석 포토 프린트'
+      const badgeText = copy.badge
       ctx.font = `700 34px ${font}`
-      const badgeW = ctx.measureText(badgeText).width + 64
+      const badgeW = Math.min(ctx.measureText(badgeText).width + 64, 1064)
       const badgeX = (W - badgeW) / 2
       roundRect(badgeX, y - badgeH / 2, badgeW, badgeH, badgeH / 2)
       ctx.fillStyle = '#111111'
       ctx.fill()
       ctx.fillStyle = '#FFFFFF'
-      ctx.fillText(badgeText, W / 2, y)
+      drawText(badgeText, W / 2, y)
 
       // ── "한정판 프레임" tag
       y += 60
       ctx.fillStyle = '#999999'
       ctx.font = `500 32px ${font}`
-      ctx.fillText('한정판 프레임으로 특별하게', W / 2, y)
+      drawText(copy.tagline, W / 2, y)
 
       // ── QR code area
       const qrSize = 620
@@ -718,20 +731,19 @@ function AdminPageInner() {
       ctx.fillStyle = '#111111'
       ctx.font = `600 44px ${font}`
       ctx.textAlign = 'center'
-      ctx.fillText('QR 코드를 스캔하세요', W / 2, y)
+      drawText(copy.scan, W / 2, y)
 
       // ── URL display
       if (showUrl) {
         y += 54
-        const eventUrl = `${window.location.host}/${event.slug}`
-        ctx.fillStyle = '#AAAAAA'
+          ctx.fillStyle = '#AAAAAA'
         ctx.font = `400 36px ${font}`
-        ctx.fillText(eventUrl, W / 2, y)
+        drawText(copy.url, W / 2, y)
       }
 
       // ── Steps
       y += 80
-      const steps = ['QR 스캔 후 프레임 선택', '사진을 올리고 편집', '결제 후 인쇄']
+      const steps = [copy.step1, copy.step2, copy.step3]
       const stepGap = 72
 
       steps.forEach((text, i) => {
@@ -755,13 +767,11 @@ function AdminPageInner() {
         ctx.font = `500 38px ${font}`
         ctx.textAlign = 'left'
         ctx.textBaseline = 'middle'
-        ctx.fillText(text, numX + 40, sy)
+        drawText(text, numX + 40, sy, 840)
       })
 
       // ── Donation info
       if (hasDonation) {
-        const don = event.donation!
-        const donText = `후원계좌  ${don.bank || ''} ${don.account}${don.holder ? ` (${don.holder})` : ''}`
         const boxW = W - 160
         const boxX = 80
         const boxH = 72
@@ -777,24 +787,24 @@ function AdminPageInner() {
         ctx.font = `500 28px ${font}`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
-        ctx.fillText(donText, W / 2, boxY + boxH / 2)
+        drawText(copy.donation, W / 2, boxY + boxH / 2)
       }
 
       // ── Contact phone
-      if (event.contactPhone) {
+      if (copy.contact) {
         const contactY = hasDonation ? H - 110 - 72 - 60 : H - 110
         ctx.fillStyle = '#888888'
         ctx.font = `500 30px ${font}`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
-        ctx.fillText(`문의 ${event.contactPhone}`, W / 2, contactY)
+        drawText(copy.contact, W / 2, contactY)
       }
 
       // ── Bottom
       ctx.fillStyle = '#CCCCCC'
       ctx.font = `400 22px ${font}`
       ctx.textAlign = 'center'
-      ctx.fillText('Photo Toast', W / 2, H - 40)
+      drawText(copy.footer, W / 2, H - 40)
       ctx.fillStyle = '#111111'
       ctx.fillRect(0, H - 6, W, 6)
 
@@ -1996,6 +2006,39 @@ function AdminPageInner() {
               </span>
             </label>
           </div>
+
+          <details className="mb-4 rounded-xl border border-gray-200 p-4 text-gray-900">
+            <summary className="cursor-pointer font-semibold">이미지 문구 전체 수정</summary>
+            <p className="my-2 text-xs text-gray-500">빈칸은 이미지에서 숨깁니다. 주소·후원 안내는 위 표시 옵션을 켜면 나타납니다.</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="text-sm">제목<input maxLength={160} className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-2 text-gray-900" value={qrTextDraft.title ?? (selectedEvent.name)} onChange={e => setQrTextDraft(d => ({ ...d, title: e.target.value }))} /></label>
+              <label className="text-sm">부제목<input maxLength={160} className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-2 text-gray-900" value={qrTextDraft.subtitle ?? (QR_PROMO_DEFAULTS.subtitle)} onChange={e => setQrTextDraft(d => ({ ...d, subtitle: e.target.value }))} /></label>
+              <label className="text-sm">배지<input maxLength={160} className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-2 text-gray-900" value={qrTextDraft.badge ?? (QR_PROMO_DEFAULTS.badge)} onChange={e => setQrTextDraft(d => ({ ...d, badge: e.target.value }))} /></label>
+              <label className="text-sm">프레임 안내<input maxLength={160} className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-2 text-gray-900" value={qrTextDraft.tagline ?? (QR_PROMO_DEFAULTS.tagline)} onChange={e => setQrTextDraft(d => ({ ...d, tagline: e.target.value }))} /></label>
+              <label className="text-sm">QR 스캔 안내<input maxLength={160} className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-2 text-gray-900" value={qrTextDraft.scan ?? (QR_PROMO_DEFAULTS.scan)} onChange={e => setQrTextDraft(d => ({ ...d, scan: e.target.value }))} /></label>
+              <label className="text-sm">표시 주소 (QR 연결 주소는 유지)<input maxLength={160} className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-2 text-gray-900" value={qrTextDraft.url ?? (`${window.location.host}/${selectedEvent.slug}`)} onChange={e => setQrTextDraft(d => ({ ...d, url: e.target.value }))} /></label>
+              <label className="text-sm">이용 안내 1<input maxLength={160} className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-2 text-gray-900" value={qrTextDraft.step1 ?? (QR_PROMO_DEFAULTS.step1)} onChange={e => setQrTextDraft(d => ({ ...d, step1: e.target.value }))} /></label>
+              <label className="text-sm">이용 안내 2<input maxLength={160} className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-2 text-gray-900" value={qrTextDraft.step2 ?? (QR_PROMO_DEFAULTS.step2)} onChange={e => setQrTextDraft(d => ({ ...d, step2: e.target.value }))} /></label>
+              <label className="text-sm">이용 안내 3<input maxLength={160} className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-2 text-gray-900" value={qrTextDraft.step3 ?? (QR_PROMO_DEFAULTS.step3)} onChange={e => setQrTextDraft(d => ({ ...d, step3: e.target.value }))} /></label>
+              <label className="text-sm">후원 안내<input maxLength={160} className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-2 text-gray-900" value={qrTextDraft.donation ?? (`후원계좌  ${selectedEvent.donation?.bank || ''} ${selectedEvent.donation?.account || ''}${selectedEvent.donation?.holder ? ` (${selectedEvent.donation.holder})` : ''}`)} onChange={e => setQrTextDraft(d => ({ ...d, donation: e.target.value }))} /></label>
+              <label className="text-sm">문의 안내<input maxLength={160} className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-2 text-gray-900" value={qrTextDraft.contact ?? (selectedEvent.contactPhone ? `문의 ${selectedEvent.contactPhone}` : '')} onChange={e => setQrTextDraft(d => ({ ...d, contact: e.target.value }))} /></label>
+              <label className="text-sm">맨 아래 문구<input maxLength={160} className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-2 text-gray-900" value={qrTextDraft.footer ?? (QR_PROMO_DEFAULTS.footer)} onChange={e => setQrTextDraft(d => ({ ...d, footer: e.target.value }))} /></label>
+            </div>
+            {qrTextError && <p role="alert" className="mt-2 text-sm text-red-600">{qrTextError}</p>}
+            <button disabled={qrTextSaving || generatingPromo} className="mt-4 rounded-lg bg-gray-900 px-4 py-2 text-white disabled:opacity-50" onClick={async () => {
+              setQrTextSaving(true)
+              setQrTextError('')
+              const updated = { ...selectedEvent, qrPromoText: qrTextDraft }
+              try {
+                const response = await fetch(`/api/events/${selectedEvent._id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ qrPromoText: qrTextDraft }) })
+                if (!response.ok) throw new Error('문구 저장에 실패했습니다. 다시 시도해 주세요.')
+                await generateQR(updated)
+                await fetchEvents()
+              } catch (error) { setQrTextError(error instanceof Error ? error.message : '저장 실패') }
+              finally { setQrTextSaving(false) }
+            }}>{qrTextSaving ? '저장 중...' : '저장하고 미리보기 반영'}</button>
+            <button disabled={qrTextSaving || generatingPromo} className="ml-3 text-sm underline" onClick={() => setQrTextDraft({})}>기본 문구로 되돌리기</button>
+          </details>
 
           {generatingPromo ? (
             <div className="flex items-center justify-center py-12">
