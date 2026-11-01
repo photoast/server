@@ -1970,11 +1970,11 @@ function AdminPageInner() {
   function renderQRModal() {
     if (!qrCodeUrl || !selectedEvent) return null
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto" onClick={() => {
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 sm:p-4 z-50" onClick={() => {
         setQrCodeUrl(null)
         setPromotionalImageUrl(null)
       }}>
-        <div className="bg-white rounded-lg p-6 max-w-2xl w-full my-8" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-white text-gray-900 rounded-xl p-4 sm:p-6 max-w-2xl w-full max-h-[calc(100dvh-24px)] overflow-y-auto overscroll-contain" onClick={(e) => e.stopPropagation()}>
           <h3 className="text-2xl font-bold mb-4 text-center">{selectedEvent.name} - QR 홍보 이미지</h3>
           {/* Options */}
           <div className="flex flex-wrap gap-4 mb-4 justify-center">
@@ -2007,7 +2007,7 @@ function AdminPageInner() {
             </label>
           </div>
 
-          <details className="mb-4 rounded-xl border border-gray-200 p-4 text-gray-900">
+          <details open className="mb-4 rounded-xl border border-gray-200 p-4 text-gray-900">
             <summary className="cursor-pointer font-semibold">이미지 문구 전체 수정</summary>
             <p className="my-2 text-xs text-gray-500">빈칸은 이미지에서 숨깁니다. 주소·후원 안내는 위 표시 옵션을 켜면 나타납니다.</p>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -2051,7 +2051,7 @@ function AdminPageInner() {
                 4×6 (1200×1800px) 홍보 이미지 - 다운로드 또는 프린터로 인쇄하세요
               </p>
               <div className="bg-gray-100 p-4 rounded-lg">
-                <div className="relative w-full max-w-md mx-auto aspect-[1000/1500] bg-white shadow-lg">
+                <div className="relative w-full max-w-[280px] mx-auto aspect-[1000/1500] bg-white shadow-lg">
                   <Image src={promotionalImageUrl} alt="Promotional Image" fill className="object-contain" unoptimized />
                 </div>
               </div>
