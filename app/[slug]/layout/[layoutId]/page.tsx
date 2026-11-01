@@ -1205,8 +1205,8 @@ export default function FrameLayoutPage({
                   </svg>
                   {(layout?.price ?? event.price ?? 0) === 0
                     ? puzzleMode
-                      ? `${t('btn.freePrint')} (${printQuantity * totalPieces}${t('misc.sheets')})`
-                      : `${t('btn.freePrint')}${printQuantity > 1 ? ` (${printQuantity}${t('misc.sheets')})` : ''}`
+                      ? `${t('btn.print')} (${printQuantity * totalPieces}${t('misc.sheets')})`
+                      : `${t('btn.print')}${printQuantity > 1 ? ` (${printQuantity}${t('misc.sheets')})` : ''}`
                     : `${((layout?.price ?? event.price ?? 0) * printQuantity * (puzzleMode ? totalPieces : 1)).toLocaleString()}${t('misc.won')} ${t('btn.pay')}`}
                 </UIButton>
               </div>

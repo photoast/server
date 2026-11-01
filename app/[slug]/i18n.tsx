@@ -61,7 +61,7 @@ const translations = {
   'btn.next': { ko: '다음으로', en: 'Next', zh: '下一步' },
   'btn.prev': { ko: '이전', en: 'Back', zh: '返回' },
   'btn.prevStep': { ko: '이전으로', en: 'Go Back', zh: '返回上一步' },
-  'btn.freePrint': { ko: '무료 프린트', en: 'Free Print', zh: '免费打印' },
+  'btn.print': { ko: '인쇄하기', en: 'Print', zh: '打印' },
   'btn.pay': { ko: '결제하기', en: 'Pay', zh: '支付' },
   'btn.newPhoto': { ko: '새로운 사진 만들기', en: 'Create New Photo', zh: '制作新照片' },
   'btn.download': { ko: '사진 저장', en: 'Save Photo', zh: '保存照片' },
