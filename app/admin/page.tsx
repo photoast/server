@@ -683,7 +683,7 @@ function AdminPageInner() {
       drawText(copy.tagline, W / 2, y)
 
       // ── QR code area
-      const qrSize = 620
+      const qrSize = 500
       const qrPad = 36
       y += 56
       const qrX = (W - qrSize) / 2
@@ -729,14 +729,14 @@ function AdminPageInner() {
       // ── Scan instruction
       y = qrY + qrSize + qrPad + 56
       ctx.fillStyle = '#111111'
-      ctx.font = `600 44px ${font}`
+      ctx.font = `700 50px ${font}`
       ctx.textAlign = 'center'
       drawText(copy.scan, W / 2, y)
 
       // ── URL display
       if (showUrl) {
         y += 54
-          ctx.fillStyle = '#AAAAAA'
+          ctx.fillStyle = '#666666'
         ctx.font = `400 36px ${font}`
         drawText(copy.url, W / 2, y)
       }
@@ -744,30 +744,32 @@ function AdminPageInner() {
       // ── Steps
       y += 80
       const steps = [copy.step1, copy.step2, copy.step3]
-      const stepGap = 72
+      const stepGap = 128
+      const instructionSize = copy.textSize === 'extraLarge' ? 60 : copy.textSize === 'normal' ? 42 : 52
+      const details = [copy.detail1, copy.detail2, copy.detail3]
 
       steps.forEach((text, i) => {
         const sy = y + i * stepGap
-        const numX = 160
-
+        if (!text && !details[i]) return
+        const numX = 120
         ctx.fillStyle = '#111111'
-        ctx.font = `700 28px ${font}`
+        ctx.font = `700 34px ${font}`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
         ctx.fillText(String(i + 1), numX, sy)
-
-        // Circle outline
         ctx.beginPath()
-        ctx.arc(numX, sy, 22, 0, Math.PI * 2)
-        ctx.strokeStyle = '#DDDDDD'
-        ctx.lineWidth = 1.5
+        ctx.arc(numX, sy, 26, 0, Math.PI * 2)
+        ctx.strokeStyle = '#BBBBBB'
+        ctx.lineWidth = 2
         ctx.stroke()
-
-        ctx.fillStyle = '#333333'
-        ctx.font = `500 38px ${font}`
+        ctx.font = `700 ${instructionSize}px ${font}`
         ctx.textAlign = 'left'
-        ctx.textBaseline = 'middle'
-        drawText(text, numX + 40, sy, 840)
+        drawText(text, 175, sy, 920)
+        if (details[i]) {
+          ctx.fillStyle = '#444444'
+          ctx.font = `500 34px ${font}`
+          drawText(details[i], 175, sy + 54, 920)
+        }
       })
 
       // ── Donation info
@@ -793,8 +795,8 @@ function AdminPageInner() {
       // ── Contact phone
       if (copy.contact) {
         const contactY = hasDonation ? H - 110 - 72 - 60 : H - 110
-        ctx.fillStyle = '#888888'
-        ctx.font = `500 30px ${font}`
+        ctx.fillStyle = '#333333'
+        ctx.font = `600 38px ${font}`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
         drawText(copy.contact, W / 2, contactY)
@@ -2010,6 +2012,12 @@ function AdminPageInner() {
           <details open className="mb-4 rounded-xl border border-gray-200 p-4 text-gray-900">
             <summary className="cursor-pointer font-semibold">이미지 문구 전체 수정</summary>
             <p className="my-2 text-xs text-gray-500">빈칸은 이미지에서 숨깁니다. 주소·후원 안내는 위 표시 옵션을 켜면 나타납니다.</p>
+            <div className="mb-4 flex flex-wrap items-center gap-3">
+              <label className="text-sm">이용 안내 글씨 크기 <select className="rounded-lg border border-gray-300 bg-white p-2" value={qrTextDraft.textSize ?? 'large'} onChange={e => setQrTextDraft(d => ({ ...d, textSize: e.target.value }))}>
+                <option value="normal">기본</option><option value="large">크게</option><option value="extraLarge">아주 크게</option>
+              </select></label>
+              <button className="rounded-lg border border-gray-300 px-3 py-2 text-sm" onClick={() => setQrTextDraft(d => ({ ...d, textSize: 'large', badge: '무료 포토 서비스', scan: '휴대폰 카메라로 QR을 스캔하세요', step1: '마음에 드는 프레임을 선택하세요', detail1: 'QR 접속 후 원하시는 사진 프레임을 골라 주세요.', step2: '사진을 올리고 위치를 맞춰 주세요', detail2: '휴대폰 사진을 선택하고 확대·이동해 편집하세요.', step3: '인쇄는 카운터에 문의해 주세요', detail3: '화면을 직원에게 보여 주시면 인쇄를 안내해 드립니다.', contact: '무료 이용 · 도움이 필요하시면 카운터에 말씀해 주세요' }))}>무료 이용·카운터 안내 문구 넣기</button>
+            </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="text-sm">제목<input maxLength={160} className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-2 text-gray-900" value={qrTextDraft.title ?? (selectedEvent.name)} onChange={e => setQrTextDraft(d => ({ ...d, title: e.target.value }))} /></label>
               <label className="text-sm">부제목<input maxLength={160} className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-2 text-gray-900" value={qrTextDraft.subtitle ?? (QR_PROMO_DEFAULTS.subtitle)} onChange={e => setQrTextDraft(d => ({ ...d, subtitle: e.target.value }))} /></label>
@@ -2018,8 +2026,11 @@ function AdminPageInner() {
               <label className="text-sm">QR 스캔 안내<input maxLength={160} className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-2 text-gray-900" value={qrTextDraft.scan ?? (QR_PROMO_DEFAULTS.scan)} onChange={e => setQrTextDraft(d => ({ ...d, scan: e.target.value }))} /></label>
               <label className="text-sm">표시 주소 (QR 연결 주소는 유지)<input maxLength={160} className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-2 text-gray-900" value={qrTextDraft.url ?? (`${window.location.host}/${selectedEvent.slug}`)} onChange={e => setQrTextDraft(d => ({ ...d, url: e.target.value }))} /></label>
               <label className="text-sm">이용 안내 1<input maxLength={160} className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-2 text-gray-900" value={qrTextDraft.step1 ?? (QR_PROMO_DEFAULTS.step1)} onChange={e => setQrTextDraft(d => ({ ...d, step1: e.target.value }))} /></label>
+              <label className="text-sm">안내 1 상세 설명<input maxLength={80} className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-2 text-gray-900" value={qrTextDraft.detail1 ?? ''} onChange={e => setQrTextDraft(d => ({ ...d, detail1: e.target.value }))} /></label>
               <label className="text-sm">이용 안내 2<input maxLength={160} className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-2 text-gray-900" value={qrTextDraft.step2 ?? (QR_PROMO_DEFAULTS.step2)} onChange={e => setQrTextDraft(d => ({ ...d, step2: e.target.value }))} /></label>
+              <label className="text-sm">안내 2 상세 설명<input maxLength={80} className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-2 text-gray-900" value={qrTextDraft.detail2 ?? ''} onChange={e => setQrTextDraft(d => ({ ...d, detail2: e.target.value }))} /></label>
               <label className="text-sm">이용 안내 3<input maxLength={160} className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-2 text-gray-900" value={qrTextDraft.step3 ?? (QR_PROMO_DEFAULTS.step3)} onChange={e => setQrTextDraft(d => ({ ...d, step3: e.target.value }))} /></label>
+              <label className="text-sm">안내 3 상세 설명<input maxLength={80} className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-2 text-gray-900" value={qrTextDraft.detail3 ?? ''} onChange={e => setQrTextDraft(d => ({ ...d, detail3: e.target.value }))} /></label>
               <label className="text-sm">후원 안내<input maxLength={160} className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-2 text-gray-900" value={qrTextDraft.donation ?? (`후원계좌  ${selectedEvent.donation?.bank || ''} ${selectedEvent.donation?.account || ''}${selectedEvent.donation?.holder ? ` (${selectedEvent.donation.holder})` : ''}`)} onChange={e => setQrTextDraft(d => ({ ...d, donation: e.target.value }))} /></label>
               <label className="text-sm">문의 안내<input maxLength={160} className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-2 text-gray-900" value={qrTextDraft.contact ?? (selectedEvent.contactPhone ? `문의 ${selectedEvent.contactPhone}` : '')} onChange={e => setQrTextDraft(d => ({ ...d, contact: e.target.value }))} /></label>
               <label className="text-sm">맨 아래 문구<input maxLength={160} className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-2 text-gray-900" value={qrTextDraft.footer ?? (QR_PROMO_DEFAULTS.footer)} onChange={e => setQrTextDraft(d => ({ ...d, footer: e.target.value }))} /></label>

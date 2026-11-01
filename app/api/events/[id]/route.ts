@@ -49,6 +49,9 @@ export async function PATCH(
           Object.entries(value).some(([key, text]) => !Object.prototype.hasOwnProperty.call(QR_PROMO_DEFAULTS, key) || typeof text !== 'string' || text.length > 160 || /[\r\n]/.test(text))) {
         return NextResponse.json({ error: 'QR 문구는 항목별 한 줄, 160자 이하로 입력해 주세요.' }, { status: 400 })
       }
+      if (value.textSize !== undefined && !['normal', 'large', 'extraLarge'].includes(value.textSize)) {
+        return NextResponse.json({ error: '안내 글씨 크기를 확인해 주세요.' }, { status: 400 })
+      }
       updates.qrPromoText = value
     }
     if (name) updates.name = name
