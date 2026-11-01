@@ -153,7 +153,7 @@ function AdminPageInner() {
   const [qrTextDraft, setQrTextDraft] = useState<QrPromoText>({})
   const [qrTextSaving, setQrTextSaving] = useState(false)
   const [qrTextError, setQrTextError] = useState('')
-  const [qrPosterPage, setQrPosterPage] = useState<'combined' | 'qr' | 'guide' | 'photos'>('combined')
+  const [qrPosterPage, setQrPosterPage] = useState<'combined' | 'qr' | 'guide'>('combined')
   const [qrPromoShowUrl, setQrPromoShowUrl] = useState(true)
   const [qrPromoShowDonation, setQrPromoShowDonation] = useState(false)
 
@@ -682,26 +682,30 @@ function AdminPageInner() {
           if (showUrl) wrapped(copy.url, W / 2, 1470, 36, 1000, 46)
           wrapped(copy.contact || '도움이 필요하시면 카운터에 말씀해 주세요', W / 2, 1580, 48, 1000, 64)
         } else {
-          wrapped(page === 'photos' ? '휴대폰 사진 고르는 방법' : '이렇게 이용하세요', W / 2, 270, 84, 1020, 100)
-          const steps = page === 'photos'
-            ? ['휴대폰 사진 고르기를 누르세요', '갤러리 또는 사진을 누르세요', '원하는 사진을 누르세요']
-            : [copy.step1, copy.step2, copy.step3]
-          const details = page === 'photos'
-            ? ['사진을 넣을 칸을 누른 뒤, 화면의 ‘휴대폰 사진 고르기’를 누르세요.', '‘파일 선택’ 창이 나올 때만 눌러 주세요. 사진 목록이 바로 뜨면 다음으로 가세요.', '‘완료’ 또는 ‘선택’ 버튼이 보이면 눌러 주세요. 갤러리가 없으면 왼쪽 위 메뉴나 ‘더보기’를 확인하세요.']
-            : [copy.detail1, copy.detail2, copy.detail3]
+          wrapped('이렇게 이용하세요', W / 2, 270, 84, 1020, 100)
+          const steps = [copy.step1, copy.step2, copy.step3]
+          const details = [copy.detail1, copy.detail2, copy.detail3]
           steps.forEach((step, i) => {
             ctx.textAlign = 'left'
             ctx.fillStyle = '#111111'
-            const top = 440 + i * 350
+            const top = [400, 730, 1270][i]
             ctx.font = `800 70px ${font}`
             ctx.fillText(String(i + 1).padStart(2, '0'), 85, top)
-            const end = wrapped(step, 220, top, 64, 880, 82)
+            const end = wrapped(step, 220, top, 60, 880, 78)
             ctx.fillStyle = '#333333'
-            wrapped(details[i], 220, end + 20, 42, 880, 58)
+            wrapped(details[i], 220, end + 20, 40, 880, 52)
+            if (i === 1) {
+              ctx.fillStyle = '#F3F4F6'
+              ctx.fillRect(80, 1020, 1040, 195)
+              ctx.fillStyle = '#111111'
+              wrapped('사진 목록이 바로 뜨면 → 원하는 사진을 누르세요', 110, 1060, 38, 980, 46)
+              wrapped('‘파일 선택’이 뜨면 → ‘갤러리’ 또는 ‘사진’을 누르세요', 110, 1120, 38, 980, 46)
+              wrapped('갤러리가 없으면 왼쪽 위 메뉴·‘더보기’를 확인하세요', 110, 1180, 34, 980, 42)
+            }
           })
           ctx.textAlign = 'center'
           ctx.fillStyle = '#111111'
-          wrapped(copy.contact, W / 2, 1580, 48, 1000, 64)
+          wrapped(copy.contact, W / 2, 1640, 48, 1000, 64)
         }
       } else {
       // ── Background: clean white
@@ -2047,16 +2051,15 @@ function AdminPageInner() {
           <h3 className="text-2xl font-bold mb-4 text-center">{selectedEvent.name} - QR 홍보 이미지</h3>
           <div className="mb-4 rounded-xl border border-gray-300 p-4">
             <p className="mb-2 font-semibold">나눠 인쇄하면 글씨가 더 크게 보여요</p>
-            <p className="mb-3 text-sm text-gray-600">① QR 안내판과 ② 이용 방법을 한 장씩 인쇄해 나란히 놓아 주세요. 사진 선택이 어려우시면 ③ 사진 선택 도움말도 함께 인쇄하세요. 모두 4×6 크기입니다.</p>
+            <p className="mb-3 text-sm text-gray-600">① QR 안내판과 ② 이용 방법을 한 장씩 인쇄해 나란히 놓아 주세요. 이용 방법에 안드로이드 사진 선택 안내도 함께 들어갑니다. 두 장 모두 4×6 크기입니다.</p>
             <select aria-label="인쇄할 안내판" value={qrPosterPage} disabled={generatingPromo} className="w-full rounded-lg border border-gray-300 bg-white p-3 text-gray-900" onChange={e => {
-              const page = e.target.value as 'combined' | 'qr' | 'guide' | 'photos'
+              const page = e.target.value as 'combined' | 'qr' | 'guide'
               setQrPosterPage(page)
               generate4x6PromotionalImage(qrCodeUrl, selectedEvent, qrPromoShowUrl, qrPromoShowDonation, page)
             }}>
               <option value="combined">한 장에 모두 보기</option>
               <option value="qr">① QR 안내판 — 큰 QR과 접속 안내</option>
-              <option value="guide">② 이용 방법 — 큰 글씨로 단계별 설명</option>
-              <option value="photos">③ 사진 선택 도움말 — 안드로이드 갤러리 안내</option>
+              <option value="guide">② 이용 방법 — 사진 선택 도움말 포함</option>
             </select>
           </div>
           {/* Options */}
