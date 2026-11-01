@@ -8,6 +8,7 @@ import type { FrameLayout, PhotoSlot, FrameLayer } from '@/lib/types'
 import { UIButton, UIStatusBanner } from './ui'
 import { trackCropOpen, trackCropCancel, trackPhotoCropComplete, trackCameraOpen, trackCameraCapture, trackCameraCancel, trackCameraFlip } from '@/lib/gtag'
 import { useI18n } from '../[slug]/i18n'
+import PhotoPickerGuide from './PhotoPickerGuide'
 import CameraCapture, { type CameraRef } from './CameraCapture'
 
 // Aspect ratio map for react-easy-crop
@@ -832,7 +833,7 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
             </p>
             <button
               onClick={() => editSlotCrop(actionMenuSlot)}
-              className="w-full py-3 text-sm font-semibold text-gray-800 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"
+              className="w-full min-h-14 py-4 text-lg font-bold text-white bg-blue-700 rounded-xl hover:bg-blue-800 transition-colors flex items-center justify-center gap-2"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14" />
@@ -880,7 +881,7 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
       {photoPickerSlot !== null && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40" onClick={() => setPhotoPickerSlot(null)}>
           <div
-            className="w-full max-w-sm bg-white rounded-t-2xl p-5 pb-8 space-y-4 animate-slide-up"
+            className="w-full max-w-sm bg-white rounded-t-2xl p-5 pb-[max(2rem,env(safe-area-inset-bottom))] space-y-4 max-h-[90dvh] overflow-y-auto animate-slide-up"
             onClick={e => e.stopPropagation()}
           >
             <p className="text-sm font-bold text-gray-900 text-center">
@@ -905,6 +906,8 @@ export default function FrameUserEditor({ layout, eventSlug, backgroundColor = '
                 ))}
               </div>
             )}
+
+            <PhotoPickerGuide />
 
             {/* File picker button (album) */}
             <button

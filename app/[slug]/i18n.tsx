@@ -136,10 +136,16 @@ const translations = {
   'crop.swapHere': { ko: '여기로 이동', en: 'Move here', zh: '移到这里' },
 
   // Photo picker
+  'picker.guideTitle': { ko: '휴대폰 사진은 이렇게 골라 주세요', en: 'How to choose a photo', zh: '如何选择手机照片' },
+  'picker.guideOpen': { ko: '아래 ‘휴대폰 사진 고르기’를 누르세요.', en: 'Tap “Choose a phone photo” below.', zh: '点击下方“选择手机照片”。' },
+  'picker.guideAndroid': { ko: '안드로이드에서 ‘파일 선택’이 나오면 ‘갤러리’ 또는 ‘사진’을 누르세요.', en: 'On Android, if “Choose files” appears, tap Gallery or Photos.', zh: '安卓手机出现“选择文件”时，请点击“相册”或“照片”。' },
+  'picker.guidePhoto': { ko: '인쇄할 사진을 누르세요. ‘완료’ 또는 ‘선택’이 나오면 한 번 더 누르세요.', en: 'Tap your photo, then Done or Select if shown.', zh: '点击要打印的照片，如出现“完成”或“选择”，请再次点击。' },
+  'picker.guideHelp': { ko: '갤러리가 안 보이나요?', en: 'Can’t find Gallery?', zh: '找不到相册？' },
+  'picker.guideMissing': { ko: '갤러리가 안 보이면 왼쪽 위 ☰ 메뉴나 ‘더보기’를 확인해 주세요. 휴대폰마다 화면이 다를 수 있어요.', en: 'No Gallery? Check the top-left menu or More. Screens vary by phone.', zh: '找不到相册？请查看左上角菜单或“更多”。不同手机画面可能不同。' },
   'picker.title': { ko: '사진 선택', en: 'Select Photo', zh: '选择照片' },
   'picker.new': { ko: '새 사진 추가', en: 'Add new photo', zh: '添加新照片' },
   'picker.camera': { ko: '카메라로 촬영', en: 'Take a photo', zh: '拍照' },
-  'picker.album': { ko: '앨범에서 선택', en: 'Choose from album', zh: '从相册选择' },
+  'picker.album': { ko: '휴대폰 사진 고르기', en: 'Choose a phone photo', zh: '选择手机照片' },
 
   // Camera
   'camera.noAccess': { ko: '카메라에 접근할 수 없습니다', en: 'Cannot access camera', zh: '无法访问相机' },

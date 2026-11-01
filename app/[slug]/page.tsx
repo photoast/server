@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
+import PhotoPickerGuide from '../components/PhotoPickerGuide'
 import FourCutCropEditor from '../components/FourCutCropEditor'
 import { UIButton, UIStatusBanner, UICounterControl, UISectionHeading, UIPageSpinner, UICardSpinner, UIStepBar, UISelectItem, UIBottomSheet } from '../components/ui'
 import Script from 'next/script'
@@ -1534,6 +1535,8 @@ export default function GuestPage({ params }: { params: { slug: string } }) {
               ) : (
                 <UIStatusBanner type="info" message={t('photo.tapToAdd')} />
               )}
+
+              {!allSlotsFilled && <PhotoPickerGuide inline />}
 
               {/* Layout Preview */}
               <div className="space-y-4">
