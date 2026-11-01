@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import QRCode from 'qrcode'
+import { drawQrUsageGuide } from '@/lib/drawQrUsageGuide'
 import { QR_PROMO_DEFAULTS, type QrPromoText } from '@/lib/qrPromo'
 import { logClientError } from '@/lib/errorLogger'
 import type { FrameLayout } from '@/lib/types'
@@ -682,30 +683,7 @@ function AdminPageInner() {
           if (showUrl) wrapped(copy.url, W / 2, 1470, 36, 1000, 46)
           wrapped(copy.contact || '도움이 필요하시면 카운터에 말씀해 주세요', W / 2, 1580, 48, 1000, 64)
         } else {
-          wrapped('이렇게 이용하세요', W / 2, 270, 84, 1020, 100)
-          const steps = [copy.step1, copy.step2, copy.step3]
-          const details = [copy.detail1, copy.detail2, copy.detail3]
-          steps.forEach((step, i) => {
-            ctx.textAlign = 'left'
-            ctx.fillStyle = '#111111'
-            const top = [400, 730, 1270][i]
-            ctx.font = `800 70px ${font}`
-            ctx.fillText(String(i + 1).padStart(2, '0'), 85, top)
-            const end = wrapped(step, 220, top, 60, 880, 78)
-            ctx.fillStyle = '#333333'
-            wrapped(details[i], 220, end + 20, 40, 880, 52)
-            if (i === 1) {
-              ctx.fillStyle = '#F3F4F6'
-              ctx.fillRect(80, 1020, 1040, 195)
-              ctx.fillStyle = '#111111'
-              wrapped('사진 목록이 바로 뜨면 → 원하는 사진을 누르세요', 110, 1060, 38, 980, 46)
-              wrapped('‘파일 선택’이 뜨면 → ‘갤러리’ 또는 ‘사진’을 누르세요', 110, 1120, 38, 980, 46)
-              wrapped('갤러리가 없으면 왼쪽 위 메뉴·‘더보기’를 확인하세요', 110, 1180, 34, 980, 42)
-            }
-          })
-          ctx.textAlign = 'center'
-          ctx.fillStyle = '#111111'
-          wrapped(copy.contact, W / 2, 1640, 48, 1000, 64)
+          drawQrUsageGuide(ctx, copy, font)
         }
       } else {
       // ── Background: clean white
